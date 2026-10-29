@@ -1,0 +1,2125 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProtoWeb — Visual HTML & CSS Website Builder</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            panel: '#0f172a',
+            panelLight: '#1e293b',
+            borderDark: '#334155',
+            accent: '#6366f1',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    /* Build Mode Canvas Helper Outlines (Only active in Build Mode) */
+    #canvas-root.build-mode-active * {
+      cursor: pointer;
+      transition: outline 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    /* Subtle dashed helper guides on containers when in Build Mode */
+    #canvas-root.build-mode-active.show-guides div,
+    #canvas-root.build-mode-active.show-guides section,
+    #canvas-root.build-mode-active.show-guides nav,
+    #canvas-root.build-mode-active.show-guides header,
+    #canvas-root.build-mode-active.show-guides footer,
+    #canvas-root.build-mode-active.show-guides form,
+    #canvas-root.build-mode-active.show-guides article {
+      outline: 1px dashed rgba(99, 102, 241, 0.28);
+      outline-offset: -1px;
+    }
+
+    /* Empty container placeholder in Build Mode */
+    #canvas-root.build-mode-active div:empty::before,
+    #canvas-root.build-mode-active section:empty::before,
+    #canvas-root.build-mode-active nav:empty::before,
+    #canvas-root.build-mode-active form:empty::before {
+      content: "Empty Container — Drop elements here";
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 64px;
+      padding: 12px;
+      color: #94a3b8;
+      font-size: 12px;
+      font-family: 'Inter', sans-serif;
+      border: 1px dashed #cbd5e1;
+      border-radius: 6px;
+      background: rgba(241, 245, 249, 0.5);
+      pointer-events: none;
+    }
+
+    /* Hover & Selected Element States in Build Mode */
+    #canvas-root.build-mode-active [data-builder-hover="true"]:not([data-builder-selected="true"]) {
+      outline: 2px solid #818cf8 !important;
+      outline-offset: -2px !important;
+    }
+
+    #canvas-root.build-mode-active [data-builder-selected="true"] {
+      outline: 2px solid #4f46e5 !important;
+      outline-offset: -2px !important;
+      box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15) !important;
+    }
+
+    /* Drag & Drop Target Highlights */
+    #canvas-root.build-mode-active [data-drop-position="inside"] {
+      outline: 2px dashed #10b981 !important;
+      outline-offset: -2px !important;
+      background-color: rgba(16, 185, 129, 0.06) !important;
+    }
+    #canvas-root.build-mode-active [data-drop-position="before"] {
+      box-shadow: inset 0 4px 0 0 #10b981 !important;
+    }
+    #canvas-root.build-mode-active [data-drop-position="after"] {
+      box-shadow: inset 0 -4px 0 0 #10b981 !important;
+    }
+
+    /* Canvas checkerboard subtle background */
+    .canvas-backdrop {
+      background-color: #0b1120;
+      background-image: radial-gradient(#1e293b 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+
+    /* Code editor styling */
+    #code-editor {
+      tab-size: 2;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans h-screen w-screen overflow-hidden flex flex-col select-none">
+
+  <!-- ==================== TOP NAVIGATION BAR ==================== -->
+  <header class="h-14 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between shrink-0 z-30">
+    <!-- Left: Brand & Template Switcher -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-md shadow-indigo-500/20">
+          <i class="fa-solid fa-layer-group text-white text-sm"></i>
+        </div>
+        <div>
+          <span class="font-bold tracking-tight text-white text-sm sm:text-base">ProtoWeb</span>
+          <span class="hidden md:inline-block ml-1.5 text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Studio</span>
+        </div>
+      </div>
+
+      <div class="h-5 w-px bg-slate-800 mx-1 hidden sm:block"></div>
+
+      <!-- Preset Starter Templates -->
+      <div class="relative hidden sm:flex items-center gap-1.5">
+        <label for="template-select" class="text-xs text-slate-400 mr-1 hidden lg:inline">Template:</label>
+        <select id="template-select" class="bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500 transition">
+          <option value="saas">SaaS Landing Page</option>
+          <option value="portfolio">Creator Portfolio</option>
+          <option value="pricing">Product Pricing Section</option>
+          <option value="blank">Blank Canvas</option>
+        </select>
+        <button id="btn-load-template" title="Load Selected Template" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-rotate text-indigo-400"></i>
+          <span class="hidden xl:inline">Load</span>
+        </button>
+      </div>
+
+      <!-- Undo / Redo -->
+      <div class="hidden lg:flex items-center bg-slate-800/80 rounded-lg p-0.5 border border-slate-700/80 ml-1">
+        <button id="btn-undo" title="Undo (Ctrl+Z)" class="px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded-md disabled:opacity-40 transition">
+          <i class="fa-solid fa-rotate-left"></i>
+        </button>
+        <button id="btn-redo" title="Redo (Ctrl+Y)" class="px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-700 rounded-md disabled:opacity-40 transition">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Center: 3-Mode Switcher (Build Mode, Code Mode, View Mode) -->
+    <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
+      <button id="tab-build" data-mode="build" class="mode-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all bg-indigo-600 text-white shadow">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <span>Build Mode</span>
+      </button>
+      <button id="tab-code" data-mode="code" class="mode-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-slate-200">
+        <i class="fa-solid fa-code"></i>
+        <span>Code Mode</span>
+      </button>
+      <button id="tab-view" data-mode="view" class="mode-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-slate-200">
+        <i class="fa-solid fa-eye"></i>
+        <span>View Mode</span>
+      </button>
+    </div>
+
+    <!-- Right: Viewport Controls & Global Actions -->
+    <div class="flex items-center gap-2">
+      <!-- Viewport Switcher (Useful in Build & View modes) -->
+      <div id="viewport-controls" class="hidden md:flex items-center bg-slate-800/90 rounded-lg p-0.5 border border-slate-700">
+        <button data-viewport="100%" title="Desktop Width (100%)" class="viewport-btn px-2.5 py-1 rounded-md text-xs bg-slate-700 text-white transition">
+          <i class="fa-solid fa-desktop"></i>
+        </button>
+        <button data-viewport="768px" title="Tablet Width (768px)" class="viewport-btn px-2.5 py-1 rounded-md text-xs text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-tablet-screen-button"></i>
+        </button>
+        <button data-viewport="375px" title="Mobile Width (375px)" class="viewport-btn px-2.5 py-1 rounded-md text-xs text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-mobile-screen"></i>
+        </button>
+      </div>
+
+      <button id="btn-clear-board" title="Clear Board" class="text-xs bg-slate-800 hover:bg-rose-950/80 hover:border-rose-700 text-slate-300 hover:text-rose-200 px-2.5 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+        <i class="fa-regular fa-trash-can"></i>
+        <span class="hidden xl:inline">Clear</span>
+      </button>
+
+      <button id="btn-export-html" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-3 py-1.5 rounded-lg shadow shadow-indigo-600/30 transition flex items-center gap-1.5">
+        <i class="fa-solid fa-download"></i>
+        <span class="hidden sm:inline">Export HTML</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN WORKSPACE AREA ==================== -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- ==================== LEFT SIDEBAR: ELEMENT PALETTE & DOM TREE (Build Mode) ==================== -->
+    <aside id="left-sidebar" class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 z-20 transition-all duration-200">
+      <!-- Left Sidebar Tabs: Elements vs Layers -->
+      <div class="grid grid-cols-2 border-b border-slate-800 bg-slate-950/40 p-1.5 gap-1">
+        <button id="left-tab-elements" class="py-1.5 text-xs font-semibold rounded-md bg-slate-800 text-white shadow-sm flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-shapes text-indigo-400"></i> Elements
+        </button>
+        <button id="left-tab-layers" class="py-1.5 text-xs font-semibold rounded-md text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-sitemap text-indigo-400"></i> DOM Tree
+        </button>
+      </div>
+
+      <!-- TAB 1: DRAGGABLE HTML ELEMENTS PALETTE -->
+      <div id="palette-panel" class="flex-1 overflow-y-auto p-3 space-y-5">
+        <div class="bg-indigo-950/40 border border-indigo-500/20 rounded-lg p-2.5 text-[11px] text-indigo-200 leading-relaxed flex items-start gap-2">
+          <i class="fa-solid fa-hand-pointer text-indigo-400 mt-0.5"></i>
+          <span><strong>Drag & drop</strong> onto the canvas or <strong>click</strong> any item to insert it into the selected container.</span>
+        </div>
+
+        <!-- Category: Layout & Containers -->
+        <div>
+          <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5 px-1 flex items-center justify-between">
+            <span>Layout & Containers</span>
+            <span class="text-[10px] font-normal text-slate-500">Nestable</span>
+          </h3>
+          <div class="grid grid-cols-2 gap-2" id="palette-layout"></div>
+        </div>
+
+        <!-- Category: Typography -->
+        <div>
+          <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5 px-1">Typography</h3>
+          <div class="grid grid-cols-2 gap-2" id="palette-typography"></div>
+        </div>
+
+        <!-- Category: Interactive & Media -->
+        <div>
+          <h3 class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2.5 px-1">Interactive & Media</h3>
+          <div class="grid grid-cols-2 gap-2" id="palette-media"></div>
+        </div>
+      </div>
+
+      <!-- TAB 2: DOM LAYER TREE -->
+      <div id="layers-panel" class="hidden flex-1 overflow-y-auto p-3">
+        <div class="flex items-center justify-between mb-2 px-1">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Document Hierarchy</span>
+          <button id="btn-refresh-tree" class="text-xs text-slate-400 hover:text-white" title="Refresh Tree">
+            <i class="fa-solid fa-arrows-rotate"></i>
+          </button>
+        </div>
+        <div id="dom-tree-container" class="space-y-0.5 text-xs font-mono"></div>
+      </div>
+
+      <!-- Bottom Quick Helper Toggle -->
+      <div class="p-3 border-t border-slate-800 bg-slate-950/50 flex items-center justify-between text-xs text-slate-400">
+        <label for="toggle-guides" class="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" id="toggle-guides" checked class="rounded bg-slate-800 border-slate-700 text-indigo-500 focus:ring-0" />
+          <span>Container Outlines</span>
+        </label>
+        <span id="element-count-badge" class="text-[11px] font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-300">0 nodes</span>
+      </div>
+    </aside>
+
+    <!-- ==================== CENTER WORKSPACE: BUILDBOARD / CODE / VIEW ==================== -->
+    <main class="flex-1 flex flex-col overflow-hidden canvas-backdrop relative">
+
+      <!-- Floating Selection Bar (Visible in Build Mode when an element is selected) -->
+      <div id="selection-toolbar" class="hidden absolute top-3 left-1/2 -translate-x-1/2 z-30 bg-slate-900/95 backdrop-blur border border-slate-700 rounded-xl shadow-2xl px-3 py-1.5 flex items-center gap-2">
+        <span id="selected-tag-pill" class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-indigo-600 text-white">DIV</span>
+        <div class="h-4 w-px bg-slate-700"></div>
+        <button id="act-select-parent" title="Select Parent Element" class="text-xs text-slate-300 hover:text-white hover:bg-slate-800 px-2 py-1 rounded flex items-center gap-1 transition">
+          <i class="fa-solid fa-level-up-alt"></i>
+          <span class="hidden sm:inline">Parent</span>
+        </button>
+        <button id="act-move-up" title="Move Element Up" class="text-xs text-slate-300 hover:text-white hover:bg-slate-800 p-1.5 rounded transition">
+          <i class="fa-solid fa-arrow-up"></i>
+        </button>
+        <button id="act-move-down" title="Move Element Down" class="text-xs text-slate-300 hover:text-white hover:bg-slate-800 p-1.5 rounded transition">
+          <i class="fa-solid fa-arrow-down"></i>
+        </button>
+        <button id="act-duplicate" title="Duplicate Element" class="text-xs text-slate-300 hover:text-white hover:bg-slate-800 p-1.5 rounded transition">
+          <i class="fa-regular fa-copy"></i>
+        </button>
+        <div class="h-4 w-px bg-slate-700"></div>
+        <button id="act-delete" title="Delete Selected Element (Del)" class="text-xs text-rose-400 hover:text-white hover:bg-rose-600 p-1.5 rounded transition">
+          <i class="fa-regular fa-trash-can"></i>
+        </button>
+      </div>
+
+      <!-- View Mode Floating Banner (Only visible in View Mode) -->
+      <div id="view-mode-banner" class="hidden bg-slate-900/90 border-b border-slate-800 px-4 py-2 flex items-center justify-between text-xs text-slate-300 shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="font-medium text-white">Live Preview Mode</span>
+          <span class="text-slate-400 hidden sm:inline">— Interactive standalone webpage rendering without builder guides.</span>
+        </div>
+        <button id="btn-exit-view" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-pen-ruler text-indigo-400"></i> Back to Editor
+        </button>
+      </div>
+
+      <!-- Canvas Scroll Wrapper (Used in both Build Mode and View Mode) -->
+      <div id="canvas-workspace" class="flex-1 overflow-auto p-4 sm:p-8 flex justify-center items-start">
+        <div id="viewport-frame" style="width: 100%;" class="bg-white text-slate-900 rounded-xl shadow-2xl border border-slate-800/40 transition-all duration-300 min-h-[calc(100vh-9.5rem)] flex flex-col overflow-hidden">
+          <!-- Mock Browser Bar (Hidden in View Mode for pure page look, or subtle) -->
+          <div id="browser-chrome" class="h-8 bg-slate-100 border-b border-slate-200 px-3 flex items-center justify-between shrink-0 select-none">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-rose-400"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-md px-3 py-0.5 text-[11px] text-slate-400 font-mono flex items-center gap-1.5">
+              <i class="fa-solid fa-lock text-[9px] text-emerald-500"></i>
+              <span>https://your-custom-site.dev/index.html</span>
+            </div>
+            <div id="viewport-size-indicator" class="text-[11px] font-mono text-slate-400">100%</div>
+          </div>
+
+          <!-- ACTUAL HTML BUILDER ROOT CANVAS -->
+          <div id="canvas-root" class="build-mode-active show-guides flex-1 w-full min-h-[560px] select-text"></div>
+        </div>
+      </div>
+
+      <!-- Breadcrumb Bar at Bottom of Build Mode -->
+      <div id="breadcrumb-bar" class="h-8 bg-slate-900 border-t border-slate-800 px-4 flex items-center justify-between text-xs text-slate-400 shrink-0 overflow-x-auto">
+        <div id="breadcrumb-trail" class="flex items-center gap-1 font-mono text-[11px] whitespace-nowrap">
+          <span class="text-slate-500">body</span>
+        </div>
+        <div class="text-[11px] text-slate-500 hidden sm:block">
+          Tip: Click any element to inspect attributes & inline CSS
+        </div>
+      </div>
+
+      <!-- ==================== CODE MODE PANEL ==================== -->
+      <div id="code-workspace" class="hidden flex-1 flex flex-col bg-slate-950 overflow-hidden">
+        <!-- Code Toolbar -->
+        <div class="h-12 bg-slate-900 border-b border-slate-800 px-4 flex items-center justify-between shrink-0">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-mono font-semibold text-indigo-400 flex items-center gap-2">
+              <i class="fa-solid fa-file-code"></i> index.html (Buildboard Source)
+            </span>
+            <span id="code-sync-status" class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <i class="fa-solid fa-check mr-1"></i>Synced with Canvas
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btn-format-code" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+              <i class="fa-solid fa-indent text-indigo-400"></i> Prettify HTML
+            </button>
+            <button id="btn-apply-code" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-3 py-1.5 rounded-lg shadow transition flex items-center gap-1.5">
+              <i class="fa-solid fa-bolt"></i> Apply Changes to Canvas
+            </button>
+            <button id="btn-copy-code" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+              <i class="fa-regular fa-copy"></i> Copy Code
+            </button>
+          </div>
+        </div>
+
+        <!-- Editable Code Area + Live Full Document Preview Tab -->
+        <div class="flex-1 flex overflow-hidden relative">
+          <!-- Line Numbers Gutter -->
+          <div id="code-line-numbers" class="w-12 py-4 bg-slate-900/60 border-r border-slate-800 text-right pr-3 font-mono text-xs text-slate-600 select-none overflow-hidden leading-[1.6]">
+            1
+          </div>
+          <!-- Code Textarea -->
+          <textarea
+            id="code-editor"
+            spellcheck="false"
+            class="flex-1 bg-slate-950 text-emerald-300 font-mono text-xs sm:text-sm p-4 focus:outline-none resize-none overflow-auto select-text"
+            placeholder="<!-- HTML & Inline CSS code appears here... -->"
+          ></textarea>
+        </div>
+
+        <!-- Code Footer Info -->
+        <div class="h-8 bg-slate-900 border-t border-slate-800 px-4 flex items-center justify-between text-[11px] text-slate-400">
+          <span>Edit any HTML tags, attributes, or <code class="text-indigo-300">style="..."</code> properties directly. Changes automatically sync when switching back to Build or View Mode.</span>
+          <span id="code-char-count" class="font-mono">0 lines</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- ==================== RIGHT SIDEBAR: ATTRIBUTES & INLINE CSS INSPECTOR (Build Mode) ==================== -->
+    <aside id="right-sidebar" class="w-80 bg-slate-900 border-l border-slate-800 flex flex-col shrink-0 z-20 select-none">
+      <!-- Inspector Header -->
+      <div class="h-11 px-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/40">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-indigo-400 text-xs"></i>
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-200">Inspector</span>
+        </div>
+        <span id="inspector-tag-badge" class="hidden text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+          &lt;div&gt;
+        </span>
+      </div>
+
+      <!-- Empty State when no element is selected -->
+      <div id="inspector-empty" class="flex-1 flex flex-col items-center justify-center p-6 text-center">
+        <div class="w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-400 mb-3">
+          <i class="fa-solid fa-arrow-pointer text-lg"></i>
+        </div>
+        <h4 class="text-sm font-semibold text-slate-200 mb-1">No Element Selected</h4>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Click any element on the buildboard to view and edit its HTML attributes, inner text, and inline CSS styles.
+        </p>
+      </div>
+
+      <!-- Active Inspector Content -->
+      <div id="inspector-content" class="hidden flex-1 overflow-y-auto divide-y divide-slate-800">
+
+        <!-- SECTION 1: ELEMENT CONTENT & TAG -->
+        <div class="p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Element & Content</span>
+            <select id="insp-tag-changer" title="Convert HTML Tag" class="bg-slate-800 text-slate-200 text-[11px] font-mono rounded px-2 py-1 border border-slate-700 focus:outline-none focus:border-indigo-500">
+              <option value="div">&lt;div&gt;</option>
+              <option value="section">&lt;section&gt;</option>
+              <option value="nav">&lt;nav&gt;</option>
+              <option value="h1">&lt;h1&gt;</option>
+              <option value="h2">&lt;h2&gt;</option>
+              <option value="h3">&lt;h3&gt;</option>
+              <option value="p">&lt;p&gt;</option>
+              <option value="span">&lt;span&gt;</option>
+              <option value="button">&lt;button&gt;</option>
+              <option value="a">&lt;a&gt;</option>
+              <option value="blockquote">&lt;blockquote&gt;</option>
+            </select>
+          </div>
+
+          <!-- Inner Text Editor -->
+          <div id="insp-text-group">
+            <label class="block text-[11px] text-slate-400 mb-1">Inner Text / Content</label>
+            <textarea
+              id="insp-inner-text"
+              rows="2"
+              class="w-full bg-slate-950 text-slate-100 text-xs rounded-lg p-2 border border-slate-700 focus:outline-none focus:border-indigo-500 select-text"
+              placeholder="Element text content..."
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- SECTION 2: HTML ATTRIBUTES -->
+        <div class="p-4 space-y-3">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">HTML Attributes</span>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] font-mono text-slate-400 mb-1">id</label>
+              <input type="text" id="attr-id" placeholder="e.g. hero-btn" class="w-full bg-slate-950 text-slate-100 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-mono text-slate-400 mb-1">title</label>
+              <input type="text" id="attr-title" placeholder="Tooltip text" class="w-full bg-slate-950 text-slate-100 text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[10px] font-mono text-slate-400 mb-1">class</label>
+            <input type="text" id="attr-class" placeholder="CSS or Tailwind classes..." class="w-full bg-slate-950 text-slate-100 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+          </div>
+
+          <!-- Contextual Attributes for <a> Links -->
+          <div id="attr-group-link" class="hidden space-y-2 pt-1 border-t border-slate-800/80">
+            <div>
+              <label class="block text-[10px] font-mono text-indigo-300 mb-1">href (Link URL)</label>
+              <input type="text" id="attr-href" placeholder="https://example.com" class="w-full bg-slate-950 text-slate-100 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-mono text-indigo-300 mb-1">target</label>
+              <select id="attr-target" class="w-full bg-slate-950 text-slate-100 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500">
+                <option value="">_self (Same Tab)</option>
+                <option value="_blank">_blank (New Tab)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Contextual Attributes for <img> Images -->
+          <div id="attr-group-img" class="hidden space-y-2 pt-1 border-t border-slate-800/80">
+            <div>
+              <label class="block text-[10px] font-mono text-indigo-300 mb-1">src (Image URL)</label>
+              <input type="text" id="attr-src" placeholder="https://..." class="w-full bg-slate-950 text-slate-100 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-mono text-indigo-300 mb-1">alt (Alt Description)</label>
+              <input type="text" id="attr-alt" placeholder="Describe image..." class="w-full bg-slate-950 text-slate-100 text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+          </div>
+
+          <!-- Contextual Attributes for <input> -->
+          <div id="attr-group-input" class="hidden space-y-2 pt-1 border-t border-slate-800/80">
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-mono text-indigo-300 mb-1">type</label>
+                <select id="attr-type" class="w-full bg-slate-950 text-slate-100 font-mono text-xs rounded-lg px-2 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500">
+                  <option value="text">text</option>
+                  <option value="email">email</option>
+                  <option value="password">password</option>
+                  <option value="number">number</option>
+                  <option value="date">date</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-mono text-indigo-300 mb-1">name</label>
+                <input type="text" id="attr-name" placeholder="field_name" class="w-full bg-slate-950 text-slate-100 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-[10px] font-mono text-indigo-300 mb-1">placeholder</label>
+              <input type="text" id="attr-placeholder" placeholder="Enter placeholder..." class="w-full bg-slate-950 text-slate-100 text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+          </div>
+
+          <!-- Custom Attribute Key-Value Manager -->
+          <div class="pt-2 border-t border-slate-800/80">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Custom Attributes</span>
+            </div>
+            <div id="custom-attributes-list" class="space-y-1.5 mb-2"></div>
+            <div class="flex gap-1.5">
+              <input type="text" id="new-attr-name" placeholder="attr (e.g. data-id)" class="w-1/2 bg-slate-950 text-slate-200 font-mono text-[11px] rounded-md px-2 py-1 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+              <input type="text" id="new-attr-val" placeholder="value" class="w-1/2 bg-slate-950 text-slate-200 font-mono text-[11px] rounded-md px-2 py-1 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+              <button id="btn-add-attr" title="Add/Update Attribute" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-2.5 rounded-md transition shrink-0">
+                <i class="fa-solid fa-plus"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 3: RAW INLINE CSS STYLE STRING (Two-Way Synced) -->
+        <div class="p-4 space-y-2 bg-slate-950/30">
+          <div class="flex items-center justify-between">
+            <label for="insp-raw-style" class="text-[11px] font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
+              <i class="fa-brands fa-css3-alt"></i> Inline <code class="font-mono lowercase">style="..."</code>
+            </label>
+            <button id="btn-clear-styles" class="text-[10px] text-slate-400 hover:text-rose-400 transition">Reset Styles</button>
+          </div>
+          <textarea
+            id="insp-raw-style"
+            rows="3"
+            spellcheck="false"
+            class="w-full bg-slate-950 text-amber-300 font-mono text-[11px] leading-relaxed rounded-lg p-2.5 border border-slate-700 focus:outline-none focus:border-indigo-500 select-text"
+            placeholder="color: #0f172a; padding: 16px; border-radius: 8px;"
+          ></textarea>
+          <p class="text-[10px] text-slate-400">Type any CSS rule above or adjust the visual controls below.</p>
+        </div>
+
+        <!-- SECTION 4: VISUAL INLINE CSS CONTROLS -->
+        <div class="p-4 space-y-4">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">Visual Style Controls</span>
+
+          <!-- Colors: Text & Background -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Text Color</label>
+              <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded-lg p-1">
+                <input type="color" id="css-color-picker" value="#0f172a" class="w-6 h-6 rounded cursor-pointer bg-transparent border-0" />
+                <input type="text" id="css-color" data-css-prop="color" placeholder="#0f172a" class="w-full bg-transparent text-slate-200 font-mono text-[11px] focus:outline-none" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Background</label>
+              <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-700 rounded-lg p-1">
+                <input type="color" id="css-bg-picker" value="#ffffff" class="w-6 h-6 rounded cursor-pointer bg-transparent border-0" />
+                <input type="text" id="css-bg" data-css-prop="background-color" placeholder="transparent" class="w-full bg-transparent text-slate-200 font-mono text-[11px] focus:outline-none" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Typography: Font Size, Weight, Align -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Font Size</label>
+              <input type="text" data-css-prop="font-size" placeholder="16px / 1.5rem" class="css-input w-full bg-slate-950 text-slate-200 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Font Weight</label>
+              <select data-css-prop="font-weight" class="css-input w-full bg-slate-950 text-slate-200 text-xs rounded-lg px-2 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500">
+                <option value="">Default</option>
+                <option value="300">300 (Light)</option>
+                <option value="400">400 (Normal)</option>
+                <option value="500">500 (Medium)</option>
+                <option value="600">600 (SemiBold)</option>
+                <option value="700">700 (Bold)</option>
+                <option value="800">800 (ExtraBold)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Text Align Buttons -->
+          <div>
+            <label class="block text-[10px] text-slate-400 mb-1">Text Alignment</label>
+            <div class="grid grid-cols-4 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-700">
+              <button type="button" data-align="left" class="align-btn py-1 rounded text-xs text-slate-400 hover:text-white transition"><i class="fa-solid fa-align-left"></i></button>
+              <button type="button" data-align="center" class="align-btn py-1 rounded text-xs text-slate-400 hover:text-white transition"><i class="fa-solid fa-align-center"></i></button>
+              <button type="button" data-align="right" class="align-btn py-1 rounded text-xs text-slate-400 hover:text-white transition"><i class="fa-solid fa-align-right"></i></button>
+              <button type="button" data-align="justify" class="align-btn py-1 rounded text-xs text-slate-400 hover:text-white transition"><i class="fa-solid fa-align-justify"></i></button>
+            </div>
+          </div>
+
+          <!-- Spacing: Padding & Margin -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Padding</label>
+              <input type="text" data-css-prop="padding" placeholder="e.g. 16px 24px" class="css-input w-full bg-slate-950 text-slate-200 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Margin</label>
+              <input type="text" data-css-prop="margin" placeholder="e.g. 0 auto" class="css-input w-full bg-slate-950 text-slate-200 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+          </div>
+
+          <!-- Dimensions: Width & Height -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Width</label>
+              <input type="text" data-css-prop="width" placeholder="auto / 100%" class="css-input w-full bg-slate-950 text-slate-200 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Height / Min-Height</label>
+              <input type="text" data-css-prop="height" placeholder="auto / 300px" class="css-input w-full bg-slate-950 text-slate-200 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+          </div>
+
+          <!-- Border & Border Radius -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Border Radius</label>
+              <input type="text" data-css-prop="border-radius" placeholder="0px / 12px / 999px" class="css-input w-full bg-slate-950 text-slate-200 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Border</label>
+              <input type="text" data-css-prop="border" placeholder="1px solid #e2e8f0" class="css-input w-full bg-slate-950 text-slate-200 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+          </div>
+
+          <!-- Display & Flex Layout -->
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Display</label>
+              <select data-css-prop="display" class="css-input w-full bg-slate-950 text-slate-200 font-mono text-xs rounded-lg px-2 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500">
+                <option value="">Default</option>
+                <option value="block">block</option>
+                <option value="flex">flex</option>
+                <option value="grid">grid</option>
+                <option value="inline-block">inline-block</option>
+                <option value="inline">inline</option>
+                <option value="none">none</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] text-slate-400 mb-1">Gap (Flex/Grid)</label>
+              <input type="text" data-css-prop="gap" placeholder="16px" class="css-input w-full bg-slate-950 text-slate-200 font-mono text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500" />
+            </div>
+          </div>
+
+          <!-- Box Shadow Quick Selector -->
+          <div>
+            <label class="block text-[10px] text-slate-400 mb-1">Box Shadow</label>
+            <select data-css-prop="box-shadow" class="css-input w-full bg-slate-950 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 border border-slate-700 focus:outline-none focus:border-indigo-500">
+              <option value="">None</option>
+              <option value="0 1px 3px rgba(0,0,0,0.08)">Subtle (sm)</option>
+              <option value="0 4px 12px rgba(15,23,42,0.08)">Soft Card (md)</option>
+              <option value="0 12px 28px rgba(15,23,42,0.14)">Elevated (lg)</option>
+              <option value="0 20px 40px rgba(79,70,229,0.22)">Indigo Glow</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ==================== CUSTOM CONFIRMATION MODAL (No window.confirm/alert) ==================== -->
+  <div id="custom-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-5 shadow-2xl">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <h3 id="modal-title" class="text-sm font-bold text-white">Confirm Action</h3>
+      </div>
+      <p id="modal-message" class="text-xs text-slate-300 leading-relaxed mb-5">Are you sure you want to proceed?</p>
+      <div class="flex justify-end gap-2">
+        <button id="modal-cancel" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Cancel</button>
+        <button id="modal-confirm" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 hover:bg-indigo-500 text-white transition">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TOAST NOTIFICATION ==================== -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ==================== APPLICATION JAVASCRIPT ==================== -->
+  <script>
+    /*************************************************************************
+     * 1. ELEMENT PALETTE DEFINITIONS & STARTER TEMPLATES
+     *************************************************************************/
+    const PALETTE_ITEMS = {
+      layout: [
+        {
+          id: 'container',
+          label: 'Container',
+          icon: 'fa-regular fa-square',
+          tag: 'div',
+          html: `<div style="padding: 24px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; min-height: 80px;"></div>`
+        },
+        {
+          id: 'two-col',
+          label: '2 Columns',
+          icon: 'fa-solid fa-table-columns',
+          tag: 'div',
+          html: `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; padding: 16px;">
+            <div style="padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
+              <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #0f172a;">Column One</h3>
+              <p style="margin: 0; font-size: 14px; color: #475569;">Drop or edit elements inside this column.</p>
+            </div>
+            <div style="padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;">
+              <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600; color: #0f172a;">Column Two</h3>
+              <p style="margin: 0; font-size: 14px; color: #475569;">Drop or edit elements inside this column.</p>
+            </div>
+          </div>`
+        },
+        {
+          id: 'section',
+          label: 'Section',
+          icon: 'fa-solid fa-window-maximize',
+          tag: 'section',
+          html: `<section style="padding: 48px 32px; background-color: #ffffff; border-bottom: 1px solid #f1f5f9;">
+            <div style="max-width: 960px; margin: 0 auto;">
+              <h2 style="font-size: 28px; font-weight: 700; color: #0f172a; margin: 0 0 12px 0;">Section Heading</h2>
+              <p style="font-size: 16px; color: #475569; margin: 0;">Customize this section or drag more blocks inside.</p>
+            </div>
+          </section>`
+        },
+        {
+          id: 'card',
+          label: 'Feature Card',
+          icon: 'fa-regular fa-id-card',
+          tag: 'div',
+          html: `<div style="padding: 24px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 4px 12px rgba(15,23,42,0.06);">
+            <span style="display: inline-block; padding: 4px 10px; background-color: #e0e7ff; color: #4338ca; border-radius: 999px; font-size: 12px; font-weight: 600; margin-bottom: 12px;">Featured</span>
+            <h3 style="font-size: 20px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">Card Title</h3>
+            <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin: 0 0 16px 0;">Clean modular card component with inline styles ready to customize.</p>
+            <button type="button" style="padding: 8px 16px; background-color: #0f172a; color: #ffffff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600;">Learn More</button>
+          </div>`
+        },
+        {
+          id: 'navbar',
+          label: 'Navbar',
+          icon: 'fa-solid fa-bars',
+          tag: 'nav',
+          html: `<nav style="display: flex; align-items: center; justify-content: space-between; padding: 16px 32px; background-color: #ffffff; border-bottom: 1px solid #e2e8f0;">
+            <span style="font-size: 18px; font-weight: 800; color: #0f172a;">BrandLogo</span>
+            <div style="display: flex; align-items: center; gap: 20px;">
+              <a href="#features" style="font-size: 14px; color: #475569; text-decoration: none; font-weight: 500;">Features</a>
+              <a href="#pricing" style="font-size: 14px; color: #475569; text-decoration: none; font-weight: 500;">Pricing</a>
+              <button type="button" style="padding: 8px 16px; background-color: #4f46e5; color: #ffffff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600;">Get Started</button>
+            </div>
+          </nav>`
+        },
+        {
+          id: 'flex-row',
+          label: 'Flex Row',
+          icon: 'fa-solid fa-grip-lines-vertical',
+          tag: 'div',
+          html: `<div style="display: flex; align-items: center; gap: 12px; padding: 12px; flex-wrap: wrap;"></div>`
+        }
+      ],
+      typography: [
+        {
+          id: 'heading-1',
+          label: 'Heading H1',
+          icon: 'fa-solid fa-heading',
+          tag: 'h1',
+          html: `<h1 style="font-size: 36px; font-weight: 800; color: #0f172a; margin: 0 0 12px 0; line-height: 1.2;">Main Headline Text</h1>`
+        },
+        {
+          id: 'heading-2',
+          label: 'Heading H2',
+          icon: 'fa-solid fa-h',
+          tag: 'h2',
+          html: `<h2 style="font-size: 24px; font-weight: 700; color: #1e293b; margin: 0 0 10px 0;">Subheading Title</h2>`
+        },
+        {
+          id: 'paragraph',
+          label: 'Paragraph',
+          icon: 'fa-solid fa-paragraph',
+          tag: 'p',
+          html: `<p style="font-size: 16px; color: #475569; line-height: 1.65; margin: 0 0 12px 0;">This is a paragraph block. Click to select it and edit its text content, typography, colors, or inline CSS properties in the right inspector.</p>`
+        },
+        {
+          id: 'badge',
+          label: 'Badge / Pill',
+          icon: 'fa-solid fa-tag',
+          tag: 'span',
+          html: `<span style="display: inline-block; padding: 5px 12px; background-color: #eef2ff; color: #4f46e5; border-radius: 999px; font-size: 12px; font-weight: 600;">New Release</span>`
+        },
+        {
+          id: 'quote',
+          label: 'Blockquote',
+          icon: 'fa-solid fa-quote-left',
+          tag: 'blockquote',
+          html: `<blockquote style="margin: 16px 0; padding: 16px 20px; border-left: 4px solid #6366f1; background-color: #f8fafc; font-style: italic; color: #334155; border-radius: 0 8px 8px 0;">"Design is not just what it looks like and feels like. Design is how it works."</blockquote>`
+        }
+      ],
+      media: [
+        {
+          id: 'button',
+          label: 'Button',
+          icon: 'fa-solid fa-hand-pointer',
+          tag: 'button',
+          html: `<button type="button" style="padding: 11px 22px; background-color: #4f46e5; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(79,70,229,0.25);">Call to Action</button>`
+        },
+        {
+          id: 'link',
+          label: 'Text Link',
+          icon: 'fa-solid fa-link',
+          tag: 'a',
+          html: `<a href="https://example.com" target="_blank" style="color: #4f46e5; font-size: 15px; font-weight: 600; text-decoration: underline;">Explore Documentation →</a>`
+        },
+        {
+          id: 'image',
+          label: 'Image',
+          icon: 'fa-regular fa-image',
+          tag: 'img',
+          html: `<img src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80" alt="Workspace Laptop" onerror="this.src='https://placehold.co/800x450/e2e8f0/475569?text=Image+Preview'" style="width: 100%; max-width: 100%; height: auto; border-radius: 12px; display: block; margin: 8px 0;" />`
+        },
+        {
+          id: 'input',
+          label: 'Text Input',
+          icon: 'fa-solid fa-i-cursor',
+          tag: 'input',
+          html: `<input type="email" placeholder="Enter your email address..." style="padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; color: #0f172a; width: 260px; max-width: 100%;" />`
+        },
+        {
+          id: 'divider',
+          label: 'Divider Line',
+          icon: 'fa-solid fa-minus',
+          tag: 'hr',
+          html: `<hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />`
+        }
+      ]
+    };
+
+    const STARTER_TEMPLATES = {
+      saas: `<nav style="display: flex; align-items: center; justify-content: space-between; padding: 18px 36px; background-color: #ffffff; border-bottom: 1px solid #f1f5f9;">
+  <div style="display: flex; align-items: center; gap: 10px;">
+    <span style="display: inline-block; width: 28px; height: 28px; background-color: #4f46e5; border-radius: 8px;"></span>
+    <span style="font-size: 19px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">PulseCloud</span>
+  </div>
+  <div style="display: flex; align-items: center; gap: 24px;">
+    <a href="#features" style="font-size: 14px; color: #475569; text-decoration: none; font-weight: 500;">Product</a>
+    <a href="#solutions" style="font-size: 14px; color: #475569; text-decoration: none; font-weight: 500;">Solutions</a>
+    <a href="#pricing" style="font-size: 14px; color: #475569; text-decoration: none; font-weight: 500;">Pricing</a>
+    <button type="button" style="padding: 9px 18px; background-color: #0f172a; color: #ffffff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600;">Start Free Trial</button>
+  </div>
+</nav>
+<section style="padding: 64px 32px; background-color: #f8fafc; text-align: center; border-bottom: 1px solid #e2e8f0;">
+  <div style="max-width: 760px; margin: 0 auto;">
+    <span style="display: inline-block; padding: 6px 14px; background-color: #e0e7ff; color: #4338ca; border-radius: 999px; font-size: 12px; font-weight: 700; margin-bottom: 18px;">✨ Version 4.0 Now Live</span>
+    <h1 style="font-size: 44px; font-weight: 800; color: #0f172a; margin: 0 0 18px 0; line-height: 1.15;">Build and ship modern web pages visually in minutes</h1>
+    <p style="font-size: 18px; color: #475569; line-height: 1.6; margin: 0 0 28px 0;">Drag semantic HTML blocks onto the canvas, tweak attributes and inline CSS in real time, and export clean standalone code with zero lock-in.</p>
+    <div style="display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;">
+      <input type="email" placeholder="Enter your work email..." style="padding: 12px 16px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 15px; width: 280px; background-color: #ffffff; color: #0f172a;" />
+      <button type="button" style="padding: 12px 24px; background-color: #4f46e5; color: #ffffff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; box-shadow: 0 10px 20px rgba(79,70,229,0.22);">Get Instant Access</button>
+    </div>
+  </div>
+</section>
+<section id="features" style="padding: 56px 32px; background-color: #ffffff;">
+  <div style="max-width: 980px; margin: 0 auto;">
+    <h2 style="font-size: 28px; font-weight: 800; color: #0f172a; text-align: center; margin: 0 0 36px 0;">Everything you need for rapid prototyping</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px;">
+      <div style="padding: 26px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 4px 12px rgba(15,23,42,0.05);">
+        <span style="display: inline-block; padding: 4px 10px; background-color: #dcfce7; color: #15803d; border-radius: 8px; font-size: 12px; font-weight: 700; margin-bottom: 12px;">01 / Visual Canvas</span>
+        <h3 style="font-size: 19px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">Nested Drag & Drop</h3>
+        <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin: 0;">Drop elements directly into sections, flex rows, and multi-column containers with live visual drop indicators.</p>
+      </div>
+      <div style="padding: 26px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 4px 12px rgba(15,23,42,0.05);">
+        <span style="display: inline-block; padding: 4px 10px; background-color: #e0e7ff; color: #4338ca; border-radius: 8px; font-size: 12px; font-weight: 700; margin-bottom: 12px;">02 / Style Inspector</span>
+        <h3 style="font-size: 19px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">Live Inline CSS Sync</h3>
+        <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin: 0;">Adjust visual style controls or type raw inline CSS rules—both stay two-way synchronized automatically.</p>
+      </div>
+      <div style="padding: 26px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; box-shadow: 0 4px 12px rgba(15,23,42,0.05);">
+        <span style="display: inline-block; padding: 4px 10px; background-color: #fef3c7; color: #b45309; border-radius: 8px; font-size: 12px; font-weight: 700; margin-bottom: 12px;">03 / Code & Preview</span>
+        <h3 style="font-size: 19px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">Two-Way Code Editor</h3>
+        <p style="font-size: 14px; color: #64748b; line-height: 1.6; margin: 0;">Switch to Code Mode anytime to edit the raw HTML markup and see your edits reflected on the buildboard.</p>
+      </div>
+    </div>
+  </div>
+</section>`,
+
+      portfolio: `<section style="padding: 56px 32px; background-color: #0f172a; color: #ffffff;">
+  <div style="max-width: 860px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 32px; align-items: center;">
+    <div>
+      <span style="display: inline-block; padding: 5px 12px; background-color: #312e81; color: #a5b4fc; border-radius: 999px; font-size: 12px; font-weight: 600; margin-bottom: 14px;">Product Designer & Developer</span>
+      <h1 style="font-size: 38px; font-weight: 800; color: #ffffff; margin: 0 0 14px 0; line-height: 1.2;">Hi, I'm Alex Rivera. I craft digital interfaces.</h1>
+      <p style="font-size: 16px; color: #94a3b8; line-height: 1.6; margin: 0 0 24px 0;">Currently building design systems and interactive web tools. Click any element here to customize colors, fonts, and layout.</p>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <button type="button" style="padding: 11px 22px; background-color: #6366f1; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600;">View Projects</button>
+        <a href="mailto:alex@example.com" style="padding: 11px 20px; background-color: #1e293b; color: #e2e8f0; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none;">Contact Me</a>
+      </div>
+    </div>
+    <div>
+      <img src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80" alt="Creative Studio" onerror="this.src='https://placehold.co/600x420/1e293b/94a3b8?text=Portfolio+Showcase'" style="width: 100%; border-radius: 16px; border: 2px solid #334155; display: block;" />
+    </div>
+  </div>
+</section>
+<section style="padding: 48px 32px; background-color: #ffffff;">
+  <div style="max-width: 860px; margin: 0 auto;">
+    <h2 style="font-size: 24px; font-weight: 700; color: #0f172a; margin: 0 0 20px 0;">Selected Case Studies</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;">
+      <div style="padding: 24px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;">
+        <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">Fintech Mobile Analytics</h3>
+        <p style="font-size: 14px; color: #475569; margin: 0 0 14px 0;">Redesigned real-time portfolio tracking for 120k+ active users.</p>
+        <a href="#case-1" style="color: #4f46e5; font-size: 13px; font-weight: 600;">Read Case Study →</a>
+      </div>
+      <div style="padding: 24px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;">
+        <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">AI Design System</h3>
+        <p style="font-size: 14px; color: #475569; margin: 0 0 14px 0;">Unified component tokens across web and native applications.</p>
+        <a href="#case-2" style="color: #4f46e5; font-size: 13px; font-weight: 600;">Read Case Study →</a>
+      </div>
+    </div>
+  </div>
+</section>`,
+
+      pricing: `<section style="padding: 60px 28px; background-color: #f8fafc;">
+  <div style="max-width: 900px; margin: 0 auto; text-align: center;">
+    <span style="display: inline-block; padding: 4px 12px; background-color: #e0e7ff; color: #4338ca; border-radius: 999px; font-size: 12px; font-weight: 700; margin-bottom: 12px;">Transparent Pricing</span>
+    <h1 style="font-size: 36px; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">Simple plans for every team</h1>
+    <p style="font-size: 16px; color: #64748b; margin: 0 0 40px 0;">No hidden fees. Upgrade or cancel anytime.</p>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; text-align: left;">
+      <div style="padding: 28px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;">
+        <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">Starter</h3>
+        <p style="font-size: 32px; font-weight: 800; color: #0f172a; margin: 0 0 16px 0;">$19<span style="font-size: 14px; font-weight: 500; color: #64748b;">/month</span></p>
+        <p style="font-size: 14px; color: #475569; margin: 0 0 24px 0;">Ideal for solo makers and side projects.</p>
+        <button type="button" style="width: 100%; padding: 10px 16px; background-color: #f1f5f9; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; font-weight: 600;">Choose Starter</button>
+      </div>
+      <div style="padding: 28px; background-color: #0f172a; border: 2px solid #6366f1; border-radius: 16px; color: #ffffff; box-shadow: 0 20px 40px rgba(79,70,229,0.22);">
+        <span style="display: inline-block; padding: 3px 10px; background-color: #4f46e5; color: #ffffff; border-radius: 999px; font-size: 11px; font-weight: 700; margin-bottom: 10px;">Most Popular</span>
+        <h3 style="font-size: 18px; font-weight: 700; color: #ffffff; margin: 0 0 8px 0;">Pro Studio</h3>
+        <p style="font-size: 32px; font-weight: 800; color: #ffffff; margin: 0 0 16px 0;">$49<span style="font-size: 14px; font-weight: 500; color: #94a3b8;">/month</span></p>
+        <p style="font-size: 14px; color: #cbd5e1; margin: 0 0 24px 0;">Unlimited projects, custom exports, and priority support.</p>
+        <button type="button" style="width: 100%; padding: 10px 16px; background-color: #6366f1; color: #ffffff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600;">Start Pro Trial</button>
+      </div>
+    </div>
+  </div>
+</section>`,
+
+      blank: `<section style="padding: 64px 32px; background-color: #ffffff; text-align: center;">
+  <h1 style="font-size: 32px; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">Your Blank Buildboard</h1>
+  <p style="font-size: 16px; color: #64748b; margin: 0;">Drag elements from the left palette or click this text to customize it.</p>
+</section>`
+    };
+
+    /*************************************************************************
+     * 2. APPLICATION STATE & REFERENCES
+     *************************************************************************/
+    const state = {
+      mode: 'build', // 'build' | 'code' | 'view'
+      selectedEl: null,
+      draggedPaletteHtml: null,
+      draggedCanvasEl: null,
+      dropTarget: null,
+      dropPosition: null, // 'before' | 'after' | 'inside'
+      history: [],
+      historyIndex: -1,
+      isCodeDirty: false
+    };
+
+    const CONTAINER_TAGS = new Set(['DIV', 'SECTION', 'NAV', 'HEADER', 'FOOTER', 'MAIN', 'ARTICLE', 'ASIDE', 'FORM', 'BLOCKQUOTE']);
+    const VOID_TAGS = new Set(['IMG', 'INPUT', 'HR', 'BR', 'META', 'LINK']);
+    const STANDARD_ATTRS = new Set(['id', 'class', 'title', 'style', 'href', 'target', 'src', 'alt', 'type', 'name', 'placeholder', 'onerror']);
+
+    // DOM References
+    const canvasRoot = document.getElementById('canvas-root');
+    const canvasWorkspace = document.getElementById('canvas-workspace');
+    const codeWorkspace = document.getElementById('code-workspace');
+    const codeEditor = document.getElementById('code-editor');
+    const codeLineNumbers = document.getElementById('code-line-numbers');
+    const leftSidebar = document.getElementById('left-sidebar');
+    const rightSidebar = document.getElementById('right-sidebar');
+    const selectionToolbar = document.getElementById('selection-toolbar');
+    const selectedTagPill = document.getElementById('selected-tag-pill');
+    const breadcrumbBar = document.getElementById('breadcrumb-bar');
+    const breadcrumbTrail = document.getElementById('breadcrumb-trail');
+    const viewModeBanner = document.getElementById('view-mode-banner');
+    const browserChrome = document.getElementById('browser-chrome');
+    const viewportFrame = document.getElementById('viewport-frame');
+    const inspectorEmpty = document.getElementById('inspector-empty');
+    const inspectorContent = document.getElementById('inspector-content');
+    const inspectorTagBadge = document.getElementById('inspector-tag-badge');
+
+    /*************************************************************************
+     * 3. INITIALIZE PALETTE & WORKSPACE
+     *************************************************************************/
+    function renderPalette() {
+      const renderGroup = (items, containerId) => {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        items.forEach(item => {
+          const btn = document.createElement('div');
+          btn.draggable = true;
+          btn.className = 'group bg-slate-800/70 hover:bg-slate-800 border border-slate-700/80 hover:border-indigo-500/70 rounded-xl p-2.5 flex flex-col items-center justify-center gap-1.5 cursor-grab active:cursor-grabbing transition shadow-sm';
+          btn.innerHTML = `
+            <div class="w-8 h-8 rounded-lg bg-slate-900 group-hover:bg-indigo-600/20 text-slate-300 group-hover:text-indigo-400 flex items-center justify-center transition">
+              <i class="${item.icon} text-sm"></i>
+            </div>
+            <span class="text-[11px] font-medium text-slate-200 group-hover:text-white text-center">${item.label}</span>
+          `;
+
+          // Drag start from Palette
+          btn.addEventListener('dragstart', (e) => {
+            state.draggedPaletteHtml = item.html;
+            state.draggedCanvasEl = null;
+            e.dataTransfer.effectAllowed = 'copy';
+            e.dataTransfer.setData('text/plain', item.id);
+          });
+
+          btn.addEventListener('dragend', () => {
+            clearDropIndicators();
+            state.draggedPaletteHtml = null;
+          });
+
+          // Click to insert directly into selected container (or after selected element, or at root end)
+          btn.addEventListener('click', () => {
+            insertHtmlFromPalette(item.html);
+          });
+
+          container.appendChild(btn);
+        });
+      };
+
+      renderGroup(PALETTE_ITEMS.layout, 'palette-layout');
+      renderGroup(PALETTE_ITEMS.typography, 'palette-typography');
+      renderGroup(PALETTE_ITEMS.media, 'palette-media');
+    }
+
+    function insertHtmlFromPalette(htmlString) {
+      const temp = document.createElement('div');
+      temp.innerHTML = htmlString.trim();
+      const newEl = temp.firstElementChild;
+      if (!newEl) return;
+
+      if (state.selectedEl && canvasRoot.contains(state.selectedEl)) {
+        if (CONTAINER_TAGS.has(state.selectedEl.tagName)) {
+          state.selectedEl.appendChild(newEl);
+        } else {
+          state.selectedEl.insertAdjacentElement('afterend', newEl);
+        }
+      } else {
+        canvasRoot.appendChild(newEl);
+      }
+
+      saveHistory();
+      selectElement(newEl);
+      showToast(`Added <${newEl.tagName.toLowerCase()}> to canvas`);
+    }
+
+    /*************************************************************************
+     * 4. CLEAN HTML SERIALIZER & FORMATTER (Strips internal builder attrs)
+     *************************************************************************/
+    function getCleanCanvasHTML() {
+      const clone = canvasRoot.cloneNode(true);
+      const allEls = clone.querySelectorAll('*');
+      allEls.forEach(el => {
+        el.removeAttribute('data-builder-selected');
+        el.removeAttribute('data-builder-hover');
+        el.removeAttribute('data-drop-position');
+        el.removeAttribute('draggable');
+        if (el.getAttribute('class') === '') el.removeAttribute('class');
+        if (el.getAttribute('style') === '') el.removeAttribute('style');
+      });
+      return formatHTML(clone.innerHTML);
+    }
+
+    function formatHTML(html) {
+      const tab = '  ';
+      const container = document.createElement('div');
+      container.innerHTML = html.trim();
+
+      function serializeNode(node, depth) {
+        const indent = tab.repeat(depth);
+        if (node.nodeType === Node.TEXT_NODE) {
+          const text = node.textContent.replace(/\s+/g, ' ').trim();
+          return text ? `${indent}${text}\n` : '';
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return '';
+
+        const tag = node.tagName.toLowerCase();
+        let attrs = '';
+        for (let i = 0; i < node.attributes.length; i++) {
+          const a = node.attributes[i];
+          if (a.name.startsWith('data-builder-') || a.name === 'data-drop-position') continue;
+          attrs += ` ${a.name}="${a.value.replace(/"/g, '&quot;')}"`;
+        }
+
+        if (VOID_TAGS.has(node.tagName)) {
+          return `${indent}<${tag}${attrs} />\n`;
+        }
+
+        // Check if element only has a single short text node
+        if (node.childNodes.length === 1 && node.firstChild.nodeType === Node.TEXT_NODE) {
+          const text = node.firstChild.textContent.trim();
+          return `${indent}<${tag}${attrs}>${text}</${tag}>\n`;
+        }
+
+        if (node.childNodes.length === 0) {
+          return `${indent}<${tag}${attrs}></${tag}>\n`;
+        }
+
+        let inner = '';
+        node.childNodes.forEach(child => {
+          inner += serializeNode(child, depth + 1);
+        });
+
+        return `${indent}<${tag}${attrs}>\n${inner}${indent}</${tag}>\n`;
+      }
+
+      let result = '';
+      container.childNodes.forEach(child => {
+        result += serializeNode(child, 0);
+      });
+      return result.trim();
+    }
+
+    /*************************************************************************
+     * 5. HISTORY (UNDO / REDO) & DOM TREE UPDATES
+     *************************************************************************/
+    function saveHistory() {
+      const cleanHtml = getCleanCanvasHTML();
+      if (state.historyIndex >= 0 && state.history[state.historyIndex] === cleanHtml) {
+        updateNodeCountAndTree();
+        return;
+      }
+      state.history = state.history.slice(0, state.historyIndex + 1);
+      state.history.push(cleanHtml);
+      if (state.history.length > 40) state.history.shift();
+      state.historyIndex = state.history.length - 1;
+      updateUndoRedoButtons();
+      updateNodeCountAndTree();
+    }
+
+    function updateUndoRedoButtons() {
+      document.getElementById('btn-undo').disabled = state.historyIndex <= 0;
+      document.getElementById('btn-redo').disabled = state.historyIndex >= state.history.length - 1;
+    }
+
+    function undo() {
+      if (state.historyIndex > 0) {
+        state.historyIndex--;
+        canvasRoot.innerHTML = state.history[state.historyIndex];
+        selectElement(null);
+        updateUndoRedoButtons();
+        updateNodeCountAndTree();
+        if (state.mode === 'code') syncCanvasToCodeEditor();
+        showToast('Undid last change');
+      }
+    }
+
+    function redo() {
+      if (state.historyIndex < state.history.length - 1) {
+        state.historyIndex++;
+        canvasRoot.innerHTML = state.history[state.historyIndex];
+        selectElement(null);
+        updateUndoRedoButtons();
+        updateNodeCountAndTree();
+        if (state.mode === 'code') syncCanvasToCodeEditor();
+        showToast('Redid change');
+      }
+    }
+
+    function updateNodeCountAndTree() {
+      const count = canvasRoot.querySelectorAll('*').length;
+      document.getElementById('element-count-badge').textContent = `${count} ${count === 1 ? 'node' : 'nodes'}`;
+      renderDomTree();
+    }
+
+    function renderDomTree() {
+      const treeContainer = document.getElementById('dom-tree-container');
+      if (!treeContainer) return;
+      treeContainer.innerHTML = '';
+
+      function buildTreeNodes(parentEl, depth) {
+        Array.from(parentEl.children).forEach(el => {
+          const row = document.createElement('div');
+          const isSelected = state.selectedEl === el;
+          row.style.paddingLeft = `${depth * 12 + 8}px`;
+          row.className = `py-1 px-2 rounded cursor-pointer flex items-center justify-between transition ${
+            isSelected ? 'bg-indigo-600 text-white font-semibold' : 'text-slate-300 hover:bg-slate-800'
+          }`;
+
+          const tag = el.tagName.toLowerCase();
+          const idStr = el.id ? `#${el.id}` : '';
+          row.innerHTML = `
+            <span class="truncate">&lt;${tag}<span class="${isSelected ? 'text-indigo-200' : 'text-indigo-400'}">${idStr}</span>&gt;</span>
+          `;
+
+          row.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectElement(el);
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          });
+
+          treeContainer.appendChild(row);
+          if (el.children.length > 0) {
+            buildTreeNodes(el, depth + 1);
+          }
+        });
+      }
+
+      buildTreeNodes(canvasRoot, 0);
+    }
+
+    /*************************************************************************
+     * 6. BUILDBOARD INTERACTION: SELECTION, HOVER & DRAG-AND-DROP
+     *************************************************************************/
+    function selectElement(el) {
+      // Clear previous selection attribute
+      canvasRoot.querySelectorAll('[data-builder-selected]').forEach(node => {
+        node.removeAttribute('data-builder-selected');
+        node.removeAttribute('draggable');
+      });
+
+      if (!el || el === canvasRoot || !canvasRoot.contains(el)) {
+        state.selectedEl = null;
+        selectionToolbar.classList.add('hidden');
+        inspectorEmpty.classList.remove('hidden');
+        inspectorContent.classList.add('hidden');
+        inspectorTagBadge.classList.add('hidden');
+        renderBreadcrumbs(null);
+        renderDomTree();
+        return;
+      }
+
+      state.selectedEl = el;
+      el.setAttribute('data-builder-selected', 'true');
+      if (state.mode === 'build') {
+        el.setAttribute('draggable', 'true');
+      }
+
+      // Show floating action toolbar
+      const tag = el.tagName.toLowerCase();
+      selectedTagPill.textContent = `${tag.toUpperCase()}${el.id ? '#' + el.id : ''}`;
+      selectionToolbar.classList.remove('hidden');
+
+      // Populate Right Inspector
+      inspectorEmpty.classList.add('hidden');
+      inspectorContent.classList.remove('hidden');
+      inspectorTagBadge.classList.remove('hidden');
+      inspectorTagBadge.textContent = `<${tag}>`;
+
+      populateInspector(el);
+      renderBreadcrumbs(el);
+      renderDomTree();
+    }
+
+    function renderBreadcrumbs(el) {
+      breadcrumbTrail.innerHTML = '';
+      const rootBtn = document.createElement('button');
+      rootBtn.className = 'hover:text-white text-slate-400 transition';
+      rootBtn.textContent = 'body';
+      rootBtn.onclick = () => selectElement(null);
+      breadcrumbTrail.appendChild(rootBtn);
+
+      if (!el) return;
+
+      const chain = [];
+      let curr = el;
+      while (curr && curr !== canvasRoot) {
+        chain.unshift(curr);
+        curr = curr.parentElement;
+      }
+
+      chain.forEach((node, idx) => {
+        const sep = document.createElement('span');
+        sep.className = 'text-slate-600 mx-1';
+        sep.textContent = '›';
+        breadcrumbTrail.appendChild(sep);
+
+        const btn = document.createElement('button');
+        const isLast = idx === chain.length - 1;
+        btn.className = isLast
+          ? 'text-indigo-400 font-semibold'
+          : 'text-slate-300 hover:text-white transition';
+        btn.textContent = `${node.tagName.toLowerCase()}${node.id ? '#' + node.id : ''}`;
+        btn.onclick = () => selectElement(node);
+        breadcrumbTrail.appendChild(btn);
+      });
+    }
+
+    // Canvas Mouse & Drag Events
+    canvasRoot.addEventListener('mouseover', (e) => {
+      if (state.mode !== 'build') return;
+      const target = e.target.closest('#canvas-root *');
+      canvasRoot.querySelectorAll('[data-builder-hover]').forEach(n => n.removeAttribute('data-builder-hover'));
+      if (target && target !== canvasRoot) {
+        target.setAttribute('data-builder-hover', 'true');
+      }
+    });
+
+    canvasRoot.addEventListener('mouseout', () => {
+      canvasRoot.querySelectorAll('[data-builder-hover]').forEach(n => n.removeAttribute('data-builder-hover'));
+    });
+
+    canvasRoot.addEventListener('click', (e) => {
+      if (state.mode !== 'build') return;
+      // Prevent links or buttons from navigating/submitting while in Build Mode
+      if (e.target.closest('a') || e.target.closest('button') || e.target.closest('form')) {
+        e.preventDefault();
+      }
+      const target = e.target.closest('#canvas-root *');
+      if (target && target !== canvasRoot) {
+        e.stopPropagation();
+        selectElement(target);
+      } else {
+        selectElement(null);
+      }
+    });
+
+    // Dragging existing elements on the canvas to reorder/re-nest
+    canvasRoot.addEventListener('dragstart', (e) => {
+      if (state.mode !== 'build') return;
+      const target = e.target.closest('#canvas-root *');
+      if (target && target !== canvasRoot) {
+        e.stopPropagation();
+        state.draggedCanvasEl = target;
+        state.draggedPaletteHtml = null;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'canvas-move');
+      }
+    });
+
+    canvasRoot.addEventListener('dragend', () => {
+      clearDropIndicators();
+      state.draggedCanvasEl = null;
+    });
+
+    // Dragover calculation for before, after, or inside container
+    canvasRoot.addEventListener('dragover', (e) => {
+      if (state.mode !== 'build') return;
+      e.preventDefault();
+
+      const target = e.target.closest('#canvas-root *');
+      clearDropIndicators();
+
+      if (!target || target === canvasRoot) {
+        state.dropTarget = canvasRoot;
+        state.dropPosition = 'inside';
+        return;
+      }
+
+      // Prevent dropping an element inside itself
+      if (state.draggedCanvasEl && state.draggedCanvasEl.contains(target)) {
+        state.dropTarget = null;
+        return;
+      }
+
+      const rect = target.getBoundingClientRect();
+      const relY = e.clientY - rect.top;
+      const height = rect.height || 1;
+      const isContainer = CONTAINER_TAGS.has(target.tagName);
+
+      if (isContainer && relY > height * 0.25 && relY < height * 0.75) {
+        state.dropPosition = 'inside';
+      } else if (relY < height * 0.5) {
+        state.dropPosition = 'before';
+      } else {
+        state.dropPosition = 'after';
+      }
+
+      state.dropTarget = target;
+      target.setAttribute('data-drop-position', state.dropPosition);
+    });
+
+    canvasRoot.addEventListener('dragleave', (e) => {
+      if (!canvasRoot.contains(e.relatedTarget)) {
+        clearDropIndicators();
+      }
+    });
+
+    canvasRoot.addEventListener('drop', (e) => {
+      if (state.mode !== 'build') return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      let elementToInsert = null;
+      if (state.draggedPaletteHtml) {
+        const temp = document.createElement('div');
+        temp.innerHTML = state.draggedPaletteHtml.trim();
+        elementToInsert = temp.firstElementChild;
+      } else if (state.draggedCanvasEl) {
+        elementToInsert = state.draggedCanvasEl;
+      }
+
+      if (elementToInsert && state.dropTarget) {
+        if (state.dropTarget === canvasRoot) {
+          canvasRoot.appendChild(elementToInsert);
+        } else if (state.dropPosition === 'inside' && CONTAINER_TAGS.has(state.dropTarget.tagName)) {
+          state.dropTarget.appendChild(elementToInsert);
+        } else if (state.dropPosition === 'before') {
+          state.dropTarget.insertAdjacentElement('beforebegin', elementToInsert);
+        } else {
+          state.dropTarget.insertAdjacentElement('afterend', elementToInsert);
+        }
+
+        clearDropIndicators();
+        saveHistory();
+        selectElement(elementToInsert);
+      }
+
+      state.draggedPaletteHtml = null;
+      state.draggedCanvasEl = null;
+    });
+
+    function clearDropIndicators() {
+      canvasRoot.querySelectorAll('[data-drop-position]').forEach(el => {
+        el.removeAttribute('data-drop-position');
+      });
+    }
+
+    /*************************************************************************
+     * 7. FLOATING TOOLBAR ACTIONS (MOVE UP/DOWN, DUPLICATE, DELETE, PARENT)
+     *************************************************************************/
+    document.getElementById('act-select-parent').addEventListener('click', () => {
+      if (state.selectedEl && state.selectedEl.parentElement && state.selectedEl.parentElement !== canvasRoot) {
+        selectElement(state.selectedEl.parentElement);
+      } else {
+        selectElement(null);
+      }
+    });
+
+    document.getElementById('act-move-up').addEventListener('click', () => {
+      const el = state.selectedEl;
+      if (el && el.previousElementSibling) {
+        el.parentElement.insertBefore(el, el.previousElementSibling);
+        saveHistory();
+        renderDomTree();
+      }
+    });
+
+    document.getElementById('act-move-down').addEventListener('click', () => {
+      const el = state.selectedEl;
+      if (el && el.nextElementSibling) {
+        el.parentElement.insertBefore(el, el.nextElementSibling);
+        saveHistory();
+        renderDomTree();
+      }
+    });
+
+    document.getElementById('act-duplicate').addEventListener('click', () => {
+      const el = state.selectedEl;
+      if (!el) return;
+      const clone = el.cloneNode(true);
+      if (clone.id) clone.id = `${clone.id}-copy`;
+      el.insertAdjacentElement('afterend', clone);
+      saveHistory();
+      selectElement(clone);
+      showToast('Element duplicated');
+    });
+
+    document.getElementById('act-delete').addEventListener('click', deleteSelectedElement);
+
+    function deleteSelectedElement() {
+      const el = state.selectedEl;
+      if (!el) return;
+      el.remove();
+      selectElement(null);
+      saveHistory();
+      showToast('Element removed');
+    }
+
+    // Keyboard shortcuts (Delete, Undo, Redo)
+    window.addEventListener('keydown', (e) => {
+      const activeTag = document.activeElement ? document.activeElement.tagName : '';
+      const isTyping = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT';
+
+      if (!isTyping && state.mode === 'build') {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+          if (state.selectedEl) {
+            e.preventDefault();
+            deleteSelectedElement();
+          }
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          undo();
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+          e.preventDefault();
+          redo();
+        }
+      }
+    });
+
+    /*************************************************************************
+     * 8. RIGHT SIDEBAR INSPECTOR: ATTRIBUTES & TWO-WAY INLINE CSS SYNC
+     *************************************************************************/
+    const inspTagChanger = document.getElementById('insp-tag-changer');
+    const inspInnerText = document.getElementById('insp-inner-text');
+    const inspTextGroup = document.getElementById('insp-text-group');
+    const inspRawStyle = document.getElementById('insp-raw-style');
+
+    function populateInspector(el) {
+      const tag = el.tagName.toLowerCase();
+
+      // Tag Selector
+      if (Array.from(inspTagChanger.options).some(opt => opt.value === tag)) {
+        inspTagChanger.value = tag;
+        inspTagChanger.disabled = false;
+      } else {
+        inspTagChanger.disabled = true;
+      }
+
+      // Inner Text (Show for non-void elements; if container has child elements, edit direct text nodes or leaf content)
+      if (VOID_TAGS.has(el.tagName)) {
+        inspTextGroup.classList.add('hidden');
+      } else {
+        inspTextGroup.classList.remove('hidden');
+        if (el.children.length === 0) {
+          inspInnerText.value = el.textContent;
+          inspInnerText.disabled = false;
+          inspInnerText.placeholder = 'Enter element text...';
+        } else {
+          // Has nested child elements
+          inspInnerText.value = '';
+          inspInnerText.disabled = true;
+          inspInnerText.placeholder = 'Contains nested child elements (select child to edit text)';
+        }
+      }
+
+      // Standard Attributes
+      document.getElementById('attr-id').value = el.getAttribute('id') || '';
+      document.getElementById('attr-title').value = el.getAttribute('title') || '';
+      document.getElementById('attr-class').value = el.getAttribute('class') || '';
+
+      // Contextual Attribute Groups
+      const linkGroup = document.getElementById('attr-group-link');
+      const imgGroup = document.getElementById('attr-group-img');
+      const inputGroup = document.getElementById('attr-group-input');
+
+      linkGroup.classList.toggle('hidden', tag !== 'a');
+      imgGroup.classList.toggle('hidden', tag !== 'img');
+      inputGroup.classList.toggle('hidden', tag !== 'input');
+
+      if (tag === 'a') {
+        document.getElementById('attr-href').value = el.getAttribute('href') || '';
+        document.getElementById('attr-target').value = el.getAttribute('target') || '';
+      }
+      if (tag === 'img') {
+        document.getElementById('attr-src').value = el.getAttribute('src') || '';
+        document.getElementById('attr-alt').value = el.getAttribute('alt') || '';
+      }
+      if (tag === 'input') {
+        document.getElementById('attr-type').value = el.getAttribute('type') || 'text';
+        document.getElementById('attr-name').value = el.getAttribute('name') || '';
+        document.getElementById('attr-placeholder').value = el.getAttribute('placeholder') || '';
+      }
+
+      renderCustomAttributesList(el);
+      syncElementStyleToInspector(el);
+    }
+
+    function renderCustomAttributesList(el) {
+      const list = document.getElementById('custom-attributes-list');
+      list.innerHTML = '';
+      Array.from(el.attributes).forEach(attr => {
+        if (
+          STANDARD_ATTRS.has(attr.name) ||
+          attr.name.startsWith('data-builder-') ||
+          attr.name === 'data-drop-position' ||
+          attr.name === 'draggable'
+        ) {
+          return;
+        }
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-1.5 bg-slate-950 px-2 py-1 rounded border border-slate-800 text-[11px] font-mono';
+        row.innerHTML = `
+          <span class="text-indigo-300 truncate">${attr.name}</span>
+          <span class="text-slate-600">=</span>
+          <span class="text-emerald-300 truncate flex-1">"${attr.value}"</span>
+          <button type="button" class="text-slate-500 hover:text-rose-400 px-1" title="Remove attribute">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        `;
+        row.querySelector('button').addEventListener('click', () => {
+          el.removeAttribute(attr.name);
+          renderCustomAttributesList(el);
+          saveHistory();
+        });
+        list.appendChild(row);
+      });
+    }
+
+    // Add Custom Attribute Handler
+    document.getElementById('btn-add-attr').addEventListener('click', () => {
+      if (!state.selectedEl) return;
+      const nameInput = document.getElementById('new-attr-name');
+      const valInput = document.getElementById('new-attr-val');
+      const attrName = nameInput.value.trim().toLowerCase().replace(/[^a-z0-9-_:.]/g, '');
+      const attrVal = valInput.value;
+
+      if (!attrName) return;
+      state.selectedEl.setAttribute(attrName, attrVal);
+      nameInput.value = '';
+      valInput.value = '';
+      populateInspector(state.selectedEl);
+      saveHistory();
+    });
+
+    // Convert HTML Tag Handler
+    inspTagChanger.addEventListener('change', () => {
+      const el = state.selectedEl;
+      if (!el) return;
+      const newTag = inspTagChanger.value;
+      const replacement = document.createElement(newTag);
+      Array.from(el.attributes).forEach(attr => {
+        replacement.setAttribute(attr.name, attr.value);
+      });
+      replacement.innerHTML = el.innerHTML;
+      el.replaceWith(replacement);
+      saveHistory();
+      selectElement(replacement);
+    });
+
+    // Inner Text Input Handler
+    inspInnerText.addEventListener('input', () => {
+      if (!state.selectedEl || state.selectedEl.children.length > 0) return;
+      state.selectedEl.textContent = inspInnerText.value;
+      saveHistory();
+    });
+
+    // Standard Attribute Listeners
+    const bindAttrInput = (inputId, attrName) => {
+      const input = document.getElementById(inputId);
+      input.addEventListener('input', () => {
+        if (!state.selectedEl) return;
+        const val = input.value;
+        if (val === '') {
+          state.selectedEl.removeAttribute(attrName);
+        } else {
+          state.selectedEl.setAttribute(attrName, val);
+        }
+        if (attrName === 'id') {
+          selectedTagPill.textContent = `${state.selectedEl.tagName}${val ? '#' + val : ''}`;
+          renderBreadcrumbs(state.selectedEl);
+          renderDomTree();
+        }
+        saveHistory();
+      });
+    };
+
+    bindAttrInput('attr-id', 'id');
+    bindAttrInput('attr-title', 'title');
+    bindAttrInput('attr-class', 'class');
+    bindAttrInput('attr-href', 'href');
+    bindAttrInput('attr-target', 'target');
+    bindAttrInput('attr-src', 'src');
+    bindAttrInput('attr-alt', 'alt');
+    bindAttrInput('attr-type', 'type');
+    bindAttrInput('attr-name', 'name');
+    bindAttrInput('attr-placeholder', 'placeholder');
+
+    /*************************************************************************
+     * 9. INLINE CSS TWO-WAY SYNCHRONIZATION
+     *************************************************************************/
+    function rgbToHex(colorStr) {
+      if (!colorStr) return null;
+      const str = colorStr.trim();
+      if (/^#[0-9a-fA-F]{6}$/.test(str)) return str;
+      if (/^#[0-9a-fA-F]{3}$/.test(str)) {
+        return '#' + str[1] + str[1] + str[2] + str[2] + str[3] + str[3];
+      }
+      const match = str.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      if (!match) return null;
+      const r = parseInt(match[1], 10).toString(16).padStart(2, '0');
+      const g = parseInt(match[2], 10).toString(16).padStart(2, '0');
+      const b = parseInt(match[3], 10).toString(16).padStart(2, '0');
+      return `#${r}${g}${b}`;
+    }
+
+    function syncElementStyleToInspector(el) {
+      const rawStyle = el.getAttribute('style') || '';
+      if (document.activeElement !== inspRawStyle) {
+        inspRawStyle.value = rawStyle;
+      }
+
+      // Sync visual inputs
+      document.querySelectorAll('.css-input').forEach(input => {
+        const prop = input.getAttribute('data-css-prop');
+        const val = el.style.getPropertyValue(prop) || '';
+        if (document.activeElement !== input) {
+          input.value = val;
+        }
+      });
+
+      // Sync Color Inputs
+      const textColor = el.style.getPropertyValue('color') || '';
+      const bgColor = el.style.getPropertyValue('background-color') || '';
+      const colorTextInput = document.getElementById('css-color');
+      const bgTextInput = document.getElementById('css-bg');
+
+      if (document.activeElement !== colorTextInput) colorTextInput.value = textColor;
+      if (document.activeElement !== bgTextInput) bgTextInput.value = bgColor;
+
+      const hexText = rgbToHex(textColor);
+      if (hexText) document.getElementById('css-color-picker').value = hexText;
+
+      const hexBg = rgbToHex(bgColor);
+      if (hexBg) document.getElementById('css-bg-picker').value = hexBg;
+
+      // Sync Text Alignment Buttons
+      const currentAlign = el.style.getPropertyValue('text-align') || '';
+      document.querySelectorAll('.align-btn').forEach(btn => {
+        const isMatch = btn.getAttribute('data-align') === currentAlign;
+        btn.classList.toggle('bg-indigo-600', isMatch);
+        btn.classList.toggle('text-white', isMatch);
+        btn.classList.toggle('text-slate-400', !isMatch);
+      });
+    }
+
+    // Raw Inline Style Textarea -> Element & Visual Controls
+    inspRawStyle.addEventListener('input', () => {
+      if (!state.selectedEl) return;
+      state.selectedEl.setAttribute('style', inspRawStyle.value);
+      syncElementStyleToInspector(state.selectedEl);
+      saveHistory();
+    });
+
+    // Reset Inline Styles
+    document.getElementById('btn-clear-styles').addEventListener('click', () => {
+      if (!state.selectedEl) return;
+      state.selectedEl.removeAttribute('style');
+      syncElementStyleToInspector(state.selectedEl);
+      saveHistory();
+    });
+
+    // Visual CSS Inputs -> Element inline style & Raw Style Textarea
+    document.querySelectorAll('.css-input').forEach(input => {
+      const eventType = input.tagName === 'SELECT' ? 'change' : 'input';
+      input.addEventListener(eventType, () => {
+        if (!state.selectedEl) return;
+        const prop = input.getAttribute('data-css-prop');
+        const val = input.value.trim();
+        if (val) {
+          state.selectedEl.style.setProperty(prop, val);
+        } else {
+          state.selectedEl.style.removeProperty(prop);
+        }
+        inspRawStyle.value = state.selectedEl.getAttribute('style') || '';
+        saveHistory();
+      });
+    });
+
+    // Color Pickers & Color Text Inputs
+    const bindColorPair = (pickerId, textId, cssProp) => {
+      const picker = document.getElementById(pickerId);
+      const textInput = document.getElementById(textId);
+
+      picker.addEventListener('input', () => {
+        if (!state.selectedEl) return;
+        state.selectedEl.style.setProperty(cssProp, picker.value);
+        textInput.value = picker.value;
+        inspRawStyle.value = state.selectedEl.getAttribute('style') || '';
+        saveHistory();
+      });
+
+      textInput.addEventListener('input', () => {
+        if (!state.selectedEl) return;
+        const val = textInput.value.trim();
+        if (val) {
+          state.selectedEl.style.setProperty(cssProp, val);
+          const hex = rgbToHex(val);
+          if (hex) picker.value = hex;
+        } else {
+          state.selectedEl.style.removeProperty(cssProp);
+        }
+        inspRawStyle.value = state.selectedEl.getAttribute('style') || '';
+        saveHistory();
+      });
+    };
+
+    bindColorPair('css-color-picker', 'css-color', 'color');
+    bindColorPair('css-bg-picker', 'css-bg', 'background-color');
+
+    // Text Alignment Buttons
+    document.querySelectorAll('.align-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!state.selectedEl) return;
+        const align = btn.getAttribute('data-align');
+        const current = state.selectedEl.style.getPropertyValue('text-align');
+        if (current === align) {
+          state.selectedEl.style.removeProperty('text-align');
+        } else {
+          state.selectedEl.style.setProperty('text-align', align);
+        }
+        syncElementStyleToInspector(state.selectedEl);
+        saveHistory();
+      });
+    });
+
+    /*************************************************************************
+     * 10. THREE MODES SWITCHER: BUILD MODE, CODE MODE, VIEW MODE
+     *************************************************************************/
+    function switchMode(newMode) {
+      // If leaving Code Mode and edits were made in the code editor, apply them automatically
+      if (state.mode === 'code' && newMode !== 'code' && state.isCodeDirty) {
+        applyCodeEditorToCanvas(false);
+      }
+
+      state.mode = newMode;
+
+      // Update Top Mode Switcher Tabs
+      document.querySelectorAll('.mode-tab').forEach(tab => {
+        const isActive = tab.getAttribute('data-mode') === newMode;
+        tab.className = isActive
+          ? 'mode-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all bg-indigo-600 text-white shadow'
+          : 'mode-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-400 hover:text-slate-200';
+      });
+
+      const viewportControls = document.getElementById('viewport-controls');
+
+      if (newMode === 'build') {
+        leftSidebar.classList.remove('hidden');
+        rightSidebar.classList.remove('hidden');
+        canvasWorkspace.classList.remove('hidden');
+        breadcrumbBar.classList.remove('hidden');
+        codeWorkspace.classList.add('hidden');
+        viewModeBanner.classList.add('hidden');
+        browserChrome.classList.remove('hidden');
+        viewportControls.classList.remove(' md:hidden');
+        canvasRoot.classList.add('build-mode-active');
+        if (state.selectedEl && canvasRoot.contains(state.selectedEl)) {
+          selectElement(state.selectedEl);
+        } else {
+          selectElement(null);
+        }
+      } else if (newMode === 'code') {
+        leftSidebar.classList.add('hidden');
+        rightSidebar.classList.add('hidden');
+        canvasWorkspace.classList.add('hidden');
+        breadcrumbBar.classList.add('hidden');
+        selectionToolbar.classList.add('hidden');
+        viewModeBanner.classList.add('hidden');
+        codeWorkspace.classList.remove('hidden');
+        syncCanvasToCodeEditor();
+      } else if (newMode === 'view') {
+        // View Mode: Clean standalone HTML webpage render
+        selectElement(null);
+        leftSidebar.classList.add('hidden');
+        rightSidebar.classList.add('hidden');
+        codeWorkspace.classList.add('hidden');
+        breadcrumbBar.classList.add('hidden');
+        selectionToolbar.classList.add('hidden');
+        canvasWorkspace.classList.remove('hidden');
+        viewModeBanner.classList.remove('hidden');
+        browserChrome.classList.add('hidden');
+        canvasRoot.classList.remove('build-mode-active');
+      }
+    }
+
+    document.querySelectorAll('.mode-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        switchMode(tab.getAttribute('data-mode'));
+      });
+    });
+
+    document.getElementById('btn-exit-view').addEventListener('click', () => {
+      switchMode('build');
+    });
+
+    /*************************************************************************
+     * 11. CODE MODE FUNCTIONS (EDIT, FORMAT, SYNC, COPY)
+     *************************************************************************/
+    function syncCanvasToCodeEditor() {
+      const cleanHtml = getCleanCanvasHTML();
+      codeEditor.value = cleanHtml;
+      state.isCodeDirty = false;
+      updateCodeLineNumbers();
+      setCodeSyncBadge(true);
+    }
+
+    function updateCodeLineNumbers() {
+      const lines = (codeEditor.value.match(/\n/g) || []).length + 1;
+      let nums = '';
+      for (let i = 1; i <= lines; i++) {
+        nums += i + '<br>';
+      }
+      codeLineNumbers.innerHTML = nums;
+      document.getElementById('code-char-count').textContent = `${lines} ${lines === 1 ? 'line' : 'lines'} · ${codeEditor.value.length} chars`;
+    }
+
+    function setCodeSyncBadge(isSynced) {
+      const badge = document.getElementById('code-sync-status');
+      if (isSynced) {
+        badge.className = 'text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+        badge.innerHTML = '<i class="fa-solid fa-check mr-1"></i>Synced with Canvas';
+      } else {
+        badge.className = 'text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20';
+        badge.innerHTML = '<i class="fa-solid fa-pen mr-1"></i>Unsaved Code Edits';
+      }
+    }
+
+    codeEditor.addEventListener('input', () => {
+      state.isCodeDirty = true;
+      updateCodeLineNumbers();
+      setCodeSyncBadge(false);
+    });
+
+    codeEditor.addEventListener('scroll', () => {
+      codeLineNumbers.scrollTop = codeEditor.scrollTop;
+    });
+
+    function applyCodeEditorToCanvas(notify = true) {
+      canvasRoot.innerHTML = codeEditor.value;
+      state.isCodeDirty = false;
+      saveHistory();
+      setCodeSyncBadge(true);
+      if (notify) showToast('Synced HTML & CSS code to Buildboard');
+    }
+
+    document.getElementById('btn-apply-code').addEventListener('click', () => {
+      applyCodeEditorToCanvas(true);
+    });
+
+    document.getElementById('btn-format-code').addEventListener('click', () => {
+      codeEditor.value = formatHTML(codeEditor.value);
+      updateCodeLineNumbers();
+      showToast('Formatted HTML indentation');
+    });
+
+    document.getElementById('btn-copy-code').addEventListener('click', () => {
+      codeEditor.select();
+      document.execCommand('copy');
+      window.getSelection().removeAllRanges();
+      showToast('HTML code copied to clipboard!');
+    });
+
+    /*************************************************************************
+     * 12. LEFT SIDEBAR TABS, VIEWPORT CONTROLS, TEMPLATES & EXPORT
+     *************************************************************************/
+    const leftTabElements = document.getElementById('left-tab-elements');
+    const leftTabLayers = document.getElementById('left-tab-layers');
+    const palettePanel = document.getElementById('palette-panel');
+    const layersPanel = document.getElementById('layers-panel');
+
+    leftTabElements.addEventListener('click', () => {
+      palettePanel.classList.remove('hidden');
+      layersPanel.classList.add('hidden');
+      leftTabElements.className = 'py-1.5 text-xs font-semibold rounded-md bg-slate-800 text-white shadow-sm flex items-center justify-center gap-1.5';
+      leftTabLayers.className = 'py-1.5 text-xs font-semibold rounded-md text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5';
+    });
+
+    leftTabLayers.addEventListener('click', () => {
+      palettePanel.classList.add('hidden');
+      layersPanel.classList.remove('hidden');
+      leftTabLayers.className = 'py-1.5 text-xs font-semibold rounded-md bg-slate-800 text-white shadow-sm flex items-center justify-center gap-1.5';
+      leftTabElements.className = 'py-1.5 text-xs font-semibold rounded-md text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5';
+      renderDomTree();
+    });
+
+    document.getElementById('btn-refresh-tree').addEventListener('click', renderDomTree);
+
+    // Container Guide Outlines Toggle
+    document.getElementById('toggle-guides').addEventListener('change', (e) => {
+      canvasRoot.classList.toggle('show-guides', e.target.checked);
+    });
+
+    // Viewport Width Switcher (Desktop 100%, Tablet 768px, Mobile 375px)
+    document.querySelectorAll('.viewport-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const width = btn.getAttribute('data-viewport');
+        viewportFrame.style.width = width;
+        document.getElementById('viewport-size-indicator').textContent = width;
+        document.querySelectorAll('.viewport-btn').forEach(b => {
+          const active = b === btn;
+          b.className = active
+            ? 'viewport-btn px-2.5 py-1 rounded-md text-xs bg-slate-700 text-white transition'
+            : 'viewport-btn px-2.5 py-1 rounded-md text-xs text-slate-400 hover:text-white transition';
+        });
+      });
+    });
+
+    // Undo / Redo Buttons
+    document.getElementById('btn-undo').addEventListener('click', undo);
+    document.getElementById('btn-redo').addEventListener('click', redo);
+
+    // Custom Confirmation Modal Helper
+    function openConfirmModal(title, message, onConfirm) {
+      const modal = document.getElementById('custom-modal');
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-message').textContent = message;
+      modal.classList.remove('hidden');
+
+      const confirmBtn = document.getElementById('modal-confirm');
+      const cancelBtn = document.getElementById('modal-cancel');
+
+      const cleanup = () => {
+        modal.classList.add('hidden');
+        confirmBtn.onclick = null;
+        cancelBtn.onclick = null;
+      };
+
+      confirmBtn.onclick = () => {
+        cleanup();
+        onConfirm();
+      };
+      cancelBtn.onclick = cleanup;
+    }
+
+    // Load Starter Template
+    document.getElementById('btn-load-template').addEventListener('click', () => {
+      const key = document.getElementById('template-select').value;
+      openConfirmModal(
+        'Load Starter Template',
+        'Replace the current buildboard content with the selected template? (You can still use Undo to revert.)',
+        () => {
+          loadTemplate(key);
+          showToast('Template loaded onto buildboard');
+        }
+      );
+    });
+
+    function loadTemplate(key) {
+      const html = STARTER_TEMPLATES[key] || STARTER_TEMPLATES.blank;
+      canvasRoot.innerHTML = html;
+      selectElement(null);
+      saveHistory();
+      if (state.mode === 'code') syncCanvasToCodeEditor();
+    }
+
+    // Clear Board
+    document.getElementById('btn-clear-board').addEventListener('click', () => {
+      openConfirmModal(
+        'Clear Buildboard',
+        'Are you sure you want to remove all elements from the buildboard?',
+        () => {
+          canvasRoot.innerHTML = '';
+          selectElement(null);
+          saveHistory();
+          if (state.mode === 'code') syncCanvasToCodeEditor();
+          showToast('Buildboard cleared');
+        }
+      );
+    });
+
+    // Export Standalone HTML File
+    document.getElementById('btn-export-html').addEventListener('click', () => {
+      if (state.mode === 'code' && state.isCodeDirty) {
+        applyCodeEditorToCanvas(false);
+      }
+      const bodyMarkup = getCleanCanvasHTML();
+      const fullHtmlDocument = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProtoWeb Export</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #0f172a;
+      background-color: #ffffff;
+    }
+  </style>
+</head>
+<body>
+${bodyMarkup}
+</body>
+</html>`;
+
+      const blob = new Blob([fullHtmlDocument], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'protoweb-export.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('Downloaded standalone protoweb-export.html');
+    });
+
+    // Toast Notification Helper
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'bg-slate-900 border border-indigo-500/40 text-slate-100 text-xs px-3.5 py-2 rounded-xl shadow-xl flex items-center gap-2 transition-all duration-300';
+      toast.innerHTML = `<i class="fa-solid fa-circle-check text-indigo-400"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(6px)';
+        setTimeout(() => toast.remove(), 250);
+      }, 2400);
+    }
+
+    /*************************************************************************
+     * 13. BOOTSTRAP ON LOAD
+     *************************************************************************/
+    window.addEventListener('DOMContentLoaded', () => {
+      renderPalette();
+      loadTemplate('saas');
+    });
+  </script>
+</body>
+</html>
+

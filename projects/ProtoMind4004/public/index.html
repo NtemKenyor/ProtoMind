@@ -306,7 +306,8 @@ document.querySelectorAll('[data-add]').forEach((b) =>
 // ---------- Server link ----------
 let ws, busy = false, monitorOn = false, serialText = '', logText = '', view = 'log';
 function connect() {
-  ws = new WebSocket(`ws://${location.host}`);
+  // Mounted under /protomind by the root server; wss:// when the page is served over https.
+  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/protomind/ws`);
   ws.onopen = () => { $('status').textContent = 'connected'; send({ type: 'listBoards' }); };
   ws.onclose = () => { $('status').textContent = 'disconnected – retrying…'; setTimeout(connect, 1500); };
   ws.onmessage = (ev) => {

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ProtoMind</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- CSS and JS are embedded for fast testing. Later: move <style> to hub.css and <script> to hub.js. -->
+<style>
+  :root { --bg:#f4f6f8; --panel:#fff; --line:#d9dee3; --accent:#1f7ae0; --ink:#1c2630; --muted:#7a8794;
+          --ok:#2a8f3c; --off:#c9cfd6; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px system-ui, sans-serif; color:var(--ink); background:var(--bg); min-height:100vh;
+         display:flex; flex-direction:column; }
+  header { padding:28px 24px 8px; max-width:960px; width:100%; margin:0 auto; }
+  header h1 { margin:0; font-size:26px; letter-spacing:-.02em; }
+  header p { margin:6px 0 0; color:var(--muted); }
+  main { flex:1; max-width:960px; width:100%; margin:0 auto; padding:16px 24px 40px; }
+  #grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); }
+  .card { display:flex; flex-direction:column; gap:10px; padding:18px; background:var(--panel);
+          border:1px solid var(--line); border-radius:10px; text-decoration:none; color:inherit;
+          transition:border-color .15s, box-shadow .15s, transform .15s; }
+  .card:hover, .card:focus-visible { border-color:var(--accent); box-shadow:0 4px 14px rgba(31,122,224,.12);
+          transform:translateY(-2px); outline:0; }
+  .card .top { display:flex; align-items:center; gap:8px; }
+  .card .icon { font-size:22px; }
+  .card h2 { margin:0; font-size:17px; }
+  .card .path { margin-left:auto; font:12px ui-monospace, Menlo, Consolas, monospace; color:var(--muted); }
+  .card p { margin:0; color:#47525e; line-height:1.45; flex:1; }
+  .card .foot { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--off); }
+  .dot.on { background:var(--ok); }
+  .tag { margin-left:auto; padding:2px 8px; border:1px solid var(--line); border-radius:99px; }
+  footer { padding:14px 24px; text-align:center; color:var(--muted); font-size:12px; border-top:1px solid var(--line); background:var(--panel); }
+  kbd { font:11px ui-monospace, Menlo, Consolas, monospace; padding:1px 5px; border:1px solid var(--line); border-radius:4px; background:var(--bg); }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ ProtoMind</h1>
+  <p>Pick a project. Everything runs from this one local server.</p>
+</header>
+<main>
+  <div id="grid"></div>
+</main>
+<footer>Press <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> to open a project</footer>
+
+<script>
+// Add or reorder projects here. `check` is the URL pinged to show the green/grey status dot.
+const PROJECTS = [
+  { name: 'ProtoMind4004', icon: '🔌', href: '/protomind', check: '/protomind/health',
+    desc: 'Schematic canvas + code editor. Install the toolchain, then upload sketches to a real Arduino.', tag: 'Ready' },
+  { name: 'ProtoWeb', icon: '🌐', href: '/protoweb', check: '/protoweb',
+    desc: 'Visual drag-and-drop HTML & inline CSS website builder with Code and View modes.', tag: 'Ready' },
+  { name: 'ProtoGame', icon: '🎮', href: '/protogame/', check: '/protogame/',
+    desc: 'Placeholder page. Not built yet.', tag: 'Stub' },
+];
+
+const grid = document.getElementById('grid');
+
+PROJECTS.forEach((p, i) => {
+  const a = document.createElement('a');
+  a.className = 'card';
+  a.href = p.href;
+  a.innerHTML =
+    '<div class="top"><span class="icon"></span><h2></h2><span class="path"></span></div>' +
+    '<p></p>' +
+    '<div class="foot"><span class="dot"></span><span class="state">checking…</span><span class="tag"></span></div>';
+  a.querySelector('.icon').textContent = p.icon;
+  a.querySelector('h2').textContent = p.name;
+  a.querySelector('.path').textContent = p.href.replace(/\/$/, '');
+  a.querySelector('p').textContent = p.desc;
+  a.querySelector('.tag').textContent = p.tag;
+  grid.appendChild(a);
+
+  fetch(p.check, { cache: 'no-store' })
+    .then((r) => setState(a, r.ok))
+    .catch(() => setState(a, false));
+});
+
+function setState(card, up) {
+  card.querySelector('.dot').classList.toggle('on', up);
+  card.querySelector('.state').textContent = up ? 'online' : 'unreachable';
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const p = PROJECTS[Number(e.key) - 1];
+  if (p) location.href = p.href;
+});
+</script>
+</body>
+</html>

@@ -1,7 +1,10 @@
 // ProtoMind4004 - local engine between the web UI and arduino-cli.
-// Web UI  <--WebSocket-->  this server  <--spawn-->  arduino-cli  <--USB-->  board
+// Web UI  <--WebSocket-->  this module  <--spawn-->  arduino-cli  <--USB-->  board
+//
+// This module does NOT call listen(). The root server.js mounts it:
+//   app.use('/protomind', protomind.router)          -> HTTP (UI + /health)
+//   server.on('upgrade', ... protomind.handleUpgrade) -> WebSocket at /protomind/ws
 const express = require('express');
-const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -9,14 +12,18 @@ const { spawn } = require('child_process');
 const { WebSocketServer } = require('ws');
 const toolchain = require('./toolchain');
 
-const PORT = process.env.PORT || 3000;
+const WS_PATH = '/protomind/ws'; // full public path; the client connects here
 
-const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
-app.get('/health', (_req, res) => res.json({ ok: true, app: 'ProtoMind4004' }));
+const router = express.Router();
+router.use(express.static(path.join(__dirname, 'public')));
+router.get('/health', (_req, res) => res.json({ ok: true, app: 'ProtoMind4004' }));
 
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+// noServer: the root server owns the HTTP server and routes upgrades by path,
+// so several WebSocket endpoints can coexist later (ProtoWeb, ProtoGame...).
+const wss = new WebSocketServer({ noServer: true });
+function handleUpgrade(req, socket, head) {
+  wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+}
 const broadcast = (obj) => wss.clients.forEach((c) => c.readyState === 1 && c.send(JSON.stringify(obj)));
 
 async function runCli(args, onData) {
@@ -135,7 +142,4 @@ wss.on('connection', (ws) => {
   ws.on('close', stopMonitor);
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`ProtoMind4004 running at http://localhost:${PORT}`);
-  console.log(`Toolchain folder: ${toolchain.appHome()}`);
-});
+module.exports = { router, handleUpgrade, WS_PATH, toolchain };

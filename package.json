@@ -1,7 +1,7 @@
 {
-  "name": "protomind4004",
-  "version": "0.2.0",
-  "description": "ProtoMind4004 - beginner-friendly circuit + Arduino programming engine",
+  "name": "protomind",
+  "version": "0.3.0",
+  "description": "ProtoMind - hub for ProtoMind4004 (circuit + Arduino), ProtoWeb and ProtoGame",
   "main": "server.js",
   "engines": { "node": ">=18" },
   "scripts": {
