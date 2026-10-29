@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ProtoMind4004</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#f4f6f8; --panel:#fff; --line:#d9dee3; --accent:#1f7ae0; --ink:#1c2630; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px system-ui, sans-serif; color:var(--ink); background:var(--bg);
+         height:100vh; display:flex; flex-direction:column; }
+  header { display:flex; gap:8px; align-items:center; padding:8px 12px; background:var(--panel);
+           border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0 12px 0 0; }
+  button, select { font:inherit; padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  .sep { width:1px; height:22px; background:var(--line); margin:0 4px; }
+  #status { margin-left:auto; font-size:12px; color:#7a8794; }
+  #setupBar { display:flex; align-items:center; gap:12px; padding:8px 12px; background:#fff4d6; border-bottom:1px solid #e8d28a; }
+  #setupBar[hidden] { display:none; }
+  #setupBar.ok { background:#e3f6e8; border-color:#a9d9b6; }
+  main { flex:1; display:flex; min-height:0; }
+  #left { flex:1.2; display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--line); }
+  #palette { padding:6px 10px; display:flex; gap:6px; align-items:center; background:var(--panel); border-bottom:1px solid var(--line); }
+  #palette span { color:#7a8794; font-size:12px; margin-right:4px; }
+  #canvasWrap { flex:1; min-height:0; }
+  svg#canvas { width:100%; height:100%; display:block;
+    background-image: radial-gradient(#cfd6dd 1px, transparent 1px); background-size:20px 20px; }
+  #right { flex:1; display:flex; flex-direction:column; min-width:0; background:#1e1e24; }
+  #code { flex:1; width:100%; resize:none; border:0; outline:0; padding:12px; background:#1e1e24; color:#e6e6e6;
+          font:13px/1.5 ui-monospace, Menlo, Consolas, monospace; tab-size:2; }
+  #tabs { display:flex; background:#2a2a32; }
+  #tabs button { border:0; border-radius:0; background:transparent; color:#aab; padding:6px 14px; }
+  #tabs button.active { color:#fff; border-bottom:2px solid var(--accent); }
+  #consoleBox { height:30%; display:flex; flex-direction:column; border-top:1px solid #000; }
+  pre#out { flex:1; margin:0; padding:8px 12px; overflow:auto; color:#b8e0b8; font:12px/1.4 ui-monospace, Menlo, Consolas, monospace; white-space:pre-wrap; }
+  .comp .body { cursor:grab; }
+  .pin { fill:#fff; stroke:#444; stroke-width:1.5; cursor:crosshair; }
+  .pin:hover { fill:#ffd24d; }
+  .pin.sel { fill:#ff7a00; }
+  .wire { stroke:#2a8f3c; stroke-width:3; fill:none; stroke-linecap:round; cursor:pointer; }
+  .wire:hover, .wire.sel { stroke:#e03131; }
+  .comp.sel .body { stroke:#e03131; stroke-width:2; }
+  text { user-select:none; pointer-events:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ ProtoMind <small style="font-weight:400;color:#7a8794">4004</small></h1>
+  <button id="btnRefresh">Detect boards</button>
+  <select id="boardSel"><option value="">— no board detected —</option></select>
+  <select id="fqbnSel" title="Board type">
+    <option value="arduino:avr:uno">Arduino Uno</option>
+    <option value="arduino:avr:nano">Arduino Nano</option>
+    <option value="arduino:avr:mega">Arduino Mega</option>
+  </select>
+  <button id="btnUpload" class="primary">▶ Upload</button>
+  <div class="sep"></div>
+  <button id="btnMonitor">Serial monitor</button>
+  <span id="status">connecting…</span>
+</header>
+<div id="setupBar" hidden>
+  <span id="setupMsg"></span>
+  <button id="btnInstall" class="primary">Install now</button>
+</div>
+<main>
+  <section id="left">
+    <div id="palette">
+      <span>Add:</span>
+      <button data-add="uno">Arduino Uno</button>
+      <button data-add="led">LED</button>
+      <button data-add="res">Resistor</button>
+      <button data-add="btn">Button</button>
+      <span style="margin-left:auto">Click pin → pin to wire · Del removes selection</span>
+    </div>
+    <div id="canvasWrap"><svg id="canvas"></svg></div>
+  </section>
+  <section id="right">
+    <textarea id="code" spellcheck="false"></textarea>
+    <div id="consoleBox">
+      <div id="tabs"><button id="tabLog" class="active">Output</button><button id="tabSerial">Serial</button></div>
+      <pre id="out"></pre>
+    </div>
+  </section>
+</main>
+
+<script>
+// ---------- Starter sketch ----------
+const DEFAULT_CODE = `// ProtoMind4004 - first test sketch
+// Blinks the on-board LED (pin 13) and prints to the serial monitor.
+
+void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  digitalWrite(LED_BUILTIN, HIGH);
+  Serial.println("LED on");
+  delay(500);
+  digitalWrite(LED_BUILTIN, LOW);
+  Serial.println("LED off");
+  delay(500);
+}
+`;
+const $ = (id) => document.getElementById(id);
+$('code').value = localStorage.getItem('protomind.code') || DEFAULT_CODE;
+$('code').addEventListener('input', () => localStorage.setItem('protomind.code', $('code').value));
+$('code').addEventListener('keydown', (e) => {           // Tab inserts two spaces
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const t = e.target, s = t.selectionStart;
+    t.value = t.value.slice(0, s) + '  ' + t.value.slice(t.selectionEnd);
+    t.selectionStart = t.selectionEnd = s + 2;
+  }
+});
+
+// ---------- Component library ----------
+const NS = 'http://www.w3.org/2000/svg';
+const el = (name, attrs = {}, parent) => {
+  const n = document.createElementNS(NS, name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  parent && parent.appendChild(n);
+  return n;
+};
+
+const DEFS = {
+  uno: {
+    w: 240, h: 130, name: 'Arduino UNO',
+    pins: [
+      ...[13,12,11,10,9,8,7,6,5,4,3,2].map((n, i) => ({ id: 'D' + n, x: 22 + i * 17, y: 0, label: n })),
+      ...['5V','GND','A0','A1','A2','A3'].map((n, i) => ({ id: n, x: 40 + i * 28, y: 130, label: n })),
+    ],
+    draw(g) {
+      el('rect', { class: 'body', width: 240, height: 130, rx: 8, fill: '#00979d', stroke: '#006d72', 'stroke-width': 2 }, g);
+      el('rect', { x: 8, y: 50, width: 40, height: 40, fill: '#bbb', stroke: '#888' }, g);
+      el('text', { x: 120, y: 70, 'text-anchor': 'middle', fill: '#fff', 'font-size': 20, 'font-weight': 700 }, g).textContent = 'UNO';
+      el('text', { x: 120, y: 92, 'text-anchor': 'middle', fill: '#cff', 'font-size': 11 }, g).textContent = 'ARDUINO';
+    },
+  },
+  led: {
+    w: 36, h: 60, name: 'LED',
+    pins: [{ id: 'anode', x: 9, y: 60, label: '+' }, { id: 'cathode', x: 27, y: 60, label: '−' }],
+    draw(g) {
+      el('rect', { class: 'body', width: 36, height: 60, rx: 8, fill: 'transparent', stroke: 'transparent' }, g);
+      el('circle', { cx: 18, cy: 20, r: 16, fill: '#ff5a5a', stroke: '#a11', 'stroke-width': 2 }, g);
+      el('line', { x1: 9, y1: 36, x2: 9, y2: 60, stroke: '#666', 'stroke-width': 2 }, g);
+      el('line', { x1: 27, y1: 36, x2: 27, y2: 60, stroke: '#666', 'stroke-width': 2 }, g);
+    },
+  },
+  res: {
+    w: 80, h: 24, name: 'Resistor 220Ω',
+    pins: [{ id: 'a', x: 0, y: 12, label: '' }, { id: 'b', x: 80, y: 12, label: '' }],
+    draw(g) {
+      el('line', { x1: 0, y1: 12, x2: 80, y2: 12, stroke: '#666', 'stroke-width': 2 }, g);
+      el('rect', { class: 'body', x: 14, y: 2, width: 52, height: 20, rx: 4, fill: '#e8c98a', stroke: '#8a6d2b', 'stroke-width': 1.5 }, g);
+      [24, 34, 44].forEach((x, i) => el('rect', { x, y: 2, width: 4, height: 20, fill: ['#c00','#c00','#6b3'][i] }, g));
+    },
+  },
+  btn: {
+    w: 56, h: 44, name: 'Button',
+    pins: [{ id: 'a', x: 0, y: 22, label: '' }, { id: 'b', x: 56, y: 22, label: '' }],
+    draw(g) {
+      el('line', { x1: 0, y1: 22, x2: 56, y2: 22, stroke: '#666', 'stroke-width': 2 }, g);
+      el('rect', { class: 'body', x: 10, y: 4, width: 36, height: 36, rx: 6, fill: '#444', stroke: '#111', 'stroke-width': 1.5 }, g);
+      el('circle', { cx: 28, cy: 22, r: 11, fill: '#ccc', stroke: '#888' }, g);
+    },
+  },
+};
+
+// ---------- Canvas state ----------
+const svg = $('canvas');
+const wireLayer = el('g', {}, svg);
+const compLayer = el('g', {}, svg);
+let comps = [];          // {uid, type, x, y, g}
+let wires = [];          // {from:{uid,pin}, to:{uid,pin}, path}
+let pendingPin = null;   // {uid, pin, node}
+let selected = null;     // {kind:'comp'|'wire', ref}
+let uidCounter = 1;
+
+function pinPos(uid, pinId) {
+  const c = comps.find((c) => c.uid === uid);
+  const p = DEFS[c.type].pins.find((p) => p.id === pinId);
+  return { x: c.x + p.x, y: c.y + p.y };
+}
+
+function redrawWires() {
+  for (const w of wires) {
+    const a = pinPos(w.from.uid, w.from.pin), b = pinPos(w.to.uid, w.to.pin);
+    const dy = Math.max(30, Math.abs(b.y - a.y) / 2);
+    w.path.setAttribute('d', `M${a.x},${a.y} C${a.x},${a.y + dy} ${b.x},${b.y + dy} ${b.x},${b.y}`);
+  }
+}
+
+function select(sel) {
+  document.querySelectorAll('.sel').forEach((n) => n.classList.remove('sel'));
+  selected = sel;
+  if (sel) (sel.kind === 'comp' ? sel.ref.g : sel.ref.path).classList.add('sel');
+}
+
+function svgPoint(evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function addComponent(type, x, y) {
+  const def = DEFS[type];
+  const comp = { uid: uidCounter++, type, x, y };
+  const g = el('g', { class: 'comp' }, compLayer);
+  comp.g = g;
+  def.draw(g);
+  for (const p of def.pins) {
+    const c = el('circle', { class: 'pin', cx: p.x, cy: p.y, r: 5 }, g);
+    c.addEventListener('pointerdown', (e) => { e.stopPropagation(); onPinClick(comp, p, c); });
+    if (p.label !== '') {
+      const below = p.y > 0 ? 1 : -1;
+      el('text', { x: p.x, y: p.y + (below > 0 ? 18 : -9), 'text-anchor': 'middle', 'font-size': 9, fill: type === 'uno' ? '#055' : '#333' }, g).textContent = p.label;
+    }
+  }
+  const place = () => g.setAttribute('transform', `translate(${comp.x},${comp.y})`);
+  place();
+  // drag by body
+  g.querySelector('.body').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    select({ kind: 'comp', ref: comp });
+    const start = svgPoint(e), ox = comp.x, oy = comp.y;
+    const move = (ev) => {
+      const p = svgPoint(ev);
+      comp.x = Math.round((ox + p.x - start.x) / 10) * 10;
+      comp.y = Math.round((oy + p.y - start.y) / 10) * 10;
+      place(); redrawWires();
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  });
+  comps.push(comp);
+  select({ kind: 'comp', ref: comp });
+  return comp;
+}
+
+function onPinClick(comp, pin, node) {
+  if (!pendingPin) {
+    pendingPin = { uid: comp.uid, pin: pin.id, node };
+    node.classList.add('sel');
+    return;
+  }
+  const same = pendingPin.uid === comp.uid && pendingPin.pin === pin.id;
+  pendingPin.node.classList.remove('sel');
+  if (!same) {
+    const path = el('path', { class: 'wire' }, wireLayer);
+    const wire = { from: { uid: pendingPin.uid, pin: pendingPin.pin }, to: { uid: comp.uid, pin: pin.id }, path };
+    path.addEventListener('pointerdown', (e) => { e.stopPropagation(); select({ kind: 'wire', ref: wire }); });
+    wires.push(wire);
+    redrawWires();
+  }
+  pendingPin = null;
+}
+
+function deleteSelected() {
+  if (!selected) return;
+  if (selected.kind === 'wire') {
+    selected.ref.path.remove();
+    wires = wires.filter((w) => w !== selected.ref);
+  } else {
+    const c = selected.ref;
+    wires = wires.filter((w) => {
+      const hit = w.from.uid === c.uid || w.to.uid === c.uid;
+      if (hit) w.path.remove();
+      return !hit;
+    });
+    c.g.remove();
+    comps = comps.filter((x) => x !== c);
+  }
+  selected = null;
+}
+
+svg.addEventListener('pointerdown', () => {
+  select(null);
+  if (pendingPin) { pendingPin.node.classList.remove('sel'); pendingPin = null; }
+});
+window.addEventListener('keydown', (e) => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && document.activeElement !== $('code')) deleteSelected();
+});
+document.querySelectorAll('[data-add]').forEach((b) =>
+  b.addEventListener('click', () => {
+    const n = comps.length;
+    addComponent(b.dataset.add, b.dataset.add === 'uno' ? 60 : 340 + n * 10, b.dataset.add === 'uno' ? 160 : 120 + n * 10);
+  }));
+
+// Starter circuit: Uno + resistor + LED, wired D13 -> R -> LED -> GND
+(function seed() {
+  const uno = addComponent('uno', 60, 180);
+  const r = addComponent('res', 360, 120);
+  const led = addComponent('led', 420, 250);
+  const mk = (a, ap, b, bp) => onPinClick(a, DEFS[a.type].pins.find((p) => p.id === ap), a.g.querySelectorAll('.pin')[DEFS[a.type].pins.findIndex((p) => p.id === ap)]) ||
+                               onPinClick(b, DEFS[b.type].pins.find((p) => p.id === bp), b.g.querySelectorAll('.pin')[DEFS[b.type].pins.findIndex((p) => p.id === bp)]);
+  mk(uno, 'D13', r, 'a');
+  mk(r, 'b', led, 'anode');
+  mk(led, 'cathode', uno, 'GND');
+  select(null);
+})();
+
+// ---------- Server link ----------
+let ws, busy = false, monitorOn = false, serialText = '', logText = '', view = 'log';
+function connect() {
+  ws = new WebSocket(`ws://${location.host}`);
+  ws.onopen = () => { $('status').textContent = 'connected'; send({ type: 'listBoards' }); };
+  ws.onclose = () => { $('status').textContent = 'disconnected – retrying…'; setTimeout(connect, 1500); };
+  ws.onmessage = (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'boards') renderBoards(m.boards);
+    if (m.type === 'refreshBoards') send({ type: 'listBoards' });
+    if (m.type === 'setup') renderSetup(m);
+    if (m.type === 'log') { logText += m.text; refreshOut(); }
+    if (m.type === 'serial') { serialText += m.text; if (serialText.length > 20000) serialText = serialText.slice(-20000); refreshOut(); }
+    if (m.type === 'busy') { busy = m.busy; $('btnUpload').disabled = busy; $('btnUpload').textContent = busy ? 'Working…' : '▶ Upload'; }
+    if (m.type === 'monitorState') { monitorOn = m.running; $('btnMonitor').textContent = monitorOn ? 'Stop monitor' : 'Serial monitor'; }
+  };
+}
+const send = (o) => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+
+// ---------- Toolchain setup banner ----------
+let setupReady = false;
+function renderSetup({ status, installing }) {
+  const bar = $('setupBar'), msg = $('setupMsg'), btn = $('btnInstall');
+  if (installing) {
+    bar.hidden = false; bar.classList.remove('ok');
+    msg.textContent = 'Installing the Arduino toolchain… progress is in the Output panel.';
+    btn.disabled = true; btn.textContent = 'Installing…';
+    setView('log');
+    return;
+  }
+  if (!status) return;
+  setupReady = status.ready;
+  btn.disabled = false; btn.textContent = status.cliInstalled ? 'Install board support' : 'Install now';
+  if (status.ready) {
+    bar.hidden = false; bar.classList.add('ok');
+    msg.textContent = `Toolchain ready (arduino-cli ${status.version || ''} · ${status.platform}).`;
+    btn.hidden = true;
+    setTimeout(() => { if (setupReady) bar.hidden = true; }, 4000);
+  } else {
+    bar.hidden = false; bar.classList.remove('ok'); btn.hidden = !status.supported;
+    msg.textContent = !status.supported
+      ? `Your platform (${status.platform}) isn't supported for auto-install yet.`
+      : status.cliInstalled
+        ? 'Board support (Arduino AVR) is missing. One click installs it.'
+        : 'First run: ProtoMind needs the Arduino toolchain (~100 MB, no admin rights needed).';
+  }
+}
+$('btnInstall').onclick = () => { logText = ''; send({ type: 'setupInstall' }); };
+function refreshOut() {
+  const o = $('out');
+  o.textContent = view === 'log' ? logText : serialText;
+  o.scrollTop = o.scrollHeight;
+}
+function setView(v) {
+  view = v;
+  $('tabLog').classList.toggle('active', v === 'log');
+  $('tabSerial').classList.toggle('active', v === 'serial');
+  refreshOut();
+}
+$('tabLog').onclick = () => setView('log');
+$('tabSerial').onclick = () => setView('serial');
+
+let detected = [];
+function renderBoards(boards) {
+  detected = boards;
+  const sel = $('boardSel');
+  sel.innerHTML = '';
+  if (!boards.length) sel.innerHTML = '<option value="">— no board detected —</option>';
+  boards.forEach((b, i) => {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = `${b.address}${b.boardName ? ' · ' + b.boardName : ''}`;
+    sel.appendChild(o);
+  });
+  onBoardChange();
+}
+function onBoardChange() {
+  const b = detected[$('boardSel').value];
+  if (b && b.fqbn) {
+    const f = $('fqbnSel');
+    if (![...f.options].some((o) => o.value === b.fqbn)) f.add(new Option(b.boardName || b.fqbn, b.fqbn));
+    f.value = b.fqbn;
+  }
+}
+$('boardSel').onchange = onBoardChange;
+$('btnRefresh').onclick = () => send({ type: 'listBoards' });
+$('btnUpload').onclick = () => {
+  const b = detected[$('boardSel').value];
+  if (!b) { logText += 'No board selected. Plug in an Arduino and click "Detect boards".\n'; setView('log'); return; }
+  logText = ''; setView('log');
+  send({ type: 'upload', code: $('code').value, fqbn: $('fqbnSel').value, port: b.address });
+};
+$('btnMonitor').onclick = () => {
+  if (monitorOn) return send({ type: 'monitorStop' });
+  const b = detected[$('boardSel').value];
+  if (!b) return;
+  serialText = ''; setView('serial');
+  send({ type: 'monitorStart', port: b.address, baud: 9600 });
+};
+connect();
+</script>
+</body>
+</html>
