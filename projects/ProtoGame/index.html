@@ -2,23 +2,2644 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>ProtoGame</title>
+<title>ProtoGame Studio — Story-Driven 2D Platformer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  body { margin:0; min-height:100vh; display:grid; place-items:center; font:14px system-ui, sans-serif;
-         color:#1c2630; background:#f4f6f8; }
-  .box { text-align:center; padding:32px; }
-  h1 { margin:0 0 8px; }
-  p { margin:0 0 20px; color:#7a8794; }
-  a { color:#1f7ae0; text-decoration:none; }
-  a:hover { text-decoration:underline; }
+  :root {
+    --bg-dark: #0b0f19;
+    --panel-bg: #111827;
+    --panel-light: #1f2937;
+    --border: #374151;
+    --border-subtle: #1f2937;
+    --accent: #6366f1;
+    --accent-hover: #4f46e5;
+    --accent-glow: rgba(99, 102, 241, 0.25);
+    --gold: #f59e0b;
+    --green: #10b981;
+    --red: #ef4444;
+    --cyan: #06b6d4;
+    --text: #f3f4f6;
+    --text-muted: #9ca3af;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg-dark);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── Header ────────────────────────────────────────────────────────────── */
+  header {
+    height: 54px;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 14px;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  header a.hub-link {
+    text-decoration: none;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  header a.hub-link:hover { color: #fff; background: var(--panel-light); border-color: var(--accent); }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+  .brand span.badge {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: rgba(99, 102, 241, 0.15);
+    color: #a5b4fc;
+    padding: 2px 7px;
+    border-radius: 99px;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+  }
+  .preset-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  select.preset-select {
+    background: var(--panel-light);
+    color: #e5e7eb;
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+  }
+  select.preset-select:focus { border-color: var(--accent); }
+
+  /* Mode tabs */
+  .mode-tabs {
+    display: flex;
+    gap: 4px;
+    background: rgba(0,0,0,0.3);
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin-left: auto;
+  }
+  .mode-tab {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mode-tab:hover { color: #fff; }
+  .mode-tab.active {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 8px var(--accent-glow);
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-quick-play {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all .15s;
+  }
+  .btn-quick-play:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(16,185,129,0.3); }
+  .save-status {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .save-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+  }
+
+  /* ── Main Layout ────────────────────────────────────────────────────────── */
+  main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ── MODE 1: Story & Level Builder ───────────────────────────────────────── */
+  #modeBuilder {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+  .builder-col-left {
+    width: 320px;
+    background: var(--panel-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .section-box {
+    padding: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #a5b4fc;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  textarea.story-prompt {
+    width: 100%;
+    height: 90px;
+    background: #090d16;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    color: #e5e7eb;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    resize: none;
+    outline: none;
+    transition: border-color .15s;
+  }
+  textarea.story-prompt:focus { border-color: var(--accent); }
+  .quick-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 8px 0;
+  }
+  .chip {
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    color: #c7d2fe;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 99px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .chip:hover { background: rgba(99, 102, 241, 0.25); color: #fff; }
+  .btn-generate {
+    width: 100%;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+    border: none;
+    padding: 9px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all .15s;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  }
+  .btn-generate:hover { transform: translateY(-1px); filter: brightness(1.1); }
+  .btn-generate:disabled { opacity: 0.6; cursor: wait; }
+  .ai-status-msg {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #6ee7b7;
+    font-size: 11px;
+    line-height: 1.4;
+    display: none;
+  }
+
+  /* Palette */
+  .palette-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+  .palette-item {
+    background: var(--panel-light);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #d1d5db;
+    cursor: pointer;
+    transition: all .15s;
+    text-align: left;
+  }
+  .palette-item:hover { background: #283548; color: #fff; border-color: #4b5563; }
+  .palette-item.active {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: var(--accent);
+    color: #a5b4fc;
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .palette-icon { font-size: 16px; }
+
+  .palette-hint {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  /* Center: Level Editor Canvas */
+  .builder-col-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #060911;
+    overflow: hidden;
+  }
+  .canvas-topbar {
+    height: 38px;
+    background: var(--panel-bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 12px;
+    font-size: 12px;
+  }
+  .topbar-tool {
+    background: var(--panel-light);
+    border: 1px solid var(--border);
+    color: #d1d5db;
+    padding: 4px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .topbar-tool:hover { background: #374151; color: #fff; }
+  .canvas-stats {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .canvas-scroll-container {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    padding: 24px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+  }
+  #editorCanvas {
+    background: #0f172a;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: crosshair;
+  }
+
+  /* Right: Inspector */
+  .builder-col-right {
+    width: 280px;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .prop-group {
+    margin-bottom: 12px;
+  }
+  .prop-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .prop-input {
+    width: 100%;
+    background: var(--panel-light);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    color: #e5e7eb;
+    font-size: 12px;
+    outline: none;
+    font-family: inherit;
+  }
+  .prop-input:focus { border-color: var(--accent); }
+  .prop-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .btn-delete-entity {
+    width: 100%;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #f87171;
+    padding: 7px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    margin-top: 8px;
+  }
+  .btn-delete-entity:hover { background: var(--red); color: #fff; }
+
+  /* ── MODE 2: Play Game ───────────────────────────────────────────────────── */
+  #modePlay {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    background: #000;
+    position: relative;
+    overflow: hidden;
+  }
+  #gameCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: #0b0f19;
+  }
+  .game-hud {
+    position: absolute;
+    top: 14px;
+    left: 16px;
+    right: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .hud-stats {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 8px 16px;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .hud-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .hud-hearts { color: #f43f5e; letter-spacing: 2px; }
+  .hud-coins { color: #fbbf24; }
+  .hud-objective {
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #c7d2fe;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 450px;
+    text-align: center;
+  }
+  .hud-controls-tip {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 6px 14px;
+    border-radius: 99px;
+    font-size: 11px;
+    color: var(--text-muted);
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .hud-controls-tip kbd {
+    background: #1e293b;
+    border: 1px solid #475569;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    color: #e2e8f0;
+  }
+
+  /* Dialogue Modal */
+  .dialogue-modal {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 580px;
+    max-width: 90vw;
+    background: rgba(17, 24, 39, 0.95);
+    backdrop-filter: blur(12px);
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    padding: 18px 22px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6), 0 0 20px var(--accent-glow);
+    display: none;
+    z-index: 20;
+    animation: slideUp .2s ease;
+  }
+  @keyframes slideUp { from { transform: translate(-50%, 15px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+  .dialogue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .dialogue-speaker {
+    font-weight: 800;
+    font-size: 14px;
+    color: #a5b4fc;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dialogue-text {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #f3f4f6;
+    min-height: 48px;
+  }
+  .dialogue-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .btn-dialogue-next {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* Victory / Game Over Overlay */
+  .game-banner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(15, 23, 42, 0.96);
+    backdrop-filter: blur(16px);
+    border: 2px solid var(--accent);
+    border-radius: 20px;
+    padding: 32px 40px;
+    text-align: center;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 30px var(--accent-glow);
+    display: none;
+    z-index: 30;
+    max-width: 480px;
+    width: 90vw;
+  }
+  .game-banner h2 { font-size: 28px; margin-bottom: 10px; }
+  .game-banner p { font-size: 14px; color: var(--text-muted); line-height: 1.5; margin-bottom: 20px; }
+  .game-banner .banner-stats {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .game-banner .btn-banner-action {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    margin: 0 6px;
+  }
+
+  /* ── MODE 3: Game Data & Export ──────────────────────────────────────────── */
+  #modeData {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    padding: 20px;
+    background: #090d16;
+    overflow-y: auto;
+    max-width: 1000px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .data-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .data-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .btn-data {
+    background: var(--panel-light);
+    border: 1px solid var(--border);
+    color: #e5e7eb;
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all .15s;
+  }
+  .btn-data:hover { background: #374151; }
+  .btn-data.primary {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn-data.export-btn {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-color: #059669;
+    color: #fff;
+  }
+  textarea.json-editor {
+    flex: 1;
+    min-height: 480px;
+    background: #050811;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    color: #38bdf8;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    outline: none;
+    resize: vertical;
+  }
+  textarea.json-editor:focus { border-color: var(--accent); }
+
+  /* Toast Notification */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1f2937;
+    border: 1px solid var(--accent);
+    color: #fff;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    display: none;
+    z-index: 100;
+  }
 </style>
 </head>
 <body>
-  <div class="box">
-    <h1>🎮 ProtoGame</h1>
-    <p>Placeholder. Served at <code>/protogame</code>.</p>
-    <a href="/">← Back to hub</a>
+
+<header>
+  <a href="/" class="hub-link" title="Back to Hub">← Hub</a>
+  <div class="brand">
+    <span>🎮 ProtoGame Studio</span>
+    <span class="badge">2D Platformer</span>
   </div>
+
+  <div class="preset-wrapper">
+    <span>Preset:</span>
+    <select id="presetSelect" class="preset-select">
+      <option value="cyber">Cyber Ninja Escape</option>
+      <option value="forest">Forest Spirit Quest</option>
+      <option value="space">Space Station Repair</option>
+    </select>
+  </div>
+
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tabBuilder">📖 Story & Level Builder</button>
+    <button class="mode-tab" id="tabPlay">▶️ Play Game</button>
+    <button class="mode-tab" id="tabData">💻 Game Data & Export</button>
+  </div>
+
+  <div class="header-actions">
+    <button class="btn-quick-play" id="btnQuickPlay">⚡ Play Test [Space]</button>
+    <div class="save-status">
+      <div class="save-dot"></div>
+      <span id="saveText">Auto-saved</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <!-- MODE 1: STORY & LEVEL BUILDER                                           -->
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <section id="modeBuilder">
+    <!-- Left Column: Story Co-Pilot & Palette -->
+    <div class="builder-col-left">
+      <!-- Story & AI Co-Pilot -->
+      <div class="section-box">
+        <div class="section-title">
+          <span>✨</span>
+          <span>Story-to-Game AI Co-Pilot</span>
+        </div>
+        <textarea id="storyPrompt" class="story-prompt" placeholder="Describe your game story, theme, or flow adjustment... (e.g., A brave robot jumping across lava platforms in a neon factory to talk to the Elder Core and collect 5 energy cells)"></textarea>
+        
+        <div class="quick-chips">
+          <span class="chip" data-prompt="Cyber Ninja Escape: rogue ninja escaping neon fortress, laser grids, fast speed">Cyber Ninja</span>
+          <span class="chip" data-prompt="Forest Spirit Quest: collect life crystals, talk to Elder Oak, lush nature">Forest Spirit</span>
+          <span class="chip" data-prompt="Space Station Repair: floating in zero-G, fix generators, low moon gravity">Space Station</span>
+          <span class="chip" data-prompt="Make gravity lower like the moon and floaty">Lower Gravity</span>
+          <span class="chip" data-prompt="Add 3 moving platforms over the gap">Moving Platforms</span>
+          <span class="chip" data-prompt="Rewrite NPC dialogue to be funnier and playful">Funnier NPCs</span>
+        </div>
+
+        <button class="btn-generate" id="btnGenerateStory">
+          <span>✨</span>
+          <span>Generate / Update Game from Story</span>
+        </button>
+        <div id="aiStatusMsg" class="ai-status-msg"></div>
+      </div>
+
+      <!-- Entity Palette -->
+      <div class="section-box" style="flex:1">
+        <div class="section-title">
+          <span>🎨</span>
+          <span>Entity Palette</span>
+        </div>
+        <div class="palette-grid">
+          <div class="palette-item active" data-tool="select">
+            <span class="palette-icon">👆</span>
+            <span>Select / Move</span>
+          </div>
+          <div class="palette-item" data-tool="spawn">
+            <span class="palette-icon">🚩</span>
+            <span>Player Spawn</span>
+          </div>
+          <div class="palette-item" data-tool="platform">
+            <span class="palette-icon">🧱</span>
+            <span>Solid Platform</span>
+          </div>
+          <div class="palette-item" data-tool="moving">
+            <span class="palette-icon">🔄</span>
+            <span>Moving Plat</span>
+          </div>
+          <div class="palette-item" data-tool="bouncy">
+            <span class="palette-icon">⚡</span>
+            <span>Bouncy Pad</span>
+          </div>
+          <div class="palette-item" data-tool="coin">
+            <span class="palette-icon">🪙</span>
+            <span>Collectible</span>
+          </div>
+          <div class="palette-item" data-tool="hazard">
+            <span class="palette-icon">⚠️</span>
+            <span>Hazard / Spike</span>
+          </div>
+          <div class="palette-item" data-tool="enemy">
+            <span class="palette-icon">👾</span>
+            <span>Patrol Enemy</span>
+          </div>
+          <div class="palette-item" data-tool="npc">
+            <span class="palette-icon">💬</span>
+            <span>Story NPC</span>
+          </div>
+          <div class="palette-item" data-tool="portal">
+            <span class="palette-icon">🌀</span>
+            <span>Goal Portal</span>
+          </div>
+        </div>
+
+        <div style="margin-top:12px; display:flex; gap:6px;">
+          <button class="topbar-tool" id="btnAddCenter" style="flex:1; justify-content:center;">➕ Add to Center</button>
+          <button class="topbar-tool" id="btnClearLevel" style="color:#f87171;">✕ Clear</button>
+        </div>
+
+        <div class="palette-hint">
+          💡 Click a tool and click/drag on canvas to place. Drag objects to move. Press <kbd>Del</kbd> to delete.
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Column: 2D Level Editor Canvas -->
+    <div class="builder-col-center">
+      <div class="canvas-topbar">
+        <button class="topbar-tool" id="btnSnapGrid">🔲 Grid: 20px</button>
+        <button class="topbar-tool" id="btnZoomReset">🔍 100%</button>
+        <div class="canvas-stats" id="canvasStats">Level: 1600 × 600 · Objects: 0</div>
+      </div>
+      <div class="canvas-scroll-container" id="canvasScroll">
+        <canvas id="editorCanvas" width="1600" height="600"></canvas>
+      </div>
+    </div>
+
+    <!-- Right Column: Inspector -->
+    <div class="builder-col-right" id="inspectorPanel">
+      <div class="section-box" id="inspectorHeader">
+        <div class="section-title">
+          <span>⚙️</span>
+          <span id="inspectorTitle">Level Settings</span>
+        </div>
+      </div>
+
+      <div class="section-box" id="inspectorBody" style="flex:1;">
+        <!-- Dynamic inspector form rendered via JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <!-- MODE 2: PLAY GAME                                                       -->
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <section id="modePlay">
+    <div class="game-hud">
+      <div class="hud-stats">
+        <div class="hud-item hud-hearts" id="hudHearts">❤️❤️❤️</div>
+        <div class="hud-item hud-coins">🪙 <span id="hudCoins">0</span></div>
+      </div>
+      <div class="hud-objective" id="hudObjective">
+        <span>🎯 Mission: Reach the Exit Portal</span>
+      </div>
+    </div>
+
+    <div class="hud-controls-tip">
+      <span><kbd>A</kbd> <kbd>D</kbd> or <kbd>←</kbd> <kbd>→</kbd> Move</span>
+      <span><kbd>Space</kbd> or <kbd>W</kbd> Jump</span>
+      <span><kbd>E</kbd> Talk to NPC</span>
+      <span><kbd>R</kbd> Restart</span>
+      <span><kbd>Esc</kbd> Return to Builder</span>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- NPC Story Dialogue Modal -->
+    <div class="dialogue-modal" id="dialogueModal">
+      <div class="dialogue-header">
+        <div class="dialogue-speaker" id="dialogueSpeaker">💬 Character</div>
+        <span style="font-size:11px; color:#9ca3af;" id="dialoguePage">1 / 1</span>
+      </div>
+      <div class="dialogue-text" id="dialogueText">Hello, adventurer!</div>
+      <div class="dialogue-footer">
+        <button class="btn-dialogue-next" id="btnDialogueNext">Next [E] →</button>
+      </div>
+    </div>
+
+    <!-- Victory / Game Over Modal -->
+    <div class="game-banner" id="gameBanner">
+      <h2 id="bannerTitle">🎉 Quest Complete!</h2>
+      <p id="bannerMsg">You guided your hero through the trials and reached the destination portal!</p>
+      <div class="banner-stats">
+        <div class="hud-item" style="color:#fbbf24">🪙 Coins: <span id="bannerCoins">0</span></div>
+        <div class="hud-item" style="color:#38bdf8">⏱️ Time: <span id="bannerTime">0s</span></div>
+      </div>
+      <div>
+        <button class="btn-banner-action" id="btnBannerRestart">Play Again [R]</button>
+        <button class="btn-banner-action" id="btnBannerEditor" style="background:#374151">Back to Editor</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <!-- MODE 3: GAME DATA & EXPORT                                              -->
+  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <section id="modeData">
+    <div class="data-header">
+      <div>
+        <h2 style="font-size:18px; font-weight:700;">Level & Story JSON Data</h2>
+        <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">View, edit, or export the standalone game.</p>
+      </div>
+      <div class="data-actions">
+        <button class="btn-data primary" id="btnApplyJson">Apply JSON to Game</button>
+        <button class="btn-data" id="btnFormatJson">Prettify</button>
+        <button class="btn-data" id="btnCopyJson">Copy JSON</button>
+        <button class="btn-data export-btn" id="btnExportGame">📦 Export Standalone HTML Game</button>
+      </div>
+    </div>
+    <textarea id="jsonEditor" class="json-editor" spellcheck="false"></textarea>
+  </section>
+</main>
+
+<div class="toast" id="toast">Message</div>
+
+<script>
+// ── Retro 8-bit Web Audio Sound Synthesizer ─────────────────────────────────
+const Sound = (() => {
+  let ctx = null;
+  function getCtx() {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+  return {
+    play(type) {
+      try {
+        const c = getCtx();
+        const now = c.currentTime;
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.connect(gain);
+        gain.connect(c.destination);
+
+        if (type === 'jump') {
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(150, now);
+          osc.frequency.exponentialRampToValueAtTime(450, now + 0.12);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+          osc.start(now); osc.stop(now + 0.12);
+        } else if (type === 'coin') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(987, now);
+          osc.frequency.setValueAtTime(1318, now + 0.08);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+          osc.start(now); osc.stop(now + 0.25);
+        } else if (type === 'bounce') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(200, now);
+          osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
+          osc.frequency.exponentialRampToValueAtTime(250, now + 0.2);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+          osc.start(now); osc.stop(now + 0.2);
+        } else if (type === 'hurt') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(160, now);
+          osc.frequency.exponentialRampToValueAtTime(60, now + 0.2);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+          osc.start(now); osc.stop(now + 0.2);
+        } else if (type === 'talk') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(740, now + 0.06);
+          gain.gain.setValueAtTime(0.1, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+          osc.start(now); osc.stop(now + 0.08);
+        } else if (type === 'win') {
+          const notes = [523, 659, 784, 1046];
+          notes.forEach((freq, idx) => {
+            const o = c.createOscillator();
+            const g = c.createGain();
+            o.connect(g); g.connect(c.destination);
+            o.type = 'triangle';
+            o.frequency.value = freq;
+            const t = now + idx * 0.12;
+            g.gain.setValueAtTime(0.18, t);
+            g.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+            o.start(t); o.stop(t + 0.25);
+          });
+        }
+      } catch(e) {}
+    }
+  };
+})();
+
+// ── Default Presets ─────────────────────────────────────────────────────────
+const PRESETS = {
+  cyber: {
+    title: 'Cyber Ninja Escape',
+    storyIntro: 'In the neon towers of Neo Tokyo, a rogue ninja must escape the megacorp fortress. Dodge laser grids and security drones to reach the exit portal!',
+    theme: { bg: '#0a0015', platform: '#6c3483', accent: '#00ff88' },
+    gravity: 1800,
+    jumpForce: -620,
+    speed: 340,
+    playerSpawn: { x: 80, y: 520 },
+    platforms: [
+      { x: 0, y: 560, w: 320, h: 40 },
+      { x: 380, y: 500, w: 140, h: 18 },
+      { x: 580, y: 440, w: 140, h: 18 },
+      { x: 780, y: 380, w: 100, h: 18, moving: true, range: 140, speed: 60 },
+      { x: 1040, y: 460, w: 180, h: 18 },
+      { x: 1280, y: 560, w: 320, h: 40 },
+      { x: 520, y: 560, w: 50, h: 14, bouncy: true },
+    ],
+    coins: [
+      { x: 220, y: 510 },
+      { x: 440, y: 450 },
+      { x: 640, y: 390 },
+      { x: 830, y: 320 },
+      { x: 1120, y: 410 },
+      { x: 1360, y: 510 }
+    ],
+    enemies: [
+      { x: 180, y: 540, patrol: 90, speed: 60 },
+      { x: 1100, y: 440, patrol: 60, speed: 70 }
+    ],
+    hazards: [
+      { x: 320, y: 580, w: 60, h: 15 },
+      { x: 960, y: 580, w: 80, h: 15 }
+    ],
+    npcs: [
+      { x: 120, y: 520, name: 'Oracle', dialogue: [
+        'Welcome, Shadow Ninja.',
+        'The megacorp security grid is active. Jump over the hazards and watch for patrolling drones.',
+        'Your exit portal is at the far right. Move swiftly!'
+      ]},
+      { x: 1420, y: 520, name: 'Rebel Pilot', dialogue: [
+        'You made it! Jump into the dimensional portal before the reinforcements arrive!'
+      ]}
+    ],
+    portal: { x: 1520, y: 500 }
+  },
+  forest: {
+    title: 'Forest Spirit Quest',
+    storyIntro: 'The ancient forest is fading. As the last spirit guardian, collect life crystals and speak to the Elder Oak to restore the sacred grove.',
+    theme: { bg: '#0d1f0d', platform: '#2d5a1e', accent: '#7cfc00' },
+    gravity: 1700,
+    jumpForce: -580,
+    speed: 300,
+    playerSpawn: { x: 80, y: 520 },
+    platforms: [
+      { x: 0, y: 560, w: 280, h: 40 },
+      { x: 340, y: 490, w: 120, h: 18 },
+      { x: 520, y: 420, w: 140, h: 18 },
+      { x: 720, y: 360, w: 120, h: 18 },
+      { x: 900, y: 430, w: 140, h: 18, moving: true, range: 100, speed: 50 },
+      { x: 1120, y: 500, w: 160, h: 18 },
+      { x: 1340, y: 560, w: 260, h: 40 },
+      { x: 680, y: 560, w: 60, h: 14, bouncy: true }
+    ],
+    coins: [
+      { x: 180, y: 510 },
+      { x: 400, y: 440 },
+      { x: 580, y: 370 },
+      { x: 780, y: 310 },
+      { x: 960, y: 380 },
+      { x: 1200, y: 450 },
+      { x: 1400, y: 510 }
+    ],
+    enemies: [
+      { x: 160, y: 540, patrol: 70, speed: 45 },
+      { x: 1180, y: 480, patrol: 50, speed: 55 }
+    ],
+    hazards: [
+      { x: 280, y: 585, w: 60, h: 15 },
+      { x: 840, y: 585, w: 80, h: 15 }
+    ],
+    npcs: [
+      { x: 100, y: 520, name: 'Sprout', dialogue: [
+        'Little spirit! The Great Forest needs your light.',
+        'Collect the glowing forest crystals along the branches.',
+        'Avoid the thorny brambles below!'
+      ]},
+      { x: 1400, y: 520, name: 'Elder Oak', dialogue: [
+        'Ah, brave spirit. You have gathered the lost life force.',
+        'Step into the celestial spring portal to heal our roots!'
+      ]}
+    ],
+    portal: { x: 1510, y: 500 }
+  },
+  space: {
+    title: 'Space Station Repair',
+    storyIntro: 'Gravity generators are failing on Station Kepler-7. Float across the zero-G corridors, gather energy cells, and reach the escape pod!',
+    theme: { bg: '#050510', platform: '#1a237e', accent: '#64ffda' },
+    gravity: 950,
+    jumpForce: -440,
+    speed: 320,
+    playerSpawn: { x: 80, y: 520 },
+    platforms: [
+      { x: 0, y: 560, w: 260, h: 40 },
+      { x: 320, y: 470, w: 130, h: 16 },
+      { x: 520, y: 390, w: 130, h: 16, moving: true, range: 120, speed: 40 },
+      { x: 750, y: 330, w: 140, h: 16 },
+      { x: 980, y: 400, w: 120, h: 16 },
+      { x: 1180, y: 480, w: 140, h: 16 },
+      { x: 1380, y: 560, w: 220, h: 40 },
+      { x: 480, y: 560, w: 60, h: 14, bouncy: true }
+    ],
+    coins: [
+      { x: 180, y: 510 },
+      { x: 380, y: 420 },
+      { x: 580, y: 340 },
+      { x: 820, y: 280 },
+      { x: 1040, y: 350 },
+      { x: 1240, y: 430 }
+    ],
+    enemies: [
+      { x: 140, y: 540, patrol: 70, speed: 40 },
+      { x: 1230, y: 460, patrol: 60, speed: 50 }
+    ],
+    hazards: [
+      { x: 260, y: 585, w: 60, h: 15 },
+      { x: 890, y: 585, w: 90, h: 15 }
+    ],
+    npcs: [
+      { x: 110, y: 520, name: 'Station AI', dialogue: [
+        'Warning: Gravity core operating at 40% efficiency.',
+        'You will experience high float times during jumps.',
+        'Collect all fuel cells to authorize reactor bypass.'
+      ]},
+      { x: 1420, y: 520, name: 'Commander', dialogue: [
+        'Good work engineer! The escape pod is ready. Initiating departure!'
+      ]}
+    ],
+    portal: { x: 1520, y: 500 }
+  }
+};
+
+// ── Application State ───────────────────────────────────────────────────────
+let state = {
+  mode: 'builder', // 'builder' | 'play' | 'data'
+  level: JSON.parse(JSON.stringify(PRESETS.cyber)),
+  selectedEntity: null, // { type, index }
+  activeTool: 'select',
+  gridSnap: 20,
+  zoom: 1,
+  isDragging: false,
+  dragOffset: { x: 0, y: 0 },
+};
+
+// Auto-save to localStorage
+function saveProject() {
+  try {
+    localStorage.setItem('protogame.project', JSON.stringify(state.level));
+    const txt = document.getElementById('saveText');
+    if (txt) {
+      txt.textContent = 'Saved!';
+      setTimeout(() => { txt.textContent = 'Auto-saved'; }, 1500);
+    }
+  } catch(e) {}
+}
+
+function loadProject() {
+  try {
+    const raw = localStorage.getItem('protogame.project');
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data && data.platforms) {
+        state.level = data;
+        return true;
+      }
+    }
+  } catch(e) {}
+  return false;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 2400);
+}
+
+// ── Level Editor Canvas ─────────────────────────────────────────────────────
+const editorCanvas = document.getElementById('editorCanvas');
+const editorCtx = editorCanvas.getContext('2d');
+
+function renderEditor() {
+  const ctx = editorCtx;
+  const lvl = state.level;
+  const w = editorCanvas.width, h = editorCanvas.height;
+
+  // Background
+  ctx.fillStyle = lvl.theme?.bg || '#0b0f19';
+  ctx.fillRect(0, 0, w, h);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+  const step = state.gridSnap || 20;
+  for (let x = 0; x < w; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for (let y = 0; y < h; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  // Platforms
+  (lvl.platforms || []).forEach((p, idx) => {
+    const isSel = state.selectedEntity?.type === 'platform' && state.selectedEntity?.index === idx;
+    ctx.fillStyle = p.bouncy ? '#10b981' : (p.color || lvl.theme?.platform || '#6c3483');
+    ctx.beginPath();
+    ctx.roundRect(p.x, p.y, p.w, p.h, 4);
+    ctx.fill();
+    ctx.strokeStyle = isSel ? '#f59e0b' : 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = isSel ? 3 : 1;
+    ctx.stroke();
+
+    // Moving indicator
+    if (p.moving) {
+      ctx.fillStyle = '#60a5fa';
+      ctx.font = '10px Inter';
+      ctx.fillText('↔ ' + (p.range || 100) + 'px', p.x + 4, p.y - 4);
+    }
+    if (p.bouncy) {
+      ctx.fillStyle = '#a7f3d0';
+      ctx.font = '10px Inter';
+      ctx.fillText('⚡ Bouncy', p.x + 4, p.y - 4);
+    }
+  });
+
+  // Hazards
+  (lvl.hazards || []).forEach((hz, idx) => {
+    const isSel = state.selectedEntity?.type === 'hazard' && state.selectedEntity?.index === idx;
+    ctx.fillStyle = '#ef4444';
+    // Draw spikes
+    const spikeW = 10;
+    const count = Math.max(1, Math.floor(hz.w / spikeW));
+    ctx.beginPath();
+    for (let i = 0; i < count; i++) {
+      const sx = hz.x + i * spikeW;
+      ctx.moveTo(sx, hz.y + hz.h);
+      ctx.lineTo(sx + spikeW / 2, hz.y);
+      ctx.lineTo(sx + spikeW, hz.y + hz.h);
+    }
+    ctx.fill();
+    if (isSel) {
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(hz.x - 2, hz.y - 2, hz.w + 4, hz.h + 4);
+    }
+  });
+
+  // Coins
+  (lvl.coins || []).forEach((c, idx) => {
+    const isSel = state.selectedEntity?.type === 'coin' && state.selectedEntity?.index === idx;
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = isSel ? '#fff' : '#d97706';
+    ctx.lineWidth = isSel ? 3 : 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('★', c.x, c.y);
+  });
+
+  // Enemies
+  (lvl.enemies || []).forEach((e, idx) => {
+    const isSel = state.selectedEntity?.type === 'enemy' && state.selectedEntity?.index === idx;
+    ctx.fillStyle = '#dc2626';
+    ctx.beginPath();
+    ctx.roundRect(e.x - 12, e.y - 12, 24, 24, 6);
+    ctx.fill();
+    ctx.strokeStyle = isSel ? '#f59e0b' : '#991b1b';
+    ctx.lineWidth = isSel ? 3 : 1.5;
+    ctx.stroke();
+    // Eyes
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(e.x - 6, e.y - 5, 4, 4);
+    ctx.fillRect(e.x + 2, e.y - 5, 4, 4);
+    // Range arrow
+    ctx.strokeStyle = 'rgba(239,68,68,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(e.x - (e.patrol || 60), e.y);
+    ctx.lineTo(e.x + (e.patrol || 60), e.y);
+    ctx.stroke();
+  });
+
+  // NPCs
+  (lvl.npcs || []).forEach((npc, idx) => {
+    const isSel = state.selectedEntity?.type === 'npc' && state.selectedEntity?.index === idx;
+    ctx.fillStyle = '#8b5cf6';
+    ctx.beginPath();
+    ctx.roundRect(npc.x - 12, npc.y - 16, 24, 32, 6);
+    ctx.fill();
+    ctx.strokeStyle = isSel ? '#f59e0b' : '#6d28d9';
+    ctx.lineWidth = isSel ? 3 : 1.5;
+    ctx.stroke();
+    // Dialogue icon
+    ctx.fillStyle = '#fff';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('💬', npc.x, npc.y - 20);
+    ctx.fillStyle = '#c4b5fd';
+    ctx.font = '10px Inter';
+    ctx.fillText(npc.name || 'NPC', npc.x, npc.y + 26);
+  });
+
+  // Player Spawn
+  if (lvl.playerSpawn) {
+    const isSel = state.selectedEntity?.type === 'playerSpawn';
+    ctx.fillStyle = '#3b82f6';
+    ctx.beginPath();
+    ctx.roundRect(lvl.playerSpawn.x - 10, lvl.playerSpawn.y - 16, 20, 32, 4);
+    ctx.fill();
+    ctx.strokeStyle = isSel ? '#f59e0b' : '#1d4ed8';
+    ctx.lineWidth = isSel ? 3 : 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🚩', lvl.playerSpawn.x, lvl.playerSpawn.y - 22);
+  }
+
+  // Portal
+  if (lvl.portal) {
+    const isSel = state.selectedEntity?.type === 'portal';
+    const grad = ctx.createRadialGradient(lvl.portal.x, lvl.portal.y, 4, lvl.portal.x, lvl.portal.y, 24);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.5, '#06b6d4');
+    grad.addColorStop(1, 'rgba(99,102,241,0.1)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(lvl.portal.x, lvl.portal.y, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = isSel ? '#f59e0b' : '#0891b2';
+    ctx.lineWidth = isSel ? 3 : 2;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🌀', lvl.portal.x, lvl.portal.y + 4);
+  }
+
+  // Update stats
+  const totalObj = (lvl.platforms?.length || 0) + (lvl.coins?.length || 0) + (lvl.enemies?.length || 0) + (lvl.hazards?.length || 0) + (lvl.npcs?.length || 0);
+  document.getElementById('canvasStats').textContent = `Level: 1600 × 600 · Objects: ${totalObj}`;
+}
+
+// ── Inspector Logic ────────────────────────────────────────────────────────
+function renderInspector() {
+  const panel = document.getElementById('inspectorBody');
+  const title = document.getElementById('inspectorTitle');
+  const sel = state.selectedEntity;
+  const lvl = state.level;
+
+  if (!sel) {
+    title.textContent = 'Level & Story Settings';
+    panel.innerHTML = `
+      <div class="prop-group">
+        <div class="prop-label">Level Title</div>
+        <input type="text" id="inpTitle" class="prop-input" value="${lvl.title || ''}" />
+      </div>
+      <div class="prop-group">
+        <div class="prop-label">Story / Objective</div>
+        <textarea id="inpStory" class="prop-input" rows="3" style="resize:vertical">${lvl.storyIntro || ''}</textarea>
+      </div>
+      <div class="prop-group">
+        <div class="prop-label">Gravity (${lvl.gravity || 1800})</div>
+        <input type="range" id="inpGravity" min="400" max="3000" step="50" value="${lvl.gravity || 1800}" style="width:100%" />
+      </div>
+      <div class="prop-group">
+        <div class="prop-label">Jump Force (${lvl.jumpForce || -600})</div>
+        <input type="range" id="inpJumpForce" min="-900" max="-300" step="20" value="${lvl.jumpForce || -600}" style="width:100%" />
+      </div>
+      <div class="prop-group">
+        <div class="prop-label">Run Speed (${lvl.speed || 320})</div>
+        <input type="range" id="inpSpeed" min="150" max="600" step="10" value="${lvl.speed || 320}" style="width:100%" />
+      </div>
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">Background</div>
+          <input type="color" id="inpBgColor" class="prop-input" value="${lvl.theme?.bg || '#0b0f19'}" style="height:34px; padding:2px;" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Platform Color</div>
+          <input type="color" id="inpPlatColor" class="prop-input" value="${lvl.theme?.platform || '#6c3483'}" style="height:34px; padding:2px;" />
+        </div>
+      </div>
+    `;
+
+    document.getElementById('inpTitle').oninput = (e) => { lvl.title = e.target.value; saveProject(); };
+    document.getElementById('inpStory').oninput = (e) => { lvl.storyIntro = e.target.value; saveProject(); };
+    document.getElementById('inpGravity').oninput = (e) => { lvl.gravity = parseInt(e.target.value); renderInspector(); saveProject(); };
+    document.getElementById('inpJumpForce').oninput = (e) => { lvl.jumpForce = parseInt(e.target.value); renderInspector(); saveProject(); };
+    document.getElementById('inpSpeed').oninput = (e) => { lvl.speed = parseInt(e.target.value); renderInspector(); saveProject(); };
+    document.getElementById('inpBgColor').oninput = (e) => { if (!lvl.theme) lvl.theme = {}; lvl.theme.bg = e.target.value; renderEditor(); saveProject(); };
+    document.getElementById('inpPlatColor').oninput = (e) => { if (!lvl.theme) lvl.theme = {}; lvl.theme.platform = e.target.value; renderEditor(); saveProject(); };
+    return;
+  }
+
+  // Selected Entity Inspector
+  title.textContent = `Selected: ${sel.type.toUpperCase()}`;
+  let html = '';
+
+  if (sel.type === 'platform') {
+    const p = lvl.platforms[sel.index];
+    html = `
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">X</div>
+          <input type="number" id="inpX" class="prop-input" value="${p.x}" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Y</div>
+          <input type="number" id="inpY" class="prop-input" value="${p.y}" />
+        </div>
+      </div>
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">Width</div>
+          <input type="number" id="inpW" class="prop-input" value="${p.w}" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Height</div>
+          <input type="number" id="inpH" class="prop-input" value="${p.h}" />
+        </div>
+      </div>
+      <div class="prop-group" style="margin-top:8px;">
+        <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;">
+          <input type="checkbox" id="chkMoving" ${p.moving ? 'checked' : ''} />
+          <span>Moving Platform</span>
+        </label>
+      </div>
+      ${p.moving ? `
+        <div class="prop-row">
+          <div class="prop-group">
+            <div class="prop-label">Range (px)</div>
+            <input type="number" id="inpRange" class="prop-input" value="${p.range || 100}" />
+          </div>
+          <div class="prop-group">
+            <div class="prop-label">Speed</div>
+            <input type="number" id="inpPlatSpeed" class="prop-input" value="${p.speed || 50}" />
+          </div>
+        </div>
+      ` : ''}
+      <div class="prop-group">
+        <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;">
+          <input type="checkbox" id="chkBouncy" ${p.bouncy ? 'checked' : ''} />
+          <span>Bouncy Pad (Spring Jump)</span>
+        </label>
+      </div>
+      <button class="btn-delete-entity" id="btnDelEntity">🗑️ Delete Platform</button>
+    `;
+    panel.innerHTML = html;
+    document.getElementById('inpX').onchange = (e) => { p.x = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpY').onchange = (e) => { p.y = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpW').onchange = (e) => { p.w = parseInt(e.target.value) || 20; renderEditor(); saveProject(); };
+    document.getElementById('inpH').onchange = (e) => { p.h = parseInt(e.target.value) || 10; renderEditor(); saveProject(); };
+    document.getElementById('chkMoving').onchange = (e) => { p.moving = e.target.checked; renderInspector(); renderEditor(); saveProject(); };
+    if (p.moving) {
+      document.getElementById('inpRange').onchange = (e) => { p.range = parseInt(e.target.value) || 100; renderEditor(); saveProject(); };
+      document.getElementById('inpPlatSpeed').onchange = (e) => { p.speed = parseInt(e.target.value) || 50; renderEditor(); saveProject(); };
+    }
+    document.getElementById('chkBouncy').onchange = (e) => { p.bouncy = e.target.checked; renderInspector(); renderEditor(); saveProject(); };
+  } else if (sel.type === 'coin') {
+    const c = lvl.coins[sel.index];
+    html = `
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">X</div>
+          <input type="number" id="inpX" class="prop-input" value="${c.x}" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Y</div>
+          <input type="number" id="inpY" class="prop-input" value="${c.y}" />
+        </div>
+      </div>
+      <button class="btn-delete-entity" id="btnDelEntity">🗑️ Delete Coin</button>
+    `;
+    panel.innerHTML = html;
+    document.getElementById('inpX').onchange = (e) => { c.x = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpY').onchange = (e) => { c.y = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+  } else if (sel.type === 'hazard') {
+    const hz = lvl.hazards[sel.index];
+    html = `
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">X</div>
+          <input type="number" id="inpX" class="prop-input" value="${hz.x}" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Y</div>
+          <input type="number" id="inpY" class="prop-input" value="${hz.y}" />
+        </div>
+      </div>
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">Width</div>
+          <input type="number" id="inpW" class="prop-input" value="${hz.w}" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Height</div>
+          <input type="number" id="inpH" class="prop-input" value="${hz.h}" />
+        </div>
+      </div>
+      <button class="btn-delete-entity" id="btnDelEntity">🗑️ Delete Hazard</button>
+    `;
+    panel.innerHTML = html;
+    document.getElementById('inpX').onchange = (e) => { hz.x = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpY').onchange = (e) => { hz.y = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpW').onchange = (e) => { hz.w = parseInt(e.target.value) || 20; renderEditor(); saveProject(); };
+    document.getElementById('inpH').onchange = (e) => { hz.h = parseInt(e.target.value) || 10; renderEditor(); saveProject(); };
+  } else if (sel.type === 'enemy') {
+    const en = lvl.enemies[sel.index];
+    html = `
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">X</div>
+          <input type="number" id="inpX" class="prop-input" value="${en.x}" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Y</div>
+          <input type="number" id="inpY" class="prop-input" value="${en.y}" />
+        </div>
+      </div>
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">Patrol Range</div>
+          <input type="number" id="inpPatrol" class="prop-input" value="${en.patrol || 60}" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Speed</div>
+          <input type="number" id="inpSpeed" class="prop-input" value="${en.speed || 50}" />
+        </div>
+      </div>
+      <button class="btn-delete-entity" id="btnDelEntity">🗑️ Delete Enemy</button>
+    `;
+    panel.innerHTML = html;
+    document.getElementById('inpX').onchange = (e) => { en.x = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpY').onchange = (e) => { en.y = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpPatrol').onchange = (e) => { en.patrol = parseInt(e.target.value) || 50; renderEditor(); saveProject(); };
+    document.getElementById('inpSpeed').onchange = (e) => { en.speed = parseInt(e.target.value) || 40; renderEditor(); saveProject(); };
+  } else if (sel.type === 'npc') {
+    const npc = lvl.npcs[sel.index];
+    html = `
+      <div class="prop-group">
+        <div class="prop-label">NPC Name</div>
+        <input type="text" id="inpNpcName" class="prop-input" value="${npc.name || 'NPC'}" />
+      </div>
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">X</div>
+          <input type="number" id="inpX" class="prop-input" value="${npc.x}" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Y</div>
+          <input type="number" id="inpY" class="prop-input" value="${npc.y}" />
+        </div>
+      </div>
+      <div class="prop-group">
+        <div class="prop-label">Dialogue Lines (1 per line)</div>
+        <textarea id="inpDialogue" class="prop-input" rows="4">${(npc.dialogue || []).join('\n')}</textarea>
+      </div>
+      <button class="btn-delete-entity" id="btnDelEntity">🗑️ Delete NPC</button>
+    `;
+    panel.innerHTML = html;
+    document.getElementById('inpNpcName').oninput = (e) => { npc.name = e.target.value; renderEditor(); saveProject(); };
+    document.getElementById('inpX').onchange = (e) => { npc.x = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpY').onchange = (e) => { npc.y = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpDialogue').onchange = (e) => {
+      npc.dialogue = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
+      saveProject();
+    };
+  } else if (sel.type === 'playerSpawn') {
+    const sp = lvl.playerSpawn;
+    html = `
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">X</div>
+          <input type="number" id="inpX" class="prop-input" value="${sp.x}" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Y</div>
+          <input type="number" id="inpY" class="prop-input" value="${sp.y}" />
+        </div>
+      </div>
+      <p style="font-size:11px; color:#9ca3af; margin-top:8px;">Hero character spawns here when the game begins or restarts.</p>
+    `;
+    panel.innerHTML = html;
+    document.getElementById('inpX').onchange = (e) => { sp.x = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpY').onchange = (e) => { sp.y = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+  } else if (sel.type === 'portal') {
+    const pt = lvl.portal;
+    html = `
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">X</div>
+          <input type="number" id="inpX" class="prop-input" value="${pt.x}" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Y</div>
+          <input type="number" id="inpY" class="prop-input" value="${pt.y}" />
+        </div>
+      </div>
+      <p style="font-size:11px; color:#9ca3af; margin-top:8px;">Touching this dimensional exit portal wins the level!</p>
+    `;
+    panel.innerHTML = html;
+    document.getElementById('inpX').onchange = (e) => { pt.x = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpY').onchange = (e) => { pt.y = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+  }
+
+  // Hook delete button
+  const delBtn = document.getElementById('btnDelEntity');
+  if (delBtn) {
+    delBtn.onclick = () => {
+      deleteSelectedEntity();
+    };
+  }
+}
+
+function deleteSelectedEntity() {
+  const sel = state.selectedEntity;
+  const lvl = state.level;
+  if (!sel) return;
+  if (sel.type === 'platform') lvl.platforms.splice(sel.index, 1);
+  else if (sel.type === 'coin') lvl.coins.splice(sel.index, 1);
+  else if (sel.type === 'hazard') lvl.hazards.splice(sel.index, 1);
+  else if (sel.type === 'enemy') lvl.enemies.splice(sel.index, 1);
+  else if (sel.type === 'npc') lvl.npcs.splice(sel.index, 1);
+  state.selectedEntity = null;
+  renderInspector();
+  renderEditor();
+  saveProject();
+}
+
+// ── Canvas Interaction (Selection, Drag, Creation) ─────────────────────────
+function getCanvasMousePos(e) {
+  const rect = editorCanvas.getBoundingClientRect();
+  const scaleX = editorCanvas.width / rect.width;
+  const scaleY = editorCanvas.height / rect.height;
+  return {
+    x: Math.round((e.clientX - rect.left) * scaleX),
+    y: Math.round((e.clientY - rect.top) * scaleY)
+  };
+}
+
+function snap(val) {
+  const s = state.gridSnap || 1;
+  return Math.round(val / s) * s;
+}
+
+function findEntityAt(x, y) {
+  const lvl = state.level;
+  // Check player spawn
+  if (lvl.playerSpawn && Math.abs(x - lvl.playerSpawn.x) < 16 && Math.abs(y - lvl.playerSpawn.y) < 20) {
+    return { type: 'playerSpawn', ref: lvl.playerSpawn };
+  }
+  // Check portal
+  if (lvl.portal && Math.hypot(x - lvl.portal.x, y - lvl.portal.y) < 25) {
+    return { type: 'portal', ref: lvl.portal };
+  }
+  // Check NPCs
+  for (let i = (lvl.npcs || []).length - 1; i >= 0; i--) {
+    const npc = lvl.npcs[i];
+    if (Math.abs(x - npc.x) < 18 && Math.abs(y - npc.y) < 22) return { type: 'npc', index: i, ref: npc };
+  }
+  // Check Enemies
+  for (let i = (lvl.enemies || []).length - 1; i >= 0; i--) {
+    const en = lvl.enemies[i];
+    if (Math.abs(x - en.x) < 16 && Math.abs(y - en.y) < 16) return { type: 'enemy', index: i, ref: en };
+  }
+  // Check Coins
+  for (let i = (lvl.coins || []).length - 1; i >= 0; i--) {
+    const c = lvl.coins[i];
+    if (Math.hypot(x - c.x, y - c.y) < 14) return { type: 'coin', index: i, ref: c };
+  }
+  // Check Hazards
+  for (let i = (lvl.hazards || []).length - 1; i >= 0; i--) {
+    const hz = lvl.hazards[i];
+    if (x >= hz.x && x <= hz.x + hz.w && y >= hz.y && y <= hz.y + hz.h) return { type: 'hazard', index: i, ref: hz };
+  }
+  // Check Platforms
+  for (let i = (lvl.platforms || []).length - 1; i >= 0; i--) {
+    const p = lvl.platforms[i];
+    if (x >= p.x && x <= p.x + p.w && y >= p.y && y <= p.y + p.h) return { type: 'platform', index: i, ref: p };
+  }
+  return null;
+}
+
+editorCanvas.addEventListener('mousedown', (e) => {
+  const pos = getCanvasMousePos(e);
+  const tool = state.activeTool;
+
+  if (tool === 'select') {
+    const hit = findEntityAt(pos.x, pos.y);
+    if (hit) {
+      state.selectedEntity = { type: hit.type, index: hit.index };
+      state.isDragging = true;
+      state.dragOffset = {
+        x: pos.x - (hit.ref.x || 0),
+        y: pos.y - (hit.ref.y || 0)
+      };
+    } else {
+      state.selectedEntity = null;
+    }
+    renderInspector();
+    renderEditor();
+    return;
+  }
+
+  // Create entity based on tool
+  const sx = snap(pos.x), sy = snap(pos.y);
+  const lvl = state.level;
+
+  if (tool === 'platform') {
+    if (!lvl.platforms) lvl.platforms = [];
+    lvl.platforms.push({ x: sx, y: sy, w: 120, h: 20 });
+    state.selectedEntity = { type: 'platform', index: lvl.platforms.length - 1 };
+  } else if (tool === 'moving') {
+    if (!lvl.platforms) lvl.platforms = [];
+    lvl.platforms.push({ x: sx, y: sy, w: 100, h: 18, moving: true, range: 120, speed: 50 });
+    state.selectedEntity = { type: 'platform', index: lvl.platforms.length - 1 };
+  } else if (tool === 'bouncy') {
+    if (!lvl.platforms) lvl.platforms = [];
+    lvl.platforms.push({ x: sx, y: sy, w: 60, h: 14, bouncy: true });
+    state.selectedEntity = { type: 'platform', index: lvl.platforms.length - 1 };
+  } else if (tool === 'coin') {
+    if (!lvl.coins) lvl.coins = [];
+    lvl.coins.push({ x: sx, y: sy });
+    state.selectedEntity = { type: 'coin', index: lvl.coins.length - 1 };
+  } else if (tool === 'hazard') {
+    if (!lvl.hazards) lvl.hazards = [];
+    lvl.hazards.push({ x: sx, y: sy, w: 60, h: 16 });
+    state.selectedEntity = { type: 'hazard', index: lvl.hazards.length - 1 };
+  } else if (tool === 'enemy') {
+    if (!lvl.enemies) lvl.enemies = [];
+    lvl.enemies.push({ x: sx, y: sy, patrol: 60, speed: 50 });
+    state.selectedEntity = { type: 'enemy', index: lvl.enemies.length - 1 };
+  } else if (tool === 'npc') {
+    if (!lvl.npcs) lvl.npcs = [];
+    lvl.npcs.push({ x: sx, y: sy, name: 'Guide', dialogue: ['Hello, traveler!', 'Good luck reaching the portal!'] });
+    state.selectedEntity = { type: 'npc', index: lvl.npcs.length - 1 };
+  } else if (tool === 'spawn') {
+    lvl.playerSpawn = { x: sx, y: sy };
+    state.selectedEntity = { type: 'playerSpawn' };
+  } else if (tool === 'portal') {
+    lvl.portal = { x: sx, y: sy };
+    state.selectedEntity = { type: 'portal' };
+  }
+
+  // Reset to select tool after placing
+  selectTool('select');
+  renderInspector();
+  renderEditor();
+  saveProject();
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!state.isDragging || !state.selectedEntity) return;
+  const pos = getCanvasMousePos(e);
+  const sel = state.selectedEntity;
+  const lvl = state.level;
+  let target = null;
+  if (sel.type === 'playerSpawn') target = lvl.playerSpawn;
+  else if (sel.type === 'portal') target = lvl.portal;
+  else if (sel.type === 'platform') target = lvl.platforms[sel.index];
+  else if (sel.type === 'coin') target = lvl.coins[sel.index];
+  else if (sel.type === 'hazard') target = lvl.hazards[sel.index];
+  else if (sel.type === 'enemy') target = lvl.enemies[sel.index];
+  else if (sel.type === 'npc') target = lvl.npcs[sel.index];
+
+  if (target) {
+    target.x = snap(pos.x - state.dragOffset.x);
+    target.y = snap(pos.y - state.dragOffset.y);
+    renderEditor();
+    renderInspector();
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  if (state.isDragging) {
+    state.isDragging = false;
+    saveProject();
+  }
+});
+
+window.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    deleteSelectedEntity();
+  } else if (e.code === 'Space' && state.mode === 'builder') {
+    e.preventDefault();
+    switchMode('play');
+  }
+});
+
+// ── Palette Tools ───────────────────────────────────────────────────────────
+function selectTool(tool) {
+  state.activeTool = tool;
+  document.querySelectorAll('.palette-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.tool === tool);
+  });
+}
+document.querySelectorAll('.palette-item').forEach(el => {
+  el.addEventListener('click', () => selectTool(el.dataset.tool));
+});
+
+document.getElementById('btnAddCenter').addEventListener('click', () => {
+  const lvl = state.level;
+  const cx = 800, cy = 300;
+  if (!lvl.platforms) lvl.platforms = [];
+  lvl.platforms.push({ x: cx - 60, y: cy, w: 120, h: 20 });
+  state.selectedEntity = { type: 'platform', index: lvl.platforms.length - 1 };
+  renderInspector();
+  renderEditor();
+  saveProject();
+});
+
+document.getElementById('btnClearLevel').addEventListener('click', () => {
+  if (confirm('Clear all platforms, coins, and enemies in this level?')) {
+    state.level.platforms = [{ x: 0, y: 560, w: 1600, h: 40 }];
+    state.level.coins = [];
+    state.level.enemies = [];
+    state.level.hazards = [];
+    state.level.npcs = [];
+    state.selectedEntity = null;
+    renderInspector();
+    renderEditor();
+    saveProject();
+  }
+});
+
+document.getElementById('btnSnapGrid').addEventListener('click', () => {
+  if (state.gridSnap === 20) state.gridSnap = 10;
+  else if (state.gridSnap === 10) state.gridSnap = 1;
+  else state.gridSnap = 20;
+  document.getElementById('btnSnapGrid').textContent = `🔲 Grid: ${state.gridSnap}px`;
+  renderEditor();
+});
+
+document.getElementById('btnZoomReset').addEventListener('click', () => {
+  document.getElementById('canvasScroll').scrollLeft = 0;
+  document.getElementById('canvasScroll').scrollTop = 0;
+});
+
+// ── Story & AI Co-Pilot ─────────────────────────────────────────────────────
+document.querySelectorAll('.quick-chips .chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.getElementById('storyPrompt').value = chip.dataset.prompt;
+  });
+});
+
+document.getElementById('btnGenerateStory').addEventListener('click', async () => {
+  const prompt = document.getElementById('storyPrompt').value.trim();
+  if (!prompt) {
+    showToast('Please enter a story or script prompt');
+    return;
+  }
+
+  const btn = document.getElementById('btnGenerateStory');
+  const statusMsg = document.getElementById('aiStatusMsg');
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳</span> <span>AI Generating Level...</span>';
+  statusMsg.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project: 'protogame',
+        action: 'generate-story',
+        prompt,
+        context: { level: state.level }
+      })
+    });
+    if (!res.ok) throw new Error('API request failed');
+    const data = await res.json();
+
+    if (data.level) {
+      state.level = data.level;
+      state.selectedEntity = null;
+      renderInspector();
+      renderEditor();
+      saveProject();
+    }
+
+    statusMsg.textContent = data.reply || '✨ Level updated from story!';
+    statusMsg.style.display = 'block';
+    showToast('✨ Game Level Generated from Story!');
+  } catch(err) {
+    console.error('AI Story error:', err);
+    statusMsg.textContent = 'AI request failed: ' + err.message;
+    statusMsg.style.display = 'block';
+    statusMsg.style.borderColor = 'rgba(239,68,68,0.4)';
+    statusMsg.style.color = '#f87171';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>✨</span> <span>Generate / Update Game from Story</span>';
+  }
+});
+
+// ── Presets Dropdown ────────────────────────────────────────────────────────
+document.getElementById('presetSelect').addEventListener('change', (e) => {
+  const key = e.target.value;
+  if (PRESETS[key]) {
+    state.level = JSON.parse(JSON.stringify(PRESETS[key]));
+    state.selectedEntity = null;
+    document.getElementById('storyPrompt').value = state.level.storyIntro || '';
+    renderInspector();
+    renderEditor();
+    saveProject();
+    showToast(`Loaded ${PRESETS[key].title}`);
+  }
+});
+
+// ── MODE 2: PLAYABLE 60FPS PLATFORMER ENGINE ────────────────────────────────
+const gameCanvas = document.getElementById('gameCanvas');
+const gameCtx = gameCanvas.getContext('2d');
+
+let gameRunning = false;
+let gameTime = 0;
+let coinsCollected = 0;
+let playerHealth = 3;
+let keys = {};
+let particles = [];
+let activeDialogue = null;
+let dialogueIndex = 0;
+
+const player = {
+  x: 80, y: 500,
+  w: 22, h: 32,
+  vx: 0, vy: 0,
+  grounded: false,
+  facing: 1, // 1 or -1
+  invincibleTimer: 0,
+  coyoteTimer: 0,
+  jumpBuffer: 0,
+};
+
+let dynamicPlatforms = [];
+let dynamicEnemies = [];
+let camera = { x: 0, y: 0 };
+
+function resizeGameCanvas() {
+  gameCanvas.width = gameCanvas.clientWidth;
+  gameCanvas.height = gameCanvas.clientHeight;
+}
+window.addEventListener('resize', resizeGameCanvas);
+
+function initGame() {
+  resizeGameCanvas();
+  const lvl = state.level;
+  coinsCollected = 0;
+  playerHealth = 3;
+  gameTime = 0;
+  activeDialogue = null;
+  document.getElementById('dialogueModal').style.display = 'none';
+  document.getElementById('gameBanner').style.display = 'none';
+
+  // Spawn player
+  const spawn = lvl.playerSpawn || { x: 80, y: 500 };
+  player.x = spawn.x;
+  player.y = spawn.y - player.h;
+  player.vx = 0;
+  player.vy = 0;
+  player.grounded = false;
+  player.invincibleTimer = 0;
+
+  // Clone dynamic elements
+  dynamicPlatforms = (lvl.platforms || []).map(p => ({
+    ...p,
+    origX: p.x,
+    origY: p.y,
+    dir: 1
+  }));
+
+  dynamicEnemies = (lvl.enemies || []).map(e => ({
+    ...e,
+    origX: e.x,
+    dir: 1,
+    alive: true
+  }));
+
+  updateHud();
+}
+
+function updateHud() {
+  const hearts = '❤️'.repeat(Math.max(0, playerHealth)) || '💀';
+  document.getElementById('hudHearts').textContent = hearts;
+  document.getElementById('hudCoins').textContent = `${coinsCollected} / ${(state.level.coins || []).length}`;
+  document.getElementById('hudObjective').textContent = `🎯 Mission: ${state.level.storyIntro ? state.level.storyIntro.slice(0, 50) + '...' : 'Reach the Exit Portal'}`;
+}
+
+// Particle system
+function spawnParticles(x, y, color, count = 8, speed = 120) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const spd = (Math.random() * 0.8 + 0.2) * speed;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * spd,
+      vy: Math.sin(angle) * spd,
+      color,
+      size: Math.random() * 3 + 2,
+      alpha: 1,
+      life: 0.4 + Math.random() * 0.3
+    });
+  }
+}
+
+// Keyboard controls for game
+window.addEventListener('keydown', (e) => {
+  if (state.mode !== 'play') return;
+  keys[e.code] = true;
+
+  if (e.code === 'KeyR') {
+    initGame();
+  } else if (e.code === 'Escape') {
+    switchMode('builder');
+  } else if (e.code === 'KeyE') {
+    if (activeDialogue) advanceDialogue();
+    else checkNpcInteraction();
+  }
+});
+window.addEventListener('keyup', (e) => {
+  if (state.mode !== 'play') return;
+  keys[e.code] = false;
+});
+
+function checkNpcInteraction() {
+  const npcs = state.level.npcs || [];
+  for (const npc of npcs) {
+    if (Math.hypot(player.x - npc.x, player.y - npc.y) < 70) {
+      startDialogue(npc);
+      break;
+    }
+  }
+}
+
+function startDialogue(npc) {
+  if (!npc.dialogue || !npc.dialogue.length) return;
+  activeDialogue = npc;
+  dialogueIndex = 0;
+  Sound.play('talk');
+  const modal = document.getElementById('dialogueModal');
+  document.getElementById('dialogueSpeaker').textContent = `💬 ${npc.name || 'NPC'}`;
+  document.getElementById('dialogueText').textContent = npc.dialogue[0];
+  document.getElementById('dialoguePage').textContent = `1 / ${npc.dialogue.length}`;
+  modal.style.display = 'block';
+}
+
+function advanceDialogue() {
+  if (!activeDialogue) return;
+  dialogueIndex++;
+  if (dialogueIndex < activeDialogue.dialogue.length) {
+    Sound.play('talk');
+    document.getElementById('dialogueText').textContent = activeDialogue.dialogue[dialogueIndex];
+    document.getElementById('dialoguePage').textContent = `${dialogueIndex + 1} / ${activeDialogue.dialogue.length}`;
+  } else {
+    activeDialogue = null;
+    document.getElementById('dialogueModal').style.display = 'none';
+  }
+}
+
+document.getElementById('btnDialogueNext').addEventListener('click', advanceDialogue);
+
+let lastTime = performance.now();
+function gameLoop(now) {
+  if (!gameRunning) return;
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
+  lastTime = now;
+
+  gameTime += dt;
+  updateGamePhysics(dt);
+  renderGame();
+
+  requestAnimationFrame(gameLoop);
+}
+
+function updateGamePhysics(dt) {
+  const lvl = state.level;
+  const gravity = lvl.gravity || 1800;
+  const speed = lvl.speed || 320;
+  const jumpForce = lvl.jumpForce || -600;
+
+  if (player.invincibleTimer > 0) player.invincibleTimer -= dt;
+
+  // Move dynamic platforms
+  dynamicPlatforms.forEach(p => {
+    if (p.moving) {
+      const spd = p.speed || 50;
+      const rng = p.range || 100;
+      p.x += p.dir * spd * dt;
+      if (p.x > p.origX + rng) { p.x = p.origX + rng; p.dir = -1; }
+      else if (p.x < p.origX - rng) { p.x = p.origX - rng; p.dir = 1; }
+    }
+  });
+
+  // Move enemies
+  dynamicEnemies.forEach(e => {
+    if (e.alive) {
+      const spd = e.speed || 50;
+      const rng = e.patrol || 60;
+      e.x += e.dir * spd * dt;
+      if (e.x > e.origX + rng) { e.x = e.origX + rng; e.dir = -1; }
+      else if (e.x < e.origX - rng) { e.x = e.origX - rng; e.dir = 1; }
+    }
+  });
+
+  // Horizontal input
+  let moveX = 0;
+  if (keys['KeyA'] || keys['ArrowLeft']) { moveX -= 1; player.facing = -1; }
+  if (keys['KeyD'] || keys['ArrowRight']) { moveX += 1; player.facing = 1; }
+  player.vx = moveX * speed;
+
+  // Jump buffer & coyote time
+  if (player.grounded) player.coyoteTimer = 0.12;
+  else player.coyoteTimer -= dt;
+
+  if (keys['Space'] || keys['KeyW'] || keys['ArrowUp']) {
+    player.jumpBuffer = 0.12;
+  } else {
+    player.jumpBuffer -= dt;
+  }
+
+  if (player.jumpBuffer > 0 && player.coyoteTimer > 0) {
+    player.vy = jumpForce;
+    player.grounded = false;
+    player.coyoteTimer = 0;
+    player.jumpBuffer = 0;
+    Sound.play('jump');
+    spawnParticles(player.x + player.w / 2, player.y + player.h, '#e2e8f0', 6, 80);
+  }
+
+  // Variable jump height
+  if (!keys['Space'] && !keys['KeyW'] && !keys['ArrowUp'] && player.vy < 0) {
+    player.vy *= 0.85;
+  }
+
+  // Apply gravity
+  player.vy += gravity * dt;
+
+  // Move X & collide
+  player.x += player.vx * dt;
+  dynamicPlatforms.forEach(p => {
+    if (checkAABB(player, p)) {
+      if (player.vx > 0) player.x = p.x - player.w;
+      else if (player.vx < 0) player.x = p.x + p.w;
+    }
+  });
+
+  // Move Y & collide
+  player.y += player.vy * dt;
+  player.grounded = false;
+
+  dynamicPlatforms.forEach(p => {
+    if (checkAABB(player, p)) {
+      if (player.vy > 0) {
+        // Landing
+        player.y = p.y - player.h;
+        player.vy = 0;
+        player.grounded = true;
+
+        if (p.bouncy) {
+          player.vy = jumpForce * 1.35;
+          player.grounded = false;
+          Sound.play('bounce');
+          spawnParticles(player.x + player.w / 2, player.y + player.h, '#10b981', 12, 140);
+        } else if (p.moving) {
+          // Ride moving platform
+          player.x += p.dir * (p.speed || 50) * dt;
+        }
+      } else if (player.vy < 0) {
+        // Hit ceiling
+        player.y = p.y + p.h;
+        player.vy = 0;
+      }
+    }
+  });
+
+  // Pit death check
+  if (player.y > 700) {
+    hurtPlayer(true);
+  }
+
+  // Hazard collision
+  (lvl.hazards || []).forEach(hz => {
+    if (checkAABB(player, hz)) hurtPlayer();
+  });
+
+  // Enemy collision
+  dynamicEnemies.forEach(e => {
+    if (!e.alive) return;
+    const enemyBox = { x: e.x - 12, y: e.y - 12, w: 24, h: 24 };
+    if (checkAABB(player, enemyBox)) {
+      // Stomp check
+      if (player.vy > 0 && player.y + player.h - player.vy * dt <= enemyBox.y + 10) {
+        e.alive = false;
+        player.vy = jumpForce * 0.75;
+        Sound.play('bounce');
+        spawnParticles(e.x, e.y, '#ef4444', 16, 160);
+      } else {
+        hurtPlayer();
+      }
+    }
+  });
+
+  // Coin collection
+  (lvl.coins || []).forEach(c => {
+    if (!c.collected && Math.hypot(player.x + player.w / 2 - c.x, player.y + player.h / 2 - c.y) < 18) {
+      c.collected = true;
+      coinsCollected++;
+      Sound.play('coin');
+      spawnParticles(c.x, c.y, '#fbbf24', 10, 100);
+      updateHud();
+    }
+  });
+
+  // Portal check (Win)
+  if (lvl.portal && Math.hypot(player.x + player.w / 2 - lvl.portal.x, player.y + player.h / 2 - lvl.portal.y) < 28) {
+    levelComplete();
+  }
+
+  // Update particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const pt = particles[i];
+    pt.x += pt.vx * dt;
+    pt.y += pt.vy * dt;
+    pt.life -= dt;
+    pt.alpha = pt.life / 0.5;
+    if (pt.life <= 0) particles.splice(i, 1);
+  }
+
+  // Smooth camera tracking
+  const targetCamX = player.x + player.w / 2 - gameCanvas.width / 2;
+  const targetCamY = player.y + player.h / 2 - gameCanvas.height / 2;
+  camera.x += (targetCamX - camera.x) * 0.1;
+  camera.y += (targetCamY - camera.y) * 0.1;
+}
+
+function checkAABB(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function hurtPlayer(instantKill = false) {
+  if (player.invincibleTimer > 0 && !instantKill) return;
+  playerHealth -= 1;
+  Sound.play('hurt');
+  spawnParticles(player.x + player.w / 2, player.y + player.h / 2, '#ef4444', 12, 120);
+  player.invincibleTimer = 1.0;
+  updateHud();
+
+  if (playerHealth <= 0 || instantKill) {
+    const spawn = state.level.playerSpawn || { x: 80, y: 500 };
+    player.x = spawn.x;
+    player.y = spawn.y - player.h;
+    player.vx = 0; player.vy = 0;
+    if (playerHealth <= 0) {
+      playerHealth = 3;
+      updateHud();
+      showToast('Game Over! Restarting level...');
+    }
+  }
+}
+
+function levelComplete() {
+  gameRunning = false;
+  Sound.play('win');
+  const banner = document.getElementById('gameBanner');
+  document.getElementById('bannerTitle').textContent = '🎉 Level Complete!';
+  document.getElementById('bannerMsg').textContent = `You guided your hero through "${state.level.title || 'the level'}" successfully!`;
+  document.getElementById('bannerCoins').textContent = `${coinsCollected} / ${(state.level.coins || []).length}`;
+  document.getElementById('bannerTime').textContent = `${Math.round(gameTime)}s`;
+  banner.style.display = 'block';
+}
+
+document.getElementById('btnBannerRestart').addEventListener('click', () => {
+  document.getElementById('gameBanner').style.display = 'none';
+  gameRunning = true;
+  initGame();
+  lastTime = performance.now();
+  requestAnimationFrame(gameLoop);
+});
+document.getElementById('btnBannerEditor').addEventListener('click', () => {
+  switchMode('builder');
+});
+
+// Render game canvas
+function renderGame() {
+  const ctx = gameCtx;
+  const w = gameCanvas.width, h = gameCanvas.height;
+  const lvl = state.level;
+
+  ctx.save();
+  ctx.clearRect(0, 0, w, h);
+
+  // Background
+  ctx.fillStyle = lvl.theme?.bg || '#0b0f19';
+  ctx.fillRect(0, 0, w, h);
+
+  // Apply camera
+  ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+
+  // Platforms
+  dynamicPlatforms.forEach(p => {
+    ctx.fillStyle = p.bouncy ? '#10b981' : (p.color || lvl.theme?.platform || '#6c3483');
+    ctx.beginPath();
+    ctx.roundRect(p.x, p.y, p.w, p.h, 4);
+    ctx.fill();
+    ctx.strokeStyle = p.bouncy ? '#a7f3d0' : 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  });
+
+  // Hazards
+  (lvl.hazards || []).forEach(hz => {
+    ctx.fillStyle = '#ef4444';
+    const spikeW = 10;
+    const count = Math.max(1, Math.floor(hz.w / spikeW));
+    ctx.beginPath();
+    for (let i = 0; i < count; i++) {
+      const sx = hz.x + i * spikeW;
+      ctx.moveTo(sx, hz.y + hz.h);
+      ctx.lineTo(sx + spikeW / 2, hz.y);
+      ctx.lineTo(sx + spikeW, hz.y + hz.h);
+    }
+    ctx.fill();
+  });
+
+  // Coins
+  (lvl.coins || []).forEach(c => {
+    if (!c.collected) {
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('★', c.x, c.y);
+    }
+  });
+
+  // Enemies
+  dynamicEnemies.forEach(e => {
+    if (e.alive) {
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.roundRect(e.x - 12, e.y - 12, 24, 24, 6);
+      ctx.fill();
+      // Eyes
+      ctx.fillStyle = '#fff';
+      const eyeOffset = e.dir > 0 ? 2 : -2;
+      ctx.fillRect(e.x - 5 + eyeOffset, e.y - 5, 4, 4);
+      ctx.fillRect(e.x + 3 + eyeOffset, e.y - 5, 4, 4);
+    }
+  });
+
+  // NPCs
+  (lvl.npcs || []).forEach(npc => {
+    ctx.fillStyle = '#8b5cf6';
+    ctx.beginPath();
+    ctx.roundRect(npc.x - 12, npc.y - 16, 24, 32, 6);
+    ctx.fill();
+    ctx.fillStyle = '#c4b5fd';
+    ctx.font = '10px Inter';
+    ctx.textAlign = 'center';
+    ctx.fillText(npc.name || 'NPC', npc.x, npc.y + 26);
+
+    // Prompt if player nearby
+    if (Math.hypot(player.x - npc.x, player.y - npc.y) < 60) {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 11px Inter';
+      ctx.fillText('[E] Talk', npc.x, npc.y - 24);
+    }
+  });
+
+  // Goal Portal
+  if (lvl.portal) {
+    const pulse = Math.sin(gameTime * 4) * 4;
+    const grad = ctx.createRadialGradient(lvl.portal.x, lvl.portal.y, 4, lvl.portal.x, lvl.portal.y, 24 + pulse);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.6, lvl.theme?.accent || '#64ffda');
+    grad.addColorStop(1, 'rgba(99,102,241,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(lvl.portal.x, lvl.portal.y, 24 + pulse, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Player
+  if (player.invincibleTimer <= 0 || Math.floor(gameTime * 20) % 2 === 0) {
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.roundRect(player.x, player.y, player.w, player.h, 4);
+    ctx.fill();
+    ctx.strokeStyle = '#0284c7';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Eyes
+    ctx.fillStyle = '#0f172a';
+    const eyeX = player.facing > 0 ? player.x + player.w - 7 : player.x + 4;
+    ctx.fillRect(eyeX, player.y + 7, 3, 5);
+  }
+
+  // Particles
+  particles.forEach(pt => {
+    ctx.fillStyle = pt.color;
+    ctx.globalAlpha = Math.max(0, pt.alpha);
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1.0;
+
+  ctx.restore();
+}
+
+// ── MODE 3: GAME DATA & EXPORT ──────────────────────────────────────────────
+const jsonEditor = document.getElementById('jsonEditor');
+
+function syncDataView() {
+  jsonEditor.value = JSON.stringify(state.level, null, 2);
+}
+
+document.getElementById('btnApplyJson').addEventListener('click', () => {
+  try {
+    const parsed = JSON.parse(jsonEditor.value);
+    if (!parsed || !parsed.platforms) throw new Error('Invalid level data: missing platforms');
+    state.level = parsed;
+    saveProject();
+    renderInspector();
+    renderEditor();
+    showToast('✅ JSON applied to game!');
+  } catch(e) {
+    showToast('Error: ' + e.message);
+  }
+});
+
+document.getElementById('btnFormatJson').addEventListener('click', () => {
+  try {
+    jsonEditor.value = JSON.stringify(JSON.parse(jsonEditor.value), null, 2);
+  } catch(e) {}
+});
+
+document.getElementById('btnCopyJson').addEventListener('click', () => {
+  navigator.clipboard.writeText(jsonEditor.value);
+  showToast('📋 Copied JSON to clipboard!');
+});
+
+// Standalone HTML Game Exporter
+document.getElementById('btnExportGame').addEventListener('click', () => {
+  const levelJsonStr = JSON.stringify(state.level);
+  const standaloneHtml = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${state.level.title || 'ProtoGame'}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #000; color: #fff; font-family: system-ui, sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+  canvas { width: 100%; height: 100%; display: block; }
+  #hud { position: absolute; top: 16px; left: 16px; right: 16px; display: flex; justify-content: space-between; pointer-events: none; }
+  .box { background: rgba(15,23,42,0.85); padding: 8px 16px; border-radius: 12px; font-weight: 700; border: 1px solid rgba(255,255,255,0.1); }
+  #modal { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); background: #111827; border: 2px solid #6366f1; border-radius: 12px; padding: 16px 20px; max-width: 500px; width: 90%; display: none; }
+</style>
+</head>
+<body>
+<div id="hud">
+  <div class="box" id="hudStats">❤️❤️❤️ · 🪙 0</div>
+  <div class="box" id="hudTitle">${state.level.title || 'ProtoGame'}</div>
+</div>
+<div id="modal">
+  <h3 id="speaker" style="color:#a5b4fc; margin-bottom:6px;">NPC</h3>
+  <p id="msg" style="line-height:1.5;">Hello!</p>
+  <button onclick="nextDialog()" style="margin-top:10px; padding:6px 12px; background:#6366f1; color:#fff; border:none; border-radius:6px; cursor:pointer;">Next →</button>
+</div>
+<canvas id="c"></canvas>
+<script>
+const LEVEL = ${levelJsonStr};
+const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+let w, h;
+function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+window.onresize = resize; resize();
+
+let player = { x: LEVEL.playerSpawn?.x || 80, y: LEVEL.playerSpawn?.y || 400, w: 22, h: 32, vx: 0, vy: 0, grounded: false, hp: 3, coins: 0 };
+let keys = {}, camera = { x: 0, y: 0 }, activeNpc = null, dIdx = 0;
+window.onkeydown = (e) => { keys[e.code] = true; if (e.code === 'KeyE') interact(); if (e.code === 'KeyR') reset(); };
+window.onkeyup = (e) => keys[e.code] = false;
+
+function reset() {
+  player.x = LEVEL.playerSpawn?.x || 80; player.y = LEVEL.playerSpawn?.y || 400; player.vx = player.vy = 0; player.hp = 3; player.coins = 0;
+  (LEVEL.coins || []).forEach(c => c.collected = false);
+  document.getElementById('hudStats').textContent = '❤️❤️❤️ · 🪙 0';
+}
+
+function interact() {
+  if (activeNpc) { nextDialog(); return; }
+  for (const n of (LEVEL.npcs || [])) {
+    if (Math.hypot(player.x - n.x, player.y - n.y) < 70) {
+      activeNpc = n; dIdx = 0;
+      document.getElementById('speaker').textContent = n.name || 'NPC';
+      document.getElementById('msg').textContent = n.dialogue?.[0] || '...';
+      document.getElementById('modal').style.display = 'block';
+      break;
+    }
+  }
+}
+function nextDialog() {
+  dIdx++;
+  if (activeNpc && dIdx < (activeNpc.dialogue || []).length) {
+    document.getElementById('msg').textContent = activeNpc.dialogue[dIdx];
+  } else {
+    activeNpc = null;
+    document.getElementById('modal').style.display = 'none';
+  }
+}
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min((now - last) / 1000, 0.05); last = now;
+  // Controls
+  let mx = 0;
+  if (keys['KeyA'] || keys['ArrowLeft']) mx -= 1;
+  if (keys['KeyD'] || keys['ArrowRight']) mx += 1;
+  player.vx = mx * (LEVEL.speed || 320);
+
+  if ((keys['Space'] || keys['KeyW'] || keys['ArrowUp']) && player.grounded) {
+    player.vy = LEVEL.jumpForce || -600;
+    player.grounded = false;
+  }
+  player.vy += (LEVEL.gravity || 1800) * dt;
+
+  // Move X
+  player.x += player.vx * dt;
+  (LEVEL.platforms || []).forEach(p => {
+    if (collide(player, p)) {
+      if (player.vx > 0) player.x = p.x - player.w;
+      else if (player.vx < 0) player.x = p.x + p.w;
+    }
+  });
+
+  // Move Y
+  player.y += player.vy * dt;
+  player.grounded = false;
+  (LEVEL.platforms || []).forEach(p => {
+    if (collide(player, p)) {
+      if (player.vy > 0) {
+        player.y = p.y - player.h; player.vy = 0; player.grounded = true;
+        if (p.bouncy) { player.vy = (LEVEL.jumpForce || -600) * 1.35; player.grounded = false; }
+      } else if (player.vy < 0) { player.y = p.y + p.h; player.vy = 0; }
+    }
+  });
+
+  if (player.y > 800) reset();
+
+  // Coins
+  (LEVEL.coins || []).forEach(c => {
+    if (!c.collected && Math.hypot(player.x - c.x, player.y - c.y) < 20) {
+      c.collected = true; player.coins++;
+      document.getElementById('hudStats').textContent = '❤️'.repeat(player.hp) + ' · 🪙 ' + player.coins;
+    }
+  });
+
+  // Camera
+  camera.x += (player.x - w / 2 - camera.x) * 0.1;
+  camera.y += (player.y - h / 2 - camera.y) * 0.1;
+
+  // Draw
+  ctx.fillStyle = LEVEL.theme?.bg || '#0a0a1a'; ctx.fillRect(0, 0, w, h);
+  ctx.save(); ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+
+  (LEVEL.platforms || []).forEach(p => {
+    ctx.fillStyle = p.bouncy ? '#10b981' : (LEVEL.theme?.platform || '#6c3483');
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+  });
+  (LEVEL.hazards || []).forEach(hz => { ctx.fillStyle = '#ef4444'; ctx.fillRect(hz.x, hz.y, hz.w, hz.h); });
+  (LEVEL.coins || []).forEach(c => {
+    if (!c.collected) { ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(c.x, c.y, 8, 0, Math.PI*2); ctx.fill(); }
+  });
+  (LEVEL.npcs || []).forEach(n => {
+    ctx.fillStyle = '#8b5cf6'; ctx.fillRect(n.x - 10, n.y - 14, 20, 28);
+  });
+  if (LEVEL.portal) {
+    ctx.fillStyle = LEVEL.theme?.accent || '#06b6d4';
+    ctx.beginPath(); ctx.arc(LEVEL.portal.x, LEVEL.portal.y, 22, 0, Math.PI*2); ctx.fill();
+    if (Math.hypot(player.x - LEVEL.portal.x, player.y - LEVEL.portal.y) < 30) {
+      alert('🎉 Quest Complete! You won!');
+      reset();
+    }
+  }
+
+  // Player
+  ctx.fillStyle = '#38bdf8'; ctx.fillRect(player.x, player.y, player.w, player.h);
+  ctx.restore();
+
+  requestAnimationFrame(loop);
+}
+function collide(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+requestAnimationFrame(loop);
+<\/script>
+</body>
+</html>`;
+
+  const blob = new Blob([standaloneHtml], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(state.level.title || 'game').toLowerCase().replace(/[^a-z0-9]/g, '-')}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('📦 Game exported to standalone HTML file!');
+});
+
+// ── Mode Switcher ───────────────────────────────────────────────────────────
+function switchMode(mode) {
+  state.mode = mode;
+  document.getElementById('tabBuilder').classList.toggle('active', mode === 'builder');
+  document.getElementById('tabPlay').classList.toggle('active', mode === 'play');
+  document.getElementById('tabData').classList.toggle('active', mode === 'data');
+
+  document.getElementById('modeBuilder').style.display = mode === 'builder' ? 'flex' : 'none';
+  document.getElementById('modePlay').style.display = mode === 'play' ? 'flex' : 'none';
+  document.getElementById('modeData').style.display = mode === 'data' ? 'flex' : 'none';
+
+  if (mode === 'builder') {
+    gameRunning = false;
+    renderInspector();
+    renderEditor();
+  } else if (mode === 'play') {
+    gameRunning = true;
+    initGame();
+    lastTime = performance.now();
+    requestAnimationFrame(gameLoop);
+  } else if (mode === 'data') {
+    gameRunning = false;
+    syncDataView();
+  }
+}
+
+document.getElementById('tabBuilder').onclick = () => switchMode('builder');
+document.getElementById('tabPlay').onclick = () => switchMode('play');
+document.getElementById('tabData').onclick = () => switchMode('data');
+document.getElementById('btnQuickPlay').onclick = () => switchMode('play');
+
+// ── Startup Initialization ──────────────────────────────────────────────────
+(function init() {
+  loadProject();
+  document.getElementById('storyPrompt').value = state.level.storyIntro || '';
+  renderInspector();
+  renderEditor();
+})();
+</script>
 </body>
 </html>

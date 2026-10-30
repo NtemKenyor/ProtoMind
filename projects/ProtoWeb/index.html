@@ -300,8 +300,46 @@
           <i class="fa-regular fa-copy"></i>
         </button>
         <div class="h-4 w-px bg-slate-700"></div>
+        <button id="act-ai-prompt" title="✨ AI Prompt This Section" class="text-xs bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium px-2.5 py-1 rounded-lg flex items-center gap-1.5 transition shadow-sm">
+          <span>✨ AI Prompt</span>
+        </button>
+        <div class="h-4 w-px bg-slate-700"></div>
         <button id="act-delete" title="Delete Selected Element (Del)" class="text-xs text-rose-400 hover:text-white hover:bg-rose-600 p-1.5 rounded transition">
           <i class="fa-regular fa-trash-can"></i>
+        </button>
+      </div>
+
+      <!-- Floating AI Popover for Selected Section -->
+      <div id="ai-floating-popover" class="hidden absolute top-14 left-1/2 -translate-x-1/2 z-30 w-96 max-w-[90vw] bg-slate-900/95 backdrop-blur-md border border-indigo-500/40 rounded-2xl shadow-2xl p-4 text-xs space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-indigo-500/20">
+          <div class="flex items-center gap-1.5 text-indigo-300 font-bold">
+            <span class="text-sm">✨</span>
+            <span>AI PROMPT THIS SECTION</span>
+          </div>
+          <button id="close-ai-popover" class="text-slate-400 hover:text-white p-1 rounded transition"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-2 rounded-lg bg-slate-950/80 border border-indigo-500/30">
+          <div class="text-[11px] font-mono text-indigo-200 flex items-center gap-1">
+            <span class="text-slate-400">Target Scope:</span>
+            <span id="ai-pop-scope-tag" class="font-bold text-indigo-400">&lt;div&gt;</span>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-0.5 leading-snug">
+            Only this selected element and its children will be updated; the rest of your page stays untouched.
+          </p>
+        </div>
+        <div>
+          <textarea id="ai-pop-prompt" rows="2" placeholder="Describe how to change or rebuild just this section..." class="w-full bg-slate-950 text-slate-100 text-xs rounded-lg p-2.5 border border-indigo-500/40 focus:outline-none focus:border-indigo-400 select-text resize-none"></textarea>
+        </div>
+        <div class="flex flex-wrap gap-1.5" id="ai-pop-chips">
+          <button type="button" class="ai-chip text-[10px] px-2 py-0.5 rounded-md bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 border border-indigo-700/40 transition">Make Dark Glassmorphism</button>
+          <button type="button" class="ai-chip text-[10px] px-2 py-0.5 rounded-md bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 border border-indigo-700/40 transition">Add 3-Column Feature Cards</button>
+          <button type="button" class="ai-chip text-[10px] px-2 py-0.5 rounded-md bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 border border-indigo-700/40 transition">Convert to Pricing Section</button>
+          <button type="button" class="ai-chip text-[10px] px-2 py-0.5 rounded-md bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 border border-indigo-700/40 transition">Polish Typography & CTA</button>
+          <button type="button" class="ai-chip text-[10px] px-2 py-0.5 rounded-md bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 border border-indigo-700/40 transition">Make Mobile-Friendly Flex Layout</button>
+        </div>
+        <button id="btn-apply-ai-pop" class="w-full py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white font-medium text-xs shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5 transition">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>Apply to Selected Section</span>
         </button>
       </div>
 
@@ -423,6 +461,42 @@
 
       <!-- Active Inspector Content -->
       <div id="inspector-content" class="hidden flex-1 overflow-y-auto divide-y divide-slate-800">
+
+        <!-- AI SECTION-TARGETED CO-PILOT -->
+        <div class="p-4 bg-gradient-to-b from-indigo-950/60 to-purple-950/30 border-b border-indigo-500/30 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5 text-xs font-bold text-indigo-300">
+              <span class="text-sm">✨</span>
+              <span>AI PROMPT THIS SECTION</span>
+            </div>
+            <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Scoped</span>
+          </div>
+          <div class="p-2 rounded-lg bg-slate-950/70 border border-indigo-500/20">
+            <div class="text-[11px] font-mono text-indigo-200 flex items-center gap-1">
+              <span class="text-slate-400">Target Scope:</span>
+              <span id="ai-scope-tag" class="font-bold text-indigo-400">&lt;section&gt;</span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-0.5 leading-snug">
+              Only this selected element and its children will be updated; the rest of your page stays untouched.
+            </p>
+          </div>
+          <div>
+            <textarea id="ai-section-prompt" rows="2" placeholder="Describe how to change or rebuild just this section..." class="w-full bg-slate-950 text-slate-100 text-xs rounded-lg p-2.5 border border-indigo-500/40 focus:outline-none focus:border-indigo-400 select-text resize-none"></textarea>
+          </div>
+          <div class="flex flex-wrap gap-1.5" id="ai-quick-chips">
+            <button type="button" class="ai-chip text-[10px] px-2 py-1 rounded-md bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 border border-indigo-700/40 transition">Make Dark Glassmorphism</button>
+            <button type="button" class="ai-chip text-[10px] px-2 py-1 rounded-md bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 border border-indigo-700/40 transition">Add 3-Column Feature Cards</button>
+            <button type="button" class="ai-chip text-[10px] px-2 py-1 rounded-md bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 border border-indigo-700/40 transition">Convert to Pricing Section</button>
+            <button type="button" class="ai-chip text-[10px] px-2 py-1 rounded-md bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 border border-indigo-700/40 transition">Polish Typography & CTA</button>
+            <button type="button" class="ai-chip text-[10px] px-2 py-1 rounded-md bg-indigo-900/40 hover:bg-indigo-800/60 text-indigo-200 border border-indigo-700/40 transition">Make Mobile-Friendly Flex Layout</button>
+          </div>
+          <div class="flex items-center gap-2 pt-1">
+            <button id="btn-apply-ai-section" class="flex-1 py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] text-white font-medium text-xs shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5 transition">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span>Apply to Selected Section</span>
+            </button>
+          </div>
+        </div>
 
         <!-- SECTION 1: ELEMENT CONTENT & TAG -->
         <div class="p-4 space-y-3">
@@ -1151,6 +1225,7 @@
       state.history.push(cleanHtml);
       if (state.history.length > 40) state.history.shift();
       state.historyIndex = state.history.length - 1;
+      try { localStorage.setItem('protoweb.canvas', cleanHtml); } catch (e) {}
       updateUndoRedoButtons();
       updateNodeCountAndTree();
     }
@@ -1239,6 +1314,7 @@
       if (!el || el === canvasRoot || !canvasRoot.contains(el)) {
         state.selectedEl = null;
         selectionToolbar.classList.add('hidden');
+        document.getElementById('ai-floating-popover')?.classList.add('hidden');
         inspectorEmpty.classList.remove('hidden');
         inspectorContent.classList.add('hidden');
         inspectorTagBadge.classList.add('hidden');
@@ -1257,6 +1333,13 @@
       const tag = el.tagName.toLowerCase();
       selectedTagPill.textContent = `${tag.toUpperCase()}${el.id ? '#' + el.id : ''}`;
       selectionToolbar.classList.remove('hidden');
+
+      // Update AI Target Scope labels
+      const scopeLabel = `<${tag}${el.id ? '#' + el.id : ''}>`;
+      const aiScopeTag = document.getElementById('ai-scope-tag');
+      if (aiScopeTag) aiScopeTag.textContent = scopeLabel;
+      const aiPopScopeTag = document.getElementById('ai-pop-scope-tag');
+      if (aiPopScopeTag) aiPopScopeTag.textContent = scopeLabel;
 
       // Populate Right Inspector
       inspectorEmpty.classList.add('hidden');
@@ -1483,6 +1566,115 @@
       saveHistory();
       showToast('Element removed');
     }
+
+    /*************************************************************************
+     * 7b. SECTION-TARGETED AI CO-PILOT ACTIONS
+     *************************************************************************/
+    document.getElementById('act-ai-prompt')?.addEventListener('click', () => {
+      const popover = document.getElementById('ai-floating-popover');
+      if (popover) {
+        popover.classList.toggle('hidden');
+        if (!popover.classList.contains('hidden')) {
+          document.getElementById('ai-pop-prompt')?.focus();
+        }
+      }
+    });
+
+    document.getElementById('close-ai-popover')?.addEventListener('click', () => {
+      document.getElementById('ai-floating-popover')?.classList.add('hidden');
+    });
+
+    document.querySelectorAll('.ai-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const text = btn.textContent.trim();
+        const p1 = document.getElementById('ai-section-prompt');
+        const p2 = document.getElementById('ai-pop-prompt');
+        if (p1) p1.value = text;
+        if (p2) p2.value = text;
+      });
+    });
+
+    async function applyAiToSection(btnEl, inputEl) {
+      if (!state.selectedEl) {
+        showToast('Please select a section or element first');
+        return;
+      }
+      const promptText = (inputEl ? inputEl.value : '').trim() ||
+        (document.getElementById('ai-section-prompt')?.value || '').trim() ||
+        (document.getElementById('ai-pop-prompt')?.value || '').trim();
+
+      if (!promptText) {
+        showToast('Please enter a prompt or pick a chip');
+        return;
+      }
+
+      const origText = btnEl ? btnEl.innerHTML : '';
+      if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Applying AI...</span>';
+      }
+
+      try {
+        saveHistory();
+        const targetEl = state.selectedEl;
+        const res = await fetch('/api/ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project: 'protoweb',
+            action: 'edit-section',
+            prompt: promptText,
+            context: {
+              tagName: targetEl.tagName,
+              sectionHtml: targetEl.outerHTML
+            }
+          })
+        });
+
+        if (!res.ok) throw new Error('AI request failed: ' + res.statusText);
+        const data = await res.json();
+        let clean = (data.html || data.reply || '').trim();
+        if (clean.startsWith('```')) {
+          clean = clean.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
+        }
+        if (!clean) throw new Error('AI returned an empty response');
+
+        const temp = document.createElement('div');
+        temp.innerHTML = clean;
+        const newEl = temp.firstElementChild;
+        if (!newEl) throw new Error('Could not parse returned HTML element');
+
+        const genId = () => 'pw-' + Math.random().toString(36).substring(2, 9);
+        if (!newEl.getAttribute('data-pw-id')) newEl.setAttribute('data-pw-id', genId());
+        newEl.querySelectorAll('*').forEach(c => {
+          if (!c.getAttribute('data-pw-id')) c.setAttribute('data-pw-id', genId());
+        });
+
+        if (targetEl.parentNode) {
+          targetEl.parentNode.replaceChild(newEl, targetEl);
+          selectElement(newEl);
+          saveHistory();
+          showToast(data.explanation || '✨ Section updated with AI');
+        }
+        document.getElementById('ai-floating-popover')?.classList.add('hidden');
+      } catch (err) {
+        console.error('AI section update error:', err);
+        showToast('AI error: ' + err.message);
+      } finally {
+        if (btnEl) {
+          btnEl.disabled = false;
+          btnEl.innerHTML = origText;
+        }
+      }
+    }
+
+    document.getElementById('btn-apply-ai-section')?.addEventListener('click', (e) => {
+      applyAiToSection(e.currentTarget, document.getElementById('ai-section-prompt'));
+    });
+
+    document.getElementById('btn-apply-ai-pop')?.addEventListener('click', (e) => {
+      applyAiToSection(e.currentTarget, document.getElementById('ai-pop-prompt'));
+    });
 
     // Keyboard shortcuts (Delete, Undo, Redo)
     window.addEventListener('keydown', (e) => {
@@ -2117,7 +2309,16 @@ ${bodyMarkup}
      *************************************************************************/
     window.addEventListener('DOMContentLoaded', () => {
       renderPalette();
-      loadTemplate('saas');
+      const saved = localStorage.getItem('protoweb.canvas');
+      if (saved && saved.trim()) {
+        canvasRoot.innerHTML = saved;
+        state.history = [saved];
+        state.historyIndex = 0;
+        updateUndoRedoButtons();
+        updateNodeCountAndTree();
+      } else {
+        loadTemplate('saas');
+      }
     });
   </script>
 </body>
