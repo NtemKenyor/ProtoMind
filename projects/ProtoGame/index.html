@@ -670,6 +670,312 @@
     display: none;
     z-index: 100;
   }
+
+  /* ── Undo / Redo & Muse AI in Header ────────────────────────────────────── */
+  .undo-redo-group {
+    display: flex;
+    align-items: center;
+    background: var(--panel-light);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .btn-undo-redo {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    padding: 5px 9px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .btn-undo-redo:hover:not(:disabled) {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+  }
+  .btn-undo-redo:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  /* Animated Gradient Muse AI Button */
+  @keyframes gradientFlow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .btn-muse-ai {
+    background: linear-gradient(135deg, #6366f1, #a855f7, #ec4899, #6366f1);
+    background-size: 300% 300%;
+    animation: gradientFlow 5s ease infinite;
+    color: #fff;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .btn-muse-ai:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(168, 85, 247, 0.5);
+  }
+  .btn-muse-ai:active { transform: translateY(0); }
+
+  /* ── Muse AI Glassmorphic Modal ─────────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(11, 15, 25, 0.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    padding: 20px;
+  }
+  .muse-modal-card {
+    position: relative;
+    width: 100%;
+    max-width: 580px;
+    background: rgba(17, 24, 39, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(99, 102, 241, 0.2);
+    overflow: hidden;
+  }
+  .muse-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .muse-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 800;
+    color: #fff;
+  }
+  .muse-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: rgba(99,102,241,0.2);
+    border: 1px solid rgba(99,102,241,0.4);
+    color: #c7d2fe;
+    text-transform: uppercase;
+  }
+  .btn-modal-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+  .btn-modal-close:hover { color: #fff; background: rgba(255,255,255,0.08); }
+  .muse-prompt-area {
+    width: 100%;
+    margin-top: 14px;
+    background: rgba(11, 15, 25, 0.85);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 10px;
+    padding: 12px;
+    color: #fff;
+    font-family: inherit;
+    font-size: 13px;
+    resize: vertical;
+    outline: none;
+    min-height: 90px;
+  }
+  .muse-prompt-area:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(99,102,241,0.3); }
+  .muse-chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .muse-chip {
+    font-size: 11px;
+    background: rgba(31, 41, 55, 0.6);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #cbd5e1;
+    padding: 5px 10px;
+    border-radius: 99px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .muse-chip:hover {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: rgba(99, 102, 241, 0.5);
+    color: #fff;
+  }
+  .muse-status-box {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 8px;
+    font-size: 12px;
+    color: #c7d2fe;
+    display: none;
+    align-items: center;
+    gap: 8px;
+  }
+  .muse-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .btn-modal-cancel {
+    background: var(--panel-light);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-modal-cancel:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+  /* ── Entity Visual & Camera Controls in Inspector ───────────────────────── */
+  .custom-visual-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+    background: rgba(0,0,0,0.3);
+    padding: 3px;
+    border-radius: 6px;
+    margin-top: 6px;
+    margin-bottom: 8px;
+  }
+  .visual-tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+    transition: all .15s;
+  }
+  .visual-tab-btn.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .emoji-picker-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .emoji-chip-btn {
+    font-size: 15px;
+    background: var(--panel-light);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 7px;
+    cursor: pointer;
+    transition: all .1s;
+  }
+  .emoji-chip-btn:hover {
+    background: var(--accent);
+    transform: scale(1.15);
+  }
+  .image-preview-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+  }
+  .image-preview-box {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .image-preview-box img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .btn-upload-file {
+    background: var(--panel-light);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .btn-upload-file:hover { border-color: var(--accent); color: #fff; }
+  .section-divider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: 12px 0;
+  }
+  .inspector-subhead {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .zoom-presets {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .zoom-preset-btn {
+    flex: 1;
+    background: var(--panel-light);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 0;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .zoom-preset-btn:hover { color: #fff; border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -697,6 +1003,15 @@
   </div>
 
   <div class="header-actions">
+    <!-- Undo / Redo Group -->
+    <div class="undo-redo-group" title="Undo / Redo changes">
+      <button class="btn-undo-redo" id="btnUndo" title="Undo (Ctrl+Z)" disabled>↩️ Undo</button>
+      <button class="btn-undo-redo" id="btnRedo" title="Redo (Ctrl+Y)" disabled>↪️ Redo</button>
+    </div>
+
+    <!-- Global Muse AI Button -->
+    <button class="btn-muse-ai" id="btnMuseAi" title="✨ Generate Game or Level with Muse AI">✨ Muse AI</button>
+
     <button class="btn-quick-play" id="btnQuickPlay">⚡ Play Test [Space]</button>
     <div class="save-status">
       <div class="save-dot"></div>
@@ -704,6 +1019,49 @@
     </div>
   </div>
 </header>
+
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- GLOBAL MUSE AI POPUP MODAL                                              -->
+<!-- ════════════════════════════════════════════════════════════════════════ -->
+<div id="museAiModal" class="modal-overlay">
+  <div class="muse-modal-card">
+    <div class="muse-modal-header">
+      <div class="muse-title">
+        <span>✨</span>
+        <span>Muse AI Game Studio</span>
+        <span class="muse-badge">Game Synthesizer</span>
+      </div>
+      <button class="btn-modal-close" id="btnCloseMuseModal" title="Close Modal">✕</button>
+    </div>
+    
+    <p style="font-size:12px; color:var(--text-muted); margin-top:10px; line-height:1.5;">
+      Describe any level theme, game mechanics, or gaming script to generate and instantly update the game world.
+    </p>
+
+    <textarea id="museAiPrompt" class="muse-prompt-area" placeholder="e.g., A top-down 3D dungeon crawler with solid stone pillars, patrolling armored guards, key collectibles, and zero gravity..."></textarea>
+
+    <div class="muse-chips-container" id="musePromptChips">
+      <span class="muse-chip" data-prompt="Top-Down 3D dungeon crawler with solid stone pillars, patrolling armored enemies, golden keys, and zero gravity">🗺️ Top-Down 3D Dungeon Crawler</span>
+      <span class="muse-chip" data-prompt="Cyberpunk neon skyline with high speed, bouncy pads, floating hazard drones, and laser grids">⚡ Cyberpunk High-Speed Platformer</span>
+      <span class="muse-chip" data-prompt="Zero-gravity orbital research lab with floating energy cells and friendly maintenance robot NPCs">🛸 Zero-G Space Station Repair</span>
+      <span class="muse-chip" data-prompt="Volcanic inferno escape with super bouncy spring platforms, lava hazard floor, and high jump physics">🌋 Volcanic Lava Springs</span>
+      <span class="muse-chip" data-prompt="Enchanted fairytale forest with ancient tree spirits, emerald crystals, and gentle platforming">🌲 Mystical Spirit Woods</span>
+    </div>
+
+    <div id="museAiStatus" class="muse-status-box">
+      <span>⏳</span>
+      <span id="museStatusText">Synthesizing gaming mechanics & level layout...</span>
+    </div>
+
+    <div class="muse-modal-footer">
+      <button class="btn-modal-cancel" id="btnCancelMuse">Cancel</button>
+      <button class="btn-muse-ai" id="btnSubmitMuseAi" style="padding:8px 18px;">
+        <span>✨</span>
+        <span id="btnSubmitMuseText">Generate Level ✨</span>
+      </button>
+    </div>
+  </div>
+</div>
 
 <main>
   <!-- ════════════════════════════════════════════════════════════════════════ -->
@@ -1125,9 +1483,116 @@ let state = {
   dragOffset: { x: 0, y: 0 },
 };
 
+// ── State History Stack (Undo & Redo System) ──────────────────────────────
+let historyStack = [];
+let historyIndex = -1;
+const MAX_HISTORY = 50;
+
+function pushHistory() {
+  if (!state.level) return;
+  const snapshot = JSON.stringify(state.level);
+  if (historyIndex >= 0 && historyStack[historyIndex] === snapshot) return;
+  // Truncate redo history when new edits occur
+  historyStack = historyStack.slice(0, historyIndex + 1);
+  historyStack.push(snapshot);
+  if (historyStack.length > MAX_HISTORY) {
+    historyStack.shift();
+  }
+  historyIndex = historyStack.length - 1;
+  updateUndoRedoUI();
+}
+
+function undo() {
+  if (historyIndex > 0) {
+    historyIndex--;
+    state.level = JSON.parse(historyStack[historyIndex]);
+    state.selectedEntity = null;
+    renderInspector();
+    renderEditor();
+    saveProject(false);
+    updateUndoRedoUI();
+    syncJsonEditorIfVisible();
+    showToast('↩️ Undo');
+  }
+}
+
+function redo() {
+  if (historyIndex < historyStack.length - 1) {
+    historyIndex++;
+    state.level = JSON.parse(historyStack[historyIndex]);
+    state.selectedEntity = null;
+    renderInspector();
+    renderEditor();
+    saveProject(false);
+    updateUndoRedoUI();
+    syncJsonEditorIfVisible();
+    showToast('↪️ Redo');
+  }
+}
+
+function updateUndoRedoUI() {
+  const btnUndo = document.getElementById('btnUndo');
+  const btnRedo = document.getElementById('btnRedo');
+  if (btnUndo) btnUndo.disabled = historyIndex <= 0;
+  if (btnRedo) btnRedo.disabled = historyIndex >= historyStack.length - 1;
+}
+
+function syncJsonEditorIfVisible() {
+  const editor = document.getElementById('jsonEditor');
+  if (editor && state.mode === 'data') {
+    editor.value = JSON.stringify(state.level, null, 2);
+  }
+}
+
+// ── Image Cache & Custom Entity Visual Drawing Helper ───────────────────────
+const imageCache = {};
+
+function getImage(url) {
+  if (!url) return null;
+  if (imageCache[url]) return imageCache[url];
+  const img = new Image();
+  img.src = url;
+  img.onload = () => {
+    imageCache[url] = img;
+    if (state.mode === 'builder') renderEditor();
+    else if (state.mode === 'play') renderGame();
+  };
+  imageCache[url] = img;
+  return img;
+}
+
+function drawCustomEntityVisual(ctx, entity, bounds, defaultDrawFn) {
+  const { x, y, w, h } = bounds;
+  const visualType = entity.visualType || (entity.imageUrl ? 'image' : (entity.emoji ? 'emoji' : 'default'));
+
+  if (visualType === 'emoji' && entity.emoji) {
+    ctx.save();
+    const fontSize = Math.max(12, Math.min(w, h) * 0.9);
+    ctx.font = `${Math.round(fontSize)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(entity.emoji, x + w / 2, y + h / 2);
+    ctx.restore();
+    return true;
+  }
+
+  if (visualType === 'image' && entity.imageUrl) {
+    const img = getImage(entity.imageUrl);
+    if (img && img.complete && img.naturalWidth > 0) {
+      ctx.drawImage(img, x, y, w, h);
+      return true;
+    }
+  }
+
+  // Fallback to default vector render
+  defaultDrawFn();
+  return false;
+}
+
 // Auto-save to localStorage
-function saveProject() {
+function saveProject(shouldPushHistory = true) {
   try {
+    if (shouldPushHistory) pushHistory();
     localStorage.setItem('protogame.project', JSON.stringify(state.level));
     const txt = document.getElementById('saveText');
     if (txt) {
@@ -1185,13 +1650,30 @@ function renderEditor() {
   // Platforms
   (lvl.platforms || []).forEach((p, idx) => {
     const isSel = state.selectedEntity?.type === 'platform' && state.selectedEntity?.index === idx;
-    ctx.fillStyle = p.bouncy ? '#10b981' : (p.color || lvl.theme?.platform || '#6c3483');
-    ctx.beginPath();
-    ctx.roundRect(p.x, p.y, p.w, p.h, 4);
-    ctx.fill();
-    ctx.strokeStyle = isSel ? '#f59e0b' : 'rgba(255,255,255,0.2)';
+    const isTopDown = lvl.viewMode === 'topdown';
+
+    // In top-down mode, render subtle 3D drop shadow
+    if (isTopDown) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.beginPath();
+      ctx.roundRect(p.x + 4, p.y + 6, p.w, p.h, 4);
+      ctx.fill();
+    }
+
+    drawCustomEntityVisual(ctx, p, { x: p.x, y: p.y, w: p.w, h: p.h }, () => {
+      ctx.fillStyle = p.bouncy ? '#10b981' : (p.color || lvl.theme?.platform || '#6c3483');
+      ctx.beginPath();
+      ctx.roundRect(p.x, p.y, p.w, p.h, 4);
+      ctx.fill();
+      if (isTopDown) {
+        ctx.fillStyle = 'rgba(255,255,255,0.18)';
+        ctx.fillRect(p.x, p.y, p.w, 3);
+      }
+    });
+
+    ctx.strokeStyle = isSel ? '#f59e0b' : (isTopDown ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.2)');
     ctx.lineWidth = isSel ? 3 : 1;
-    ctx.stroke();
+    ctx.strokeRect(p.x, p.y, p.w, p.h);
 
     // Moving indicator
     if (p.moving) {
@@ -1209,56 +1691,82 @@ function renderEditor() {
   // Hazards
   (lvl.hazards || []).forEach((hz, idx) => {
     const isSel = state.selectedEntity?.type === 'hazard' && state.selectedEntity?.index === idx;
-    ctx.fillStyle = '#ef4444';
-    // Draw spikes
-    const spikeW = 10;
-    const count = Math.max(1, Math.floor(hz.w / spikeW));
-    ctx.beginPath();
-    for (let i = 0; i < count; i++) {
-      const sx = hz.x + i * spikeW;
-      ctx.moveTo(sx, hz.y + hz.h);
-      ctx.lineTo(sx + spikeW / 2, hz.y);
-      ctx.lineTo(sx + spikeW, hz.y + hz.h);
-    }
-    ctx.fill();
+    const hw = hz.w || 40, hh = hz.h || 16;
+    drawCustomEntityVisual(ctx, hz, { x: hz.x, y: hz.y, w: hw, h: hh }, () => {
+      ctx.fillStyle = '#ef4444';
+      const spikeW = 10;
+      const count = Math.max(1, Math.floor(hw / spikeW));
+      ctx.beginPath();
+      for (let i = 0; i < count; i++) {
+        const sx = hz.x + i * spikeW;
+        ctx.moveTo(sx, hz.y + hh);
+        ctx.lineTo(sx + spikeW / 2, hz.y);
+        ctx.lineTo(sx + spikeW, hz.y + hh);
+      }
+      ctx.fill();
+    });
     if (isSel) {
       ctx.strokeStyle = '#f59e0b';
       ctx.lineWidth = 2;
-      ctx.strokeRect(hz.x - 2, hz.y - 2, hz.w + 4, hz.h + 4);
+      ctx.strokeRect(hz.x - 2, hz.y - 2, hw + 4, hh + 4);
     }
   });
 
   // Coins
   (lvl.coins || []).forEach((c, idx) => {
     const isSel = state.selectedEntity?.type === 'coin' && state.selectedEntity?.index === idx;
-    ctx.fillStyle = '#f59e0b';
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = isSel ? '#fff' : '#d97706';
-    ctx.lineWidth = isSel ? 3 : 1.5;
-    ctx.stroke();
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('★', c.x, c.y);
+    const cw = (c.w || 16) * (c.scale || 1.0);
+    const ch = (c.h || 16) * (c.scale || 1.0);
+    const bounds = { x: c.x - cw / 2, y: c.y - ch / 2, w: cw, h: ch };
+
+    drawCustomEntityVisual(ctx, c, bounds, () => {
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, Math.min(cw, ch) / 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = isSel ? '#fff' : '#d97706';
+      ctx.lineWidth = isSel ? 3 : 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold ${Math.max(8, Math.round(Math.min(cw, ch) * 0.55))}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('★', c.x, c.y);
+    });
+    if (isSel) {
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(bounds.x - 2, bounds.y - 2, bounds.w + 4, bounds.h + 4);
+    }
   });
 
   // Enemies
   (lvl.enemies || []).forEach((e, idx) => {
     const isSel = state.selectedEntity?.type === 'enemy' && state.selectedEntity?.index === idx;
-    ctx.fillStyle = '#dc2626';
-    ctx.beginPath();
-    ctx.roundRect(e.x - 12, e.y - 12, 24, 24, 6);
-    ctx.fill();
-    ctx.strokeStyle = isSel ? '#f59e0b' : '#991b1b';
-    ctx.lineWidth = isSel ? 3 : 1.5;
-    ctx.stroke();
-    // Eyes
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(e.x - 6, e.y - 5, 4, 4);
-    ctx.fillRect(e.x + 2, e.y - 5, 4, 4);
+    const ew = (e.w || 24) * (e.scale || 1.0);
+    const eh = (e.h || 24) * (e.scale || 1.0);
+    const bounds = { x: e.x - ew / 2, y: e.y - eh / 2, w: ew, h: eh };
+
+    drawCustomEntityVisual(ctx, e, bounds, () => {
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath();
+      ctx.roundRect(bounds.x, bounds.y, ew, eh, 6);
+      ctx.fill();
+      ctx.strokeStyle = isSel ? '#f59e0b' : '#991b1b';
+      ctx.lineWidth = isSel ? 3 : 1.5;
+      ctx.stroke();
+      // Eyes
+      ctx.fillStyle = '#fff';
+      const eyeSize = Math.max(3, Math.round(ew * 0.16));
+      ctx.fillRect(e.x - ew * 0.25, e.y - eh * 0.2, eyeSize, eyeSize);
+      ctx.fillRect(e.x + ew * 0.1, e.y - eh * 0.2, eyeSize, eyeSize);
+    });
+
+    if (isSel) {
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(bounds.x - 2, bounds.y - 2, bounds.w + 4, bounds.h + 4);
+    }
     // Range arrow
     ctx.strokeStyle = 'rgba(239,68,68,0.4)';
     ctx.lineWidth = 1;
@@ -1271,21 +1779,33 @@ function renderEditor() {
   // NPCs
   (lvl.npcs || []).forEach((npc, idx) => {
     const isSel = state.selectedEntity?.type === 'npc' && state.selectedEntity?.index === idx;
-    ctx.fillStyle = '#8b5cf6';
-    ctx.beginPath();
-    ctx.roundRect(npc.x - 12, npc.y - 16, 24, 32, 6);
-    ctx.fill();
-    ctx.strokeStyle = isSel ? '#f59e0b' : '#6d28d9';
-    ctx.lineWidth = isSel ? 3 : 1.5;
-    ctx.stroke();
-    // Dialogue icon
+    const nw = (npc.w || 24) * (npc.scale || 1.0);
+    const nh = (npc.h || 32) * (npc.scale || 1.0);
+    const bounds = { x: npc.x - nw / 2, y: npc.y - nh / 2, w: nw, h: nh };
+
+    drawCustomEntityVisual(ctx, npc, bounds, () => {
+      ctx.fillStyle = '#8b5cf6';
+      ctx.beginPath();
+      ctx.roundRect(bounds.x, bounds.y, nw, nh, 6);
+      ctx.fill();
+      ctx.strokeStyle = isSel ? '#f59e0b' : '#6d28d9';
+      ctx.lineWidth = isSel ? 3 : 1.5;
+      ctx.stroke();
+    });
+
+    if (isSel) {
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(bounds.x - 2, bounds.y - 2, bounds.w + 4, bounds.h + 4);
+    }
+    // Dialogue icon & name
     ctx.fillStyle = '#fff';
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('💬', npc.x, npc.y - 20);
+    ctx.fillText('💬', npc.x, bounds.y - 8);
     ctx.fillStyle = '#c4b5fd';
     ctx.font = '10px Inter';
-    ctx.fillText(npc.name || 'NPC', npc.x, npc.y + 26);
+    ctx.fillText(npc.name || 'NPC', npc.x, bounds.y + bounds.h + 14);
   });
 
   // Player Spawn
@@ -1330,14 +1850,167 @@ function renderEditor() {
 }
 
 // ── Inspector Logic ────────────────────────────────────────────────────────
+// ── Visual Design & Scale Customization Helpers for Inspector ─────────────
+function getVisualCustomizationHtml(entity, entityType) {
+  const currentVisual = entity.visualType || (entity.imageUrl ? 'image' : (entity.emoji ? 'emoji' : 'default'));
+  const currentEmoji = entity.emoji || '';
+  const currentImage = entity.imageUrl || '';
+  const scale = entity.scale !== undefined ? entity.scale : 1.0;
+
+  const presetsByType = {
+    platform: ['🧱', '🪵', '🌿', '☁️', '🪨', '🍫', '🧊', '🚧'],
+    coin: ['🪙', '⭐', '💎', '🍎', '⚡', '🔑', '🏆', '🍩'],
+    enemy: ['👾', '🕷️', '👻', '🤖', '🦇', '🧟', '👹', '💀'],
+    hazard: ['⚠️', '🌋', '🔥', '💀', '💥', '🌵', '⚡', '🩸'],
+    npc: ['🧙', '🤖', '🧝', '🐱', '👩‍🚀', '👑', '🧑‍🔬', '🦊']
+  };
+  const emojiChips = (presetsByType[entityType] || ['⭐', '💎', '🔥', '👾'])
+    .map(em => `<button type="button" class="emoji-chip-btn" data-em="${em}">${em}</button>`).join('');
+
+  return `
+    <div class="section-divider"></div>
+    <div class="inspector-subhead">🎨 Custom Visuals & Scale</div>
+
+    <div class="prop-row">
+      <div class="prop-group">
+        <div class="prop-label">Scale Factor</div>
+        <input type="number" id="inpScale" class="prop-input" min="0.2" max="5.0" step="0.1" value="${scale}" />
+      </div>
+      <div class="prop-group">
+        <div class="prop-label">Visual Style</div>
+        <select id="selVisualType" class="prop-input">
+          <option value="default" ${currentVisual === 'default' ? 'selected' : ''}>Vector Shape</option>
+          <option value="emoji" ${currentVisual === 'emoji' ? 'selected' : ''}>Custom Emoji</option>
+          <option value="image" ${currentVisual === 'image' ? 'selected' : ''}>Image / SVG URL</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="visEmojiBox" style="display:${currentVisual === 'emoji' ? 'block' : 'none'}; margin-top:8px;">
+      <div class="prop-label">Emoji Character</div>
+      <input type="text" id="inpEmoji" class="prop-input" placeholder="e.g. 🪙 or 👾" value="${currentEmoji}" style="font-size:16px;" />
+      <div class="emoji-picker-grid">
+        ${emojiChips}
+      </div>
+    </div>
+
+    <div id="visImageBox" style="display:${currentVisual === 'image' ? 'block' : 'none'}; margin-top:8px;">
+      <div class="prop-label">Image or SVG URL</div>
+      <input type="text" id="inpImageUrl" class="prop-input" placeholder="https://... or data:image/..." value="${currentImage}" />
+      <div class="image-preview-container">
+        <div class="image-preview-box" id="imgPreviewBox">
+          ${currentImage ? `<img src="${currentImage}" alt="preview" />` : '<span style="font-size:10px; color:#6b7280;">No img</span>'}
+        </div>
+        <div>
+          <label class="btn-upload-file" style="display:inline-block; cursor:pointer;">
+            📁 Upload File
+            <input type="file" id="fileImageUpload" accept="image/*" style="display:none;" />
+          </label>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function attachVisualCustomizationListeners(entity) {
+  const selVisualType = document.getElementById('selVisualType');
+  const visEmojiBox = document.getElementById('visEmojiBox');
+  const visImageBox = document.getElementById('visImageBox');
+  const inpScale = document.getElementById('inpScale');
+  const inpEmoji = document.getElementById('inpEmoji');
+  const inpImageUrl = document.getElementById('inpImageUrl');
+  const fileUpload = document.getElementById('fileImageUpload');
+
+  if (inpScale) {
+    inpScale.onchange = (e) => {
+      entity.scale = Math.max(0.1, parseFloat(e.target.value) || 1.0);
+      renderEditor();
+      saveProject();
+    };
+  }
+
+  if (selVisualType) {
+    selVisualType.onchange = (e) => {
+      entity.visualType = e.target.value;
+      if (visEmojiBox) visEmojiBox.style.display = entity.visualType === 'emoji' ? 'block' : 'none';
+      if (visImageBox) visImageBox.style.display = entity.visualType === 'image' ? 'block' : 'none';
+      renderEditor();
+      saveProject();
+    };
+  }
+
+  if (inpEmoji) {
+    inpEmoji.oninput = (e) => {
+      entity.emoji = e.target.value.trim();
+      entity.visualType = 'emoji';
+      renderEditor();
+      saveProject();
+    };
+  }
+
+  document.querySelectorAll('.emoji-chip-btn').forEach(btn => {
+    btn.onclick = () => {
+      const em = btn.getAttribute('data-em');
+      entity.emoji = em;
+      entity.visualType = 'emoji';
+      if (inpEmoji) inpEmoji.value = em;
+      if (selVisualType) selVisualType.value = 'emoji';
+      if (visEmojiBox) visEmojiBox.style.display = 'block';
+      if (visImageBox) visImageBox.style.display = 'none';
+      renderEditor();
+      saveProject();
+    };
+  });
+
+  if (inpImageUrl) {
+    inpImageUrl.onchange = (e) => {
+      entity.imageUrl = e.target.value.trim();
+      entity.visualType = 'image';
+      const preview = document.getElementById('imgPreviewBox');
+      if (preview) preview.innerHTML = entity.imageUrl ? `<img src="${entity.imageUrl}" alt="preview" />` : '<span style="font-size:10px; color:#6b7280;">No img</span>';
+      renderEditor();
+      saveProject();
+    };
+  }
+
+  if (fileUpload) {
+    fileUpload.onchange = (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const dataUrl = evt.target.result;
+          entity.imageUrl = dataUrl;
+          entity.visualType = 'image';
+          if (inpImageUrl) inpImageUrl.value = dataUrl;
+          if (selVisualType) selVisualType.value = 'image';
+          if (visImageBox) visImageBox.style.display = 'block';
+          if (visEmojiBox) visEmojiBox.style.display = 'none';
+          const preview = document.getElementById('imgPreviewBox');
+          if (preview) preview.innerHTML = `<img src="${dataUrl}" alt="preview" />`;
+          renderEditor();
+          saveProject();
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+  }
+}
+
+// ── Inspector Logic ────────────────────────────────────────────────────────
 function renderInspector() {
   const panel = document.getElementById('inspectorBody');
   const title = document.getElementById('inspectorTitle');
   const sel = state.selectedEntity;
   const lvl = state.level;
 
+  if (!lvl.camera) lvl.camera = { zoom: 1.0, offsetX: 0, offsetY: 0 };
+  if (!lvl.viewMode) lvl.viewMode = 'sidescroller';
+
   if (!sel) {
     title.textContent = 'Level & Story Settings';
+    const isTopDown = lvl.viewMode === 'topdown';
+
     panel.innerHTML = `
       <div class="prop-group">
         <div class="prop-label">Level Title</div>
@@ -1347,16 +2020,25 @@ function renderInspector() {
         <div class="prop-label">Story / Objective</div>
         <textarea id="inpStory" class="prop-input" rows="3" style="resize:vertical">${lvl.storyIntro || ''}</textarea>
       </div>
+
       <div class="prop-group">
-        <div class="prop-label">Gravity (${lvl.gravity || 1800})</div>
-        <input type="range" id="inpGravity" min="400" max="3000" step="50" value="${lvl.gravity || 1800}" style="width:100%" />
+        <div class="prop-label">🎮 Game View Mode / Perspective</div>
+        <select id="selViewMode" class="prop-input">
+          <option value="sidescroller" ${!isTopDown ? 'selected' : ''}>🕹️ Side-Scroller (Jump & Gravity)</option>
+          <option value="topdown" ${isTopDown ? 'selected' : ''}>🗺️ Top-Down 3D (4-Way Move, Zero Gravity)</option>
+        </select>
+      </div>
+
+      <div class="prop-group">
+        <div class="prop-label">Gravity ${isTopDown ? '<span style="color:#f59e0b">(0 in Top-Down)</span>' : `(${lvl.gravity || 1800})`}</div>
+        <input type="range" id="inpGravity" min="400" max="3000" step="50" value="${lvl.gravity || 1800}" ${isTopDown ? 'disabled style="opacity:0.4; width:100%"' : 'style="width:100%"'} />
       </div>
       <div class="prop-group">
-        <div class="prop-label">Jump Force (${lvl.jumpForce || -600})</div>
-        <input type="range" id="inpJumpForce" min="-900" max="-300" step="20" value="${lvl.jumpForce || -600}" style="width:100%" />
+        <div class="prop-label">Jump Force ${isTopDown ? '<span style="color:#f59e0b">(Disabled in Top-Down)</span>' : `(${lvl.jumpForce || -600})`}</div>
+        <input type="range" id="inpJumpForce" min="-900" max="-300" step="20" value="${lvl.jumpForce || -600}" ${isTopDown ? 'disabled style="opacity:0.4; width:100%"' : 'style="width:100%"'} />
       </div>
       <div class="prop-group">
-        <div class="prop-label">Run Speed (${lvl.speed || 320})</div>
+        <div class="prop-label">Player Speed (${lvl.speed || 320})</div>
         <input type="range" id="inpSpeed" min="150" max="600" step="10" value="${lvl.speed || 320}" style="width:100%" />
       </div>
       <div class="prop-row">
@@ -1369,15 +2051,74 @@ function renderInspector() {
           <input type="color" id="inpPlatColor" class="prop-input" value="${lvl.theme?.platform || '#6c3483'}" style="height:34px; padding:2px;" />
         </div>
       </div>
+
+      <!-- Camera & Viewport Controls -->
+      <div class="section-divider"></div>
+      <div class="inspector-subhead">📸 Camera & Viewport Controls</div>
+      <div class="prop-group">
+        <div class="prop-label" style="display:flex; justify-content:space-between;">
+          <span>Zoom Scale (Coverage Size)</span>
+          <span id="txtCamZoom" style="color:#a5b4fc; font-weight:700;">${(lvl.camera?.zoom || 1.0).toFixed(1)}x</span>
+        </div>
+        <input type="range" id="inpCamZoom" min="0.4" max="2.2" step="0.1" value="${lvl.camera?.zoom || 1.0}" style="width:100%" />
+        <div class="zoom-presets">
+          <button type="button" class="zoom-preset-btn" data-zoom="0.6">0.6x Wide Map</button>
+          <button type="button" class="zoom-preset-btn" data-zoom="1.0">1.0x Normal</button>
+          <button type="button" class="zoom-preset-btn" data-zoom="1.5">1.5x Close-Up</button>
+        </div>
+      </div>
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">Tracking Offset X</div>
+          <input type="number" id="inpCamOffX" class="prop-input" value="${lvl.camera?.offsetX || 0}" step="10" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Tracking Offset Y</div>
+          <input type="number" id="inpCamOffY" class="prop-input" value="${lvl.camera?.offsetY || 0}" step="10" />
+        </div>
+      </div>
     `;
 
     document.getElementById('inpTitle').oninput = (e) => { lvl.title = e.target.value; saveProject(); };
     document.getElementById('inpStory').oninput = (e) => { lvl.storyIntro = e.target.value; saveProject(); };
+    document.getElementById('selViewMode').onchange = (e) => {
+      lvl.viewMode = e.target.value;
+      renderInspector();
+      renderEditor();
+      saveProject();
+      showToast(lvl.viewMode === 'topdown' ? '🗺️ Top-Down 3D View Activated' : '🕹️ Side-Scroller View Activated');
+    };
     document.getElementById('inpGravity').oninput = (e) => { lvl.gravity = parseInt(e.target.value); renderInspector(); saveProject(); };
     document.getElementById('inpJumpForce').oninput = (e) => { lvl.jumpForce = parseInt(e.target.value); renderInspector(); saveProject(); };
     document.getElementById('inpSpeed').oninput = (e) => { lvl.speed = parseInt(e.target.value); renderInspector(); saveProject(); };
     document.getElementById('inpBgColor').oninput = (e) => { if (!lvl.theme) lvl.theme = {}; lvl.theme.bg = e.target.value; renderEditor(); saveProject(); };
     document.getElementById('inpPlatColor').oninput = (e) => { if (!lvl.theme) lvl.theme = {}; lvl.theme.platform = e.target.value; renderEditor(); saveProject(); };
+
+    // Camera listeners
+    const camZoomInp = document.getElementById('inpCamZoom');
+    const camZoomTxt = document.getElementById('txtCamZoom');
+    camZoomInp.oninput = (e) => {
+      lvl.camera.zoom = parseFloat(e.target.value) || 1.0;
+      camZoomTxt.textContent = lvl.camera.zoom.toFixed(1) + 'x';
+      saveProject();
+    };
+    document.querySelectorAll('.zoom-preset-btn').forEach(btn => {
+      btn.onclick = () => {
+        const z = parseFloat(btn.getAttribute('data-zoom')) || 1.0;
+        lvl.camera.zoom = z;
+        camZoomInp.value = z;
+        camZoomTxt.textContent = z.toFixed(1) + 'x';
+        saveProject();
+      };
+    });
+    document.getElementById('inpCamOffX').onchange = (e) => {
+      lvl.camera.offsetX = parseInt(e.target.value) || 0;
+      saveProject();
+    };
+    document.getElementById('inpCamOffY').onchange = (e) => {
+      lvl.camera.offsetY = parseInt(e.target.value) || 0;
+      saveProject();
+    };
     return;
   }
 
@@ -1432,6 +2173,8 @@ function renderInspector() {
           <span>Bouncy Pad (Spring Jump)</span>
         </label>
       </div>
+
+      ${getVisualCustomizationHtml(p, 'platform')}
       <button class="btn-delete-entity" id="btnDelEntity">🗑️ Delete Platform</button>
     `;
     panel.innerHTML = html;
@@ -1445,6 +2188,7 @@ function renderInspector() {
       document.getElementById('inpPlatSpeed').onchange = (e) => { p.speed = parseInt(e.target.value) || 50; renderEditor(); saveProject(); };
     }
     document.getElementById('chkBouncy').onchange = (e) => { p.bouncy = e.target.checked; renderInspector(); renderEditor(); saveProject(); };
+    attachVisualCustomizationListeners(p);
   } else if (sel.type === 'coin') {
     const c = lvl.coins[sel.index];
     html = `
@@ -1458,11 +2202,25 @@ function renderInspector() {
           <input type="number" id="inpY" class="prop-input" value="${c.y}" />
         </div>
       </div>
-      <button class="btn-delete-entity" id="btnDelEntity">🗑️ Delete Coin</button>
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">Width</div>
+          <input type="number" id="inpW" class="prop-input" value="${c.w || 16}" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Height</div>
+          <input type="number" id="inpH" class="prop-input" value="${c.h || 16}" />
+        </div>
+      </div>
+      ${getVisualCustomizationHtml(c, 'coin')}
+      <button class="btn-delete-entity" id="btnDelEntity">🗑️ Delete Collectible</button>
     `;
     panel.innerHTML = html;
     document.getElementById('inpX').onchange = (e) => { c.x = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
     document.getElementById('inpY').onchange = (e) => { c.y = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpW').onchange = (e) => { c.w = parseInt(e.target.value) || 16; renderEditor(); saveProject(); };
+    document.getElementById('inpH').onchange = (e) => { c.h = parseInt(e.target.value) || 16; renderEditor(); saveProject(); };
+    attachVisualCustomizationListeners(c);
   } else if (sel.type === 'hazard') {
     const hz = lvl.hazards[sel.index];
     html = `
@@ -1479,13 +2237,14 @@ function renderInspector() {
       <div class="prop-row">
         <div class="prop-group">
           <div class="prop-label">Width</div>
-          <input type="number" id="inpW" class="prop-input" value="${hz.w}" />
+          <input type="number" id="inpW" class="prop-input" value="${hz.w || 40}" />
         </div>
         <div class="prop-group">
           <div class="prop-label">Height</div>
-          <input type="number" id="inpH" class="prop-input" value="${hz.h}" />
+          <input type="number" id="inpH" class="prop-input" value="${hz.h || 16}" />
         </div>
       </div>
+      ${getVisualCustomizationHtml(hz, 'hazard')}
       <button class="btn-delete-entity" id="btnDelEntity">🗑️ Delete Hazard</button>
     `;
     panel.innerHTML = html;
@@ -1493,6 +2252,7 @@ function renderInspector() {
     document.getElementById('inpY').onchange = (e) => { hz.y = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
     document.getElementById('inpW').onchange = (e) => { hz.w = parseInt(e.target.value) || 20; renderEditor(); saveProject(); };
     document.getElementById('inpH').onchange = (e) => { hz.h = parseInt(e.target.value) || 10; renderEditor(); saveProject(); };
+    attachVisualCustomizationListeners(hz);
   } else if (sel.type === 'enemy') {
     const en = lvl.enemies[sel.index];
     html = `
@@ -1508,6 +2268,16 @@ function renderInspector() {
       </div>
       <div class="prop-row">
         <div class="prop-group">
+          <div class="prop-label">Width</div>
+          <input type="number" id="inpW" class="prop-input" value="${en.w || 24}" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Height</div>
+          <input type="number" id="inpH" class="prop-input" value="${en.h || 24}" />
+        </div>
+      </div>
+      <div class="prop-row">
+        <div class="prop-group">
           <div class="prop-label">Patrol Range</div>
           <input type="number" id="inpPatrol" class="prop-input" value="${en.patrol || 60}" />
         </div>
@@ -1516,13 +2286,17 @@ function renderInspector() {
           <input type="number" id="inpSpeed" class="prop-input" value="${en.speed || 50}" />
         </div>
       </div>
+      ${getVisualCustomizationHtml(en, 'enemy')}
       <button class="btn-delete-entity" id="btnDelEntity">🗑️ Delete Enemy</button>
     `;
     panel.innerHTML = html;
     document.getElementById('inpX').onchange = (e) => { en.x = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
     document.getElementById('inpY').onchange = (e) => { en.y = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpW').onchange = (e) => { en.w = parseInt(e.target.value) || 24; renderEditor(); saveProject(); };
+    document.getElementById('inpH').onchange = (e) => { en.h = parseInt(e.target.value) || 24; renderEditor(); saveProject(); };
     document.getElementById('inpPatrol').onchange = (e) => { en.patrol = parseInt(e.target.value) || 50; renderEditor(); saveProject(); };
     document.getElementById('inpSpeed').onchange = (e) => { en.speed = parseInt(e.target.value) || 40; renderEditor(); saveProject(); };
+    attachVisualCustomizationListeners(en);
   } else if (sel.type === 'npc') {
     const npc = lvl.npcs[sel.index];
     html = `
@@ -1540,20 +2314,34 @@ function renderInspector() {
           <input type="number" id="inpY" class="prop-input" value="${npc.y}" />
         </div>
       </div>
+      <div class="prop-row">
+        <div class="prop-group">
+          <div class="prop-label">Width</div>
+          <input type="number" id="inpW" class="prop-input" value="${npc.w || 24}" />
+        </div>
+        <div class="prop-group">
+          <div class="prop-label">Height</div>
+          <input type="number" id="inpH" class="prop-input" value="${npc.h || 32}" />
+        </div>
+      </div>
       <div class="prop-group">
         <div class="prop-label">Dialogue Lines (1 per line)</div>
         <textarea id="inpDialogue" class="prop-input" rows="4">${(npc.dialogue || []).join('\n')}</textarea>
       </div>
+      ${getVisualCustomizationHtml(npc, 'npc')}
       <button class="btn-delete-entity" id="btnDelEntity">🗑️ Delete NPC</button>
     `;
     panel.innerHTML = html;
     document.getElementById('inpNpcName').oninput = (e) => { npc.name = e.target.value; renderEditor(); saveProject(); };
     document.getElementById('inpX').onchange = (e) => { npc.x = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
     document.getElementById('inpY').onchange = (e) => { npc.y = parseInt(e.target.value) || 0; renderEditor(); saveProject(); };
+    document.getElementById('inpW').onchange = (e) => { npc.w = parseInt(e.target.value) || 24; renderEditor(); saveProject(); };
+    document.getElementById('inpH').onchange = (e) => { npc.h = parseInt(e.target.value) || 32; renderEditor(); saveProject(); };
     document.getElementById('inpDialogue').onchange = (e) => {
       npc.dialogue = e.target.value.split('\n').map(s => s.trim()).filter(Boolean);
       saveProject();
     };
+    attachVisualCustomizationListeners(npc);
   } else if (sel.type === 'playerSpawn') {
     const sp = lvl.playerSpawn;
     html = `
@@ -1768,6 +2556,23 @@ window.addEventListener('mouseup', () => {
 });
 
 window.addEventListener('keydown', (e) => {
+  // Global Undo / Redo Shortcuts in Builder
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+      return;
+    }
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      redo();
+      return;
+    }
+  }
+
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (e.key === 'Delete' || e.key === 'Backspace') {
     deleteSelectedEntity();
@@ -1896,6 +2701,364 @@ document.getElementById('presetSelect').addEventListener('change', (e) => {
     showToast(`Loaded ${PRESETS[key].title}`);
   }
 });
+
+// ── Header Undo / Redo Actions ──────────────────────────────────────────────
+const headerBtnUndo = document.getElementById('btnUndo');
+const headerBtnRedo = document.getElementById('btnRedo');
+if (headerBtnUndo) headerBtnUndo.addEventListener('click', () => undo());
+if (headerBtnRedo) headerBtnRedo.addEventListener('click', () => redo());
+
+// ── Global Muse AI Game Synthesizer ──────────────────────────────────────────
+const museModal = document.getElementById('museAiModal');
+const musePrompt = document.getElementById('museAiPrompt');
+const museStatus = document.getElementById('museAiStatus');
+const museStatusText = document.getElementById('museStatusText');
+const btnSubmitMuse = document.getElementById('btnSubmitMuseAi');
+const btnSubmitMuseText = document.getElementById('btnSubmitMuseText');
+
+function openMuseModal() {
+  if (!museModal) return;
+  museModal.classList.add('active');
+  if (museStatus) museStatus.style.display = 'none';
+  if (musePrompt) {
+    musePrompt.focus();
+    if (!musePrompt.value.trim() && state.level?.storyIntro) {
+      musePrompt.value = state.level.storyIntro;
+    }
+  }
+}
+
+function closeMuseModal() {
+  if (museModal) museModal.classList.remove('active');
+}
+
+const btnMuseAi = document.getElementById('btnMuseAi');
+if (btnMuseAi) btnMuseAi.addEventListener('click', openMuseModal);
+
+const btnCloseMuseModal = document.getElementById('btnCloseMuseModal');
+if (btnCloseMuseModal) btnCloseMuseModal.addEventListener('click', closeMuseModal);
+
+const btnCancelMuse = document.getElementById('btnCancelMuse');
+if (btnCancelMuse) btnCancelMuse.addEventListener('click', closeMuseModal);
+
+if (museModal) {
+  museModal.addEventListener('click', (e) => {
+    if (e.target === museModal) closeMuseModal();
+  });
+}
+
+document.querySelectorAll('#musePromptChips .muse-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    if (musePrompt) {
+      musePrompt.value = chip.dataset.prompt;
+      musePrompt.focus();
+    }
+  });
+});
+
+if (musePrompt) {
+  musePrompt.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      submitMuseAi();
+    } else if (e.key === 'Escape') {
+      closeMuseModal();
+    }
+  });
+}
+
+if (btnSubmitMuse) {
+  btnSubmitMuse.addEventListener('click', submitMuseAi);
+}
+
+function synthesizeLevelFromPrompt(prompt) {
+  const p = prompt.toLowerCase();
+  
+  if (p.includes('top-down') || p.includes('topdown') || p.includes('dungeon') || p.includes('3d') || p.includes('rpg') || p.includes('crawler')) {
+    return {
+      title: 'Shadow Crypt 3D Dungeon',
+      storyIntro: prompt,
+      viewMode: 'topdown',
+      gravity: 0,
+      speed: 280,
+      jumpForce: 0,
+      camera: { zoom: 1.1, offsetX: 0, offsetY: 0 },
+      theme: { bg: '#0b1120', platform: '#334155', accent: '#38bdf8' },
+      playerSpawn: { x: 120, y: 300 },
+      portal: { x: 920, y: 300 },
+      platforms: [
+        { x: 60, y: 60, w: 920, h: 30, visualType: 'emoji', visualValue: '🧱' },
+        { x: 60, y: 530, w: 920, h: 30, visualType: 'emoji', visualValue: '🧱' },
+        { x: 60, y: 60, w: 30, h: 500, visualType: 'emoji', visualValue: '🧱' },
+        { x: 950, y: 60, w: 30, h: 500, visualType: 'emoji', visualValue: '🧱' },
+        { x: 260, y: 160, w: 50, h: 50, visualType: 'emoji', visualValue: '🗿' },
+        { x: 260, y: 380, w: 50, h: 50, visualType: 'emoji', visualValue: '🗿' },
+        { x: 500, y: 220, w: 60, h: 160, visualType: 'emoji', visualValue: '🗿' },
+        { x: 740, y: 160, w: 50, h: 50, visualType: 'emoji', visualValue: '🗿' },
+        { x: 740, y: 380, w: 50, h: 50, visualType: 'emoji', visualValue: '🗿' }
+      ],
+      coins: [
+        { x: 260, y: 280, w: 24, h: 24, visualType: 'emoji', visualValue: '🗝️' },
+        { x: 500, y: 140, w: 24, h: 24, visualType: 'emoji', visualValue: '🗝️' },
+        { x: 500, y: 440, w: 24, h: 24, visualType: 'emoji', visualValue: '🗝️' },
+        { x: 740, y: 280, w: 24, h: 24, visualType: 'emoji', visualValue: '🗝️' }
+      ],
+      enemies: [
+        { x: 380, y: 200, patrol: 70, speed: 50, w: 28, h: 28, visualType: 'emoji', visualValue: '🧌' },
+        { x: 380, y: 400, patrol: 70, speed: 50, w: 28, h: 28, visualType: 'emoji', visualValue: '💀' },
+        { x: 640, y: 200, patrol: 80, speed: 55, w: 28, h: 28, visualType: 'emoji', visualValue: '🧌' },
+        { x: 640, y: 400, patrol: 80, speed: 55, w: 28, h: 28, visualType: 'emoji', visualValue: '💀' }
+      ],
+      hazards: [
+        { x: 380, y: 290, w: 60, h: 24, visualType: 'emoji', visualValue: '⚡' },
+        { x: 620, y: 290, w: 60, h: 24, visualType: 'emoji', visualValue: '⚡' }
+      ],
+      npcs: [
+        {
+          x: 180, y: 160, w: 26, h: 32, visualType: 'emoji', visualValue: '🧙',
+          name: 'Crypt Keeper',
+          dialogue: [
+            'Greetings, bold explorer! You entered the 3D Crypt.',
+            'Gravity does not hold you here. Move in all 4 directions!',
+            'Collect all 4 golden keys to unseal the dimensional rift!'
+          ]
+        }
+      ]
+    };
+  }
+
+  if (p.includes('cyber') || p.includes('neon') || p.includes('speed') || p.includes('laser')) {
+    return {
+      title: 'Neon Tokyo Overdrive',
+      storyIntro: prompt,
+      viewMode: 'sidescroller',
+      gravity: 1900,
+      speed: 400,
+      jumpForce: -640,
+      camera: { zoom: 1.0, offsetX: 0, offsetY: 0 },
+      theme: { bg: '#030712', platform: '#06b6d4', accent: '#ec4899' },
+      playerSpawn: { x: 80, y: 520 },
+      portal: { x: 1300, y: 220 },
+      platforms: [
+        { x: 0, y: 560, w: 500, h: 40, color: '#0f172a' },
+        { x: 560, y: 490, w: 120, h: 18, color: '#06b6d4' },
+        { x: 740, y: 410, w: 110, h: 18, bouncy: true },
+        { x: 920, y: 320, w: 120, h: 18, moving: true, range: 90, speed: 70, color: '#ec4899' },
+        { x: 1120, y: 260, w: 260, h: 24, color: '#06b6d4' }
+      ],
+      coins: [
+        { x: 620, y: 440, w: 20, h: 20, visualType: 'emoji', visualValue: '⚡' },
+        { x: 790, y: 340, w: 20, h: 20, visualType: 'emoji', visualValue: '⚡' },
+        { x: 980, y: 250, w: 20, h: 20, visualType: 'emoji', visualValue: '⚡' }
+      ],
+      enemies: [
+        { x: 300, y: 540, patrol: 80, speed: 75, w: 26, h: 26, visualType: 'emoji', visualValue: '🛸' },
+        { x: 1200, y: 240, patrol: 60, speed: 70, w: 26, h: 26, visualType: 'emoji', visualValue: '🛸' }
+      ],
+      hazards: [
+        { x: 500, y: 580, w: 60, h: 20, visualType: 'emoji', visualValue: '🚨' }
+      ],
+      npcs: [
+        {
+          x: 200, y: 525, w: 24, h: 32, visualType: 'emoji', visualValue: '🤖',
+          name: 'Cyber Decker',
+          dialogue: [
+            'Wake up, runner! The mainframe security grid is active.',
+            'Sprint across the neon skyline and hit the bouncy booster pads!'
+          ]
+        }
+      ]
+    };
+  }
+
+  if (p.includes('space') || p.includes('zero-g') || p.includes('zero gravity') || p.includes('orbital') || p.includes('station')) {
+    return {
+      title: 'Orbital Void Station',
+      storyIntro: prompt,
+      viewMode: 'sidescroller',
+      gravity: 420,
+      speed: 300,
+      jumpForce: -400,
+      camera: { zoom: 0.9, offsetX: 0, offsetY: 0 },
+      theme: { bg: '#020617', platform: '#475569', accent: '#a855f7' },
+      playerSpawn: { x: 90, y: 500 },
+      portal: { x: 1250, y: 200 },
+      platforms: [
+        { x: 0, y: 560, w: 400, h: 40, color: '#1e293b' },
+        { x: 460, y: 480, w: 140, h: 20, color: '#334155' },
+        { x: 670, y: 390, w: 120, h: 20, moving: true, range: 100, speed: 45, color: '#334155' },
+        { x: 880, y: 300, w: 140, h: 20, color: '#334155' },
+        { x: 1100, y: 240, w: 240, h: 25, color: '#1e293b' }
+      ],
+      coins: [
+        { x: 530, y: 430, w: 22, h: 22, visualType: 'emoji', visualValue: '🔮' },
+        { x: 730, y: 330, w: 22, h: 22, visualType: 'emoji', visualValue: '🔮' },
+        { x: 950, y: 240, w: 22, h: 22, visualType: 'emoji', visualValue: '🔮' }
+      ],
+      enemies: [
+        { x: 260, y: 540, patrol: 70, speed: 40, w: 26, h: 26, visualType: 'emoji', visualValue: '👾' }
+      ],
+      hazards: [
+        { x: 400, y: 590, w: 60, h: 20, visualType: 'emoji', visualValue: '☄️' }
+      ],
+      npcs: [
+        {
+          x: 160, y: 525, w: 24, h: 32, visualType: 'emoji', visualValue: '🛰️',
+          name: 'AI Core 9000',
+          dialogue: [
+            'Low gravity detected. Thrusters calibrated.',
+            'Float gently between airlock platforms and reach the extraction warp.'
+          ]
+        }
+      ]
+    };
+  }
+
+  if (p.includes('volcan') || p.includes('lava') || p.includes('fire') || p.includes('magma')) {
+    return {
+      title: 'Molten Core Springs',
+      storyIntro: prompt,
+      viewMode: 'sidescroller',
+      gravity: 1800,
+      speed: 340,
+      jumpForce: -680,
+      camera: { zoom: 1.0, offsetX: 0, offsetY: 0 },
+      theme: { bg: '#180505', platform: '#7f1d1d', accent: '#f97316' },
+      playerSpawn: { x: 80, y: 480 },
+      portal: { x: 1200, y: 180 },
+      platforms: [
+        { x: 0, y: 540, w: 320, h: 40, color: '#450a0a' },
+        { x: 380, y: 460, w: 80, h: 16, bouncy: true, visualType: 'emoji', visualValue: '🌋' },
+        { x: 530, y: 380, w: 90, h: 16, bouncy: true, visualType: 'emoji', visualValue: '🌋' },
+        { x: 700, y: 300, w: 90, h: 16, bouncy: true, visualType: 'emoji', visualValue: '🌋' },
+        { x: 880, y: 240, w: 100, h: 16, moving: true, range: 60, speed: 50, color: '#7f1d1d' },
+        { x: 1060, y: 220, w: 220, h: 30, color: '#450a0a' }
+      ],
+      coins: [
+        { x: 420, y: 390, w: 22, h: 22, visualType: 'emoji', visualValue: '💎' },
+        { x: 575, y: 310, w: 22, h: 22, visualType: 'emoji', visualValue: '💎' },
+        { x: 745, y: 230, w: 22, h: 22, visualType: 'emoji', visualValue: '💎' }
+      ],
+      enemies: [
+        { x: 200, y: 520, patrol: 50, speed: 45, w: 26, h: 26, visualType: 'emoji', visualValue: '🔥' }
+      ],
+      hazards: [
+        { x: 320, y: 570, w: 740, h: 30, visualType: 'emoji', visualValue: '🔥' }
+      ],
+      npcs: [
+        {
+          x: 140, y: 505, w: 24, h: 32, visualType: 'emoji', visualValue: '🛡️',
+          name: 'Fire Guardian',
+          dialogue: [
+            'The volcano is erupting! The floor is superheated magma!',
+            'Use the obsidian magma springs to catapult across the cavern!'
+          ]
+        }
+      ]
+    };
+  }
+
+  // Default Custom Adventure
+  return {
+    title: prompt.slice(0, 36) || 'Muse Adventure',
+    storyIntro: prompt,
+    viewMode: p.includes('top') ? 'topdown' : 'sidescroller',
+    gravity: p.includes('top') ? 0 : 1700,
+    speed: 320,
+    jumpForce: p.includes('top') ? 0 : -600,
+    camera: { zoom: 1.0, offsetX: 0, offsetY: 0 },
+    theme: { bg: '#0b0f19', platform: '#6c3483', accent: '#64ffda' },
+    playerSpawn: { x: 80, y: 480 },
+    portal: { x: 1100, y: 260 },
+    platforms: [
+      { x: 0, y: 560, w: 420, h: 40 },
+      { x: 480, y: 480, w: 120, h: 18 },
+      { x: 660, y: 410, w: 100, h: 18, bouncy: true },
+      { x: 820, y: 340, w: 110, h: 18, moving: true, range: 80, speed: 45 },
+      { x: 990, y: 300, w: 220, h: 25 }
+    ],
+    coins: [
+      { x: 540, y: 430, w: 18, h: 18 },
+      { x: 710, y: 350, w: 18, h: 18 },
+      { x: 875, y: 280, w: 18, h: 18 }
+    ],
+    enemies: [
+      { x: 260, y: 540, patrol: 60, speed: 40, w: 24, h: 24 }
+    ],
+    hazards: [
+      { x: 420, y: 580, w: 60, h: 20 }
+    ],
+    npcs: [
+      {
+        x: 180, y: 525, w: 24, h: 32,
+        name: 'Muse Oracle',
+        dialogue: [
+          'Welcome to your newly synthesized world!',
+          'Explore every corner and guide your hero to the dimensional portal.'
+        ]
+      }
+    ]
+  };
+}
+
+async function submitMuseAi() {
+  const prompt = (musePrompt ? musePrompt.value : '').trim();
+  if (!prompt) {
+    showToast('Please enter a game prompt for Muse AI');
+    return;
+  }
+
+  if (btnSubmitMuse) btnSubmitMuse.disabled = true;
+  if (btnSubmitMuseText) btnSubmitMuseText.textContent = 'Synthesizing...';
+  if (museStatus) {
+    museStatus.style.display = 'flex';
+    museStatusText.textContent = 'Generating game world and entity physics...';
+  }
+
+  try {
+    let generatedLevel = null;
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project: 'protogame',
+          action: 'generate-story',
+          prompt,
+          context: { level: state.level }
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.level) generatedLevel = data.level;
+      }
+    } catch(apiErr) {
+      console.warn('Backend API not responding, using built-in Muse synthesizer:', apiErr);
+    }
+
+    if (!generatedLevel) {
+      await new Promise(r => setTimeout(r, 600)); // Smooth UX transition
+      generatedLevel = synthesizeLevelFromPrompt(prompt);
+    }
+
+    state.level = generatedLevel;
+    state.selectedEntity = null;
+    document.getElementById('storyPrompt').value = state.level.storyIntro || '';
+    pushHistory();
+    renderInspector();
+    renderEditor();
+    saveProject(false);
+    showToast('✨ Game world synthesized with Muse AI!');
+    closeMuseModal();
+  } catch(err) {
+    console.error('Muse AI generation error:', err);
+    showToast('Muse AI error: ' + err.message);
+  } finally {
+    if (btnSubmitMuse) btnSubmitMuse.disabled = false;
+    if (btnSubmitMuseText) btnSubmitMuseText.textContent = 'Generate Level ✨';
+    if (museStatus) museStatus.style.display = 'none';
+  }
+}
 
 // ── MODE 2: PLAYABLE 60FPS PLATFORMER ENGINE ────────────────────────────────
 const gameCanvas = document.getElementById('gameCanvas');
@@ -2091,80 +3254,125 @@ function updateGamePhysics(dt) {
     }
   });
 
-  // Horizontal input
-  let moveX = 0;
-  if (keys['KeyA'] || keys['ArrowLeft']) { moveX -= 1; player.facing = -1; }
-  if (keys['KeyD'] || keys['ArrowRight']) { moveX += 1; player.facing = 1; }
-  player.vx = moveX * speed;
+  // View mode check (Side-Scroller vs Top-Down 3D)
+  const isTopDown = lvl.viewMode === 'topdown';
 
-  // Jump buffer & coyote time
-  if (player.grounded) player.coyoteTimer = 0.12;
-  else player.coyoteTimer -= dt;
+  if (isTopDown) {
+    // 4-way Top-Down movement (W/S/A/D and arrow keys)
+    let moveX = 0;
+    let moveY = 0;
+    if (keys['KeyA'] || keys['ArrowLeft']) { moveX -= 1; player.facing = -1; }
+    if (keys['KeyD'] || keys['ArrowRight']) { moveX += 1; player.facing = 1; }
+    if (keys['KeyW'] || keys['ArrowUp']) { moveY -= 1; }
+    if (keys['KeyS'] || keys['ArrowDown']) { moveY += 1; }
 
-  if (keys['Space'] || keys['KeyW'] || keys['ArrowUp']) {
-    player.jumpBuffer = 0.12;
-  } else {
-    player.jumpBuffer -= dt;
-  }
-
-  if (player.jumpBuffer > 0 && player.coyoteTimer > 0) {
-    player.vy = jumpForce;
-    player.grounded = false;
-    player.coyoteTimer = 0;
-    player.jumpBuffer = 0;
-    Sound.play('jump');
-    spawnParticles(player.x + player.w / 2, player.y + player.h, '#e2e8f0', 6, 80);
-  }
-
-  // Variable jump height
-  if (!keys['Space'] && !keys['KeyW'] && !keys['ArrowUp'] && player.vy < 0) {
-    player.vy *= 0.85;
-  }
-
-  // Apply gravity
-  player.vy += gravity * dt;
-
-  // Move X & collide
-  player.x += player.vx * dt;
-  dynamicPlatforms.forEach(p => {
-    if (checkAABB(player, p)) {
-      if (player.vx > 0) player.x = p.x - player.w;
-      else if (player.vx < 0) player.x = p.x + p.w;
+    // Normalize diagonal movement
+    if (moveX !== 0 && moveY !== 0) {
+      moveX *= 0.7071;
+      moveY *= 0.7071;
     }
-  });
 
-  // Move Y & collide
-  player.y += player.vy * dt;
-  player.grounded = false;
+    player.vx = moveX * speed;
+    player.vy = moveY * speed;
 
-  dynamicPlatforms.forEach(p => {
-    if (checkAABB(player, p)) {
-      if (player.vy > 0) {
-        // Landing
-        player.y = p.y - player.h;
-        player.vy = 0;
-        player.grounded = true;
-
-        if (p.bouncy) {
-          player.vy = jumpForce * 1.35;
-          player.grounded = false;
-          Sound.play('bounce');
-          spawnParticles(player.x + player.w / 2, player.y + player.h, '#10b981', 12, 140);
-        } else if (p.moving) {
-          // Ride moving platform
-          player.x += p.dir * (p.speed || 50) * dt;
-        }
-      } else if (player.vy < 0) {
-        // Hit ceiling
-        player.y = p.y + p.h;
-        player.vy = 0;
+    // Move X & solid 4-way collision
+    player.x += player.vx * dt;
+    dynamicPlatforms.forEach(p => {
+      if (checkAABB(player, p)) {
+        if (player.vx > 0) player.x = p.x - player.w;
+        else if (player.vx < 0) player.x = p.x + p.w;
       }
-    }
-  });
+    });
 
-  // Pit death check
-  if (player.y > 700) {
-    hurtPlayer(true);
+    // Move Y & solid 4-way collision
+    player.y += player.vy * dt;
+    dynamicPlatforms.forEach(p => {
+      if (checkAABB(player, p)) {
+        if (player.vy > 0) player.y = p.y - player.h;
+        else if (player.vy < 0) player.y = p.y + p.h;
+      }
+    });
+
+    // Out of arena boundary check in top-down
+    if (player.x < -300 || player.x > 2600 || player.y < -300 || player.y > 1800) {
+      hurtPlayer(true);
+    }
+  } else {
+    // Side-Scroller Platformer Physics
+    let moveX = 0;
+    if (keys['KeyA'] || keys['ArrowLeft']) { moveX -= 1; player.facing = -1; }
+    if (keys['KeyD'] || keys['ArrowRight']) { moveX += 1; player.facing = 1; }
+    player.vx = moveX * speed;
+
+    // Jump buffer & coyote time
+    if (player.grounded) player.coyoteTimer = 0.12;
+    else player.coyoteTimer -= dt;
+
+    if (keys['Space'] || keys['KeyW'] || keys['ArrowUp']) {
+      player.jumpBuffer = 0.12;
+    } else {
+      player.jumpBuffer -= dt;
+    }
+
+    if (player.jumpBuffer > 0 && player.coyoteTimer > 0) {
+      player.vy = jumpForce;
+      player.grounded = false;
+      player.coyoteTimer = 0;
+      player.jumpBuffer = 0;
+      Sound.play('jump');
+      spawnParticles(player.x + player.w / 2, player.y + player.h, '#e2e8f0', 6, 80);
+    }
+
+    // Variable jump height
+    if (!keys['Space'] && !keys['KeyW'] && !keys['ArrowUp'] && player.vy < 0) {
+      player.vy *= 0.85;
+    }
+
+    // Apply gravity
+    player.vy += gravity * dt;
+
+    // Move X & collide
+    player.x += player.vx * dt;
+    dynamicPlatforms.forEach(p => {
+      if (checkAABB(player, p)) {
+        if (player.vx > 0) player.x = p.x - player.w;
+        else if (player.vx < 0) player.x = p.x + p.w;
+      }
+    });
+
+    // Move Y & collide
+    player.y += player.vy * dt;
+    player.grounded = false;
+
+    dynamicPlatforms.forEach(p => {
+      if (checkAABB(player, p)) {
+        if (player.vy > 0) {
+          // Landing
+          player.y = p.y - player.h;
+          player.vy = 0;
+          player.grounded = true;
+
+          if (p.bouncy) {
+            player.vy = jumpForce * 1.35;
+            player.grounded = false;
+            Sound.play('bounce');
+            spawnParticles(player.x + player.w / 2, player.y + player.h, '#10b981', 12, 140);
+          } else if (p.moving) {
+            // Ride moving platform
+            player.x += p.dir * (p.speed || 50) * dt;
+          }
+        } else if (player.vy < 0) {
+          // Hit ceiling
+          player.y = p.y + p.h;
+          player.vy = 0;
+        }
+      }
+    });
+
+    // Pit death check
+    if (player.y > 700) {
+      hurtPlayer(true);
+    }
   }
 
   // Hazard collision
@@ -2177,8 +3385,8 @@ function updateGamePhysics(dt) {
     if (!e.alive) return;
     const enemyBox = { x: e.x - 12, y: e.y - 12, w: 24, h: 24 };
     if (checkAABB(player, enemyBox)) {
-      // Stomp check
-      if (player.vy > 0 && player.y + player.h - player.vy * dt <= enemyBox.y + 10) {
+      // Stomp check (only in sidescroller when falling)
+      if (!isTopDown && player.vy > 0 && player.y + player.h - player.vy * dt <= enemyBox.y + 10) {
         e.alive = false;
         player.vy = jumpForce * 0.75;
         Sound.play('bounce');
@@ -2215,9 +3423,11 @@ function updateGamePhysics(dt) {
     if (pt.life <= 0) particles.splice(i, 1);
   }
 
-  // Smooth camera tracking
-  const targetCamX = player.x + player.w / 2 - gameCanvas.width / 2;
-  const targetCamY = player.y + player.h / 2 - gameCanvas.height / 2;
+  // Smooth camera tracking with zoom and offset
+  const camOffX = lvl.camera?.offsetX || 0;
+  const camOffY = lvl.camera?.offsetY || 0;
+  const targetCamX = player.x + player.w / 2 - gameCanvas.width / 2 + camOffX;
+  const targetCamY = player.y + player.h / 2 - gameCanvas.height / 2 + camOffY;
   camera.x += (targetCamX - camera.x) * 0.1;
   camera.y += (targetCamY - camera.y) * 0.1;
 }
@@ -2274,6 +3484,7 @@ function renderGame() {
   const ctx = gameCtx;
   const w = gameCanvas.width, h = gameCanvas.height;
   const lvl = state.level;
+  const isTopDown = lvl.viewMode === 'topdown';
 
   ctx.save();
   ctx.clearRect(0, 0, w, h);
@@ -2282,84 +3493,119 @@ function renderGame() {
   ctx.fillStyle = lvl.theme?.bg || '#0b0f19';
   ctx.fillRect(0, 0, w, h);
 
-  // Apply camera
+  // Apply camera with user zoom
+  const camZoom = lvl.camera?.zoom || 1.0;
+  ctx.translate(w / 2, h / 2);
+  ctx.scale(camZoom, camZoom);
+  ctx.translate(-w / 2, -h / 2);
   ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
 
   // Platforms
   dynamicPlatforms.forEach(p => {
-    ctx.fillStyle = p.bouncy ? '#10b981' : (p.color || lvl.theme?.platform || '#6c3483');
-    ctx.beginPath();
-    ctx.roundRect(p.x, p.y, p.w, p.h, 4);
-    ctx.fill();
-    ctx.strokeStyle = p.bouncy ? '#a7f3d0' : 'rgba(255,255,255,0.2)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    const bounds = { x: p.x, y: p.y, w: p.w, h: p.h };
+    drawCustomEntityVisual(ctx, p, bounds, () => {
+      // 3D Depth / drop shadow if top-down
+      if (isTopDown) {
+        ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        ctx.fillRect(p.x + 4, p.y + 6, p.w, p.h);
+      }
+
+      ctx.fillStyle = p.bouncy ? '#10b981' : (p.color || lvl.theme?.platform || '#6c3483');
+      ctx.beginPath();
+      ctx.roundRect(p.x, p.y, p.w, p.h, 4);
+      ctx.fill();
+
+      // Top highlight in top-down mode for 3D bevel look
+      if (isTopDown) {
+        ctx.fillStyle = 'rgba(255,255,255,0.18)';
+        ctx.fillRect(p.x, p.y, p.w, 3);
+      }
+
+      ctx.strokeStyle = p.bouncy ? '#a7f3d0' : 'rgba(255,255,255,0.2)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
   });
 
   // Hazards
   (lvl.hazards || []).forEach(hz => {
-    ctx.fillStyle = '#ef4444';
-    const spikeW = 10;
-    const count = Math.max(1, Math.floor(hz.w / spikeW));
-    ctx.beginPath();
-    for (let i = 0; i < count; i++) {
-      const sx = hz.x + i * spikeW;
-      ctx.moveTo(sx, hz.y + hz.h);
-      ctx.lineTo(sx + spikeW / 2, hz.y);
-      ctx.lineTo(sx + spikeW, hz.y + hz.h);
-    }
-    ctx.fill();
+    const bounds = { x: hz.x, y: hz.y, w: hz.w, h: hz.h };
+    drawCustomEntityVisual(ctx, hz, bounds, () => {
+      ctx.fillStyle = '#ef4444';
+      const spikeW = 10;
+      const count = Math.max(1, Math.floor(hz.w / spikeW));
+      ctx.beginPath();
+      for (let i = 0; i < count; i++) {
+        const sx = hz.x + i * spikeW;
+        ctx.moveTo(sx, hz.y + hz.h);
+        ctx.lineTo(sx + spikeW / 2, hz.y);
+        ctx.lineTo(sx + spikeW, hz.y + hz.h);
+      }
+      ctx.fill();
+    });
   });
 
   // Coins
   (lvl.coins || []).forEach(c => {
     if (!c.collected) {
-      ctx.fillStyle = '#fbbf24';
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#d97706';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 9px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('★', c.x, c.y);
+      const cw = c.w || 16, ch = c.h || 16;
+      const bounds = { x: c.x - cw / 2, y: c.y - ch / 2, w: cw, h: ch };
+      drawCustomEntityVisual(ctx, c, bounds, () => {
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('★', c.x, c.y);
+      });
     }
   });
 
   // Enemies
   dynamicEnemies.forEach(e => {
     if (e.alive) {
-      ctx.fillStyle = '#ef4444';
-      ctx.beginPath();
-      ctx.roundRect(e.x - 12, e.y - 12, 24, 24, 6);
-      ctx.fill();
-      // Eyes
-      ctx.fillStyle = '#fff';
-      const eyeOffset = e.dir > 0 ? 2 : -2;
-      ctx.fillRect(e.x - 5 + eyeOffset, e.y - 5, 4, 4);
-      ctx.fillRect(e.x + 3 + eyeOffset, e.y - 5, 4, 4);
+      const ew = e.w || 24, eh = e.h || 24;
+      const bounds = { x: e.x - ew / 2, y: e.y - eh / 2, w: ew, h: eh };
+      drawCustomEntityVisual(ctx, e, bounds, () => {
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.roundRect(e.x - 12, e.y - 12, 24, 24, 6);
+        ctx.fill();
+        // Eyes
+        ctx.fillStyle = '#fff';
+        const eyeOffset = e.dir > 0 ? 2 : -2;
+        ctx.fillRect(e.x - 5 + eyeOffset, e.y - 5, 4, 4);
+        ctx.fillRect(e.x + 3 + eyeOffset, e.y - 5, 4, 4);
+      });
     }
   });
 
   // NPCs
   (lvl.npcs || []).forEach(npc => {
-    ctx.fillStyle = '#8b5cf6';
-    ctx.beginPath();
-    ctx.roundRect(npc.x - 12, npc.y - 16, 24, 32, 6);
-    ctx.fill();
+    const nw = npc.w || 24, nh = npc.h || 32;
+    const bounds = { x: npc.x - nw / 2, y: npc.y - nh / 2, w: nw, h: nh };
+    drawCustomEntityVisual(ctx, npc, bounds, () => {
+      ctx.fillStyle = '#8b5cf6';
+      ctx.beginPath();
+      ctx.roundRect(npc.x - 12, npc.y - 16, 24, 32, 6);
+      ctx.fill();
+    });
     ctx.fillStyle = '#c4b5fd';
     ctx.font = '10px Inter';
     ctx.textAlign = 'center';
-    ctx.fillText(npc.name || 'NPC', npc.x, npc.y + 26);
+    ctx.fillText(npc.name || 'NPC', npc.x, npc.y + (nh / 2) + 12);
 
     // Prompt if player nearby
     if (Math.hypot(player.x - npc.x, player.y - npc.y) < 60) {
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 11px Inter';
-      ctx.fillText('[E] Talk', npc.x, npc.y - 24);
+      ctx.fillText('[E] Talk', npc.x, npc.y - (nh / 2) - 8);
     }
   });
 
@@ -2378,6 +3624,13 @@ function renderGame() {
 
   // Player
   if (player.invincibleTimer <= 0 || Math.floor(gameTime * 20) % 2 === 0) {
+    if (isTopDown) {
+      // 3D drop shadow in top-down mode
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath();
+      ctx.ellipse(player.x + player.w / 2, player.y + player.h, player.w / 2, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.fillStyle = '#38bdf8';
     ctx.beginPath();
     ctx.roundRect(player.x, player.y, player.w, player.h, 4);
@@ -2509,17 +3762,24 @@ function nextDialog() {
 let last = performance.now();
 function loop(now) {
   const dt = Math.min((now - last) / 1000, 0.05); last = now;
-  // Controls
-  let mx = 0;
+  const isTopDown = LEVEL.viewMode === 'topdown';
+  let mx = 0, my = 0;
   if (keys['KeyA'] || keys['ArrowLeft']) mx -= 1;
   if (keys['KeyD'] || keys['ArrowRight']) mx += 1;
-  player.vx = mx * (LEVEL.speed || 320);
-
-  if ((keys['Space'] || keys['KeyW'] || keys['ArrowUp']) && player.grounded) {
-    player.vy = LEVEL.jumpForce || -600;
-    player.grounded = false;
+  if (isTopDown) {
+    if (keys['KeyW'] || keys['ArrowUp']) my -= 1;
+    if (keys['KeyS'] || keys['ArrowDown']) my += 1;
+    if (mx !== 0 && my !== 0) { mx *= 0.7071; my *= 0.7071; }
+    player.vx = mx * (LEVEL.speed || 320);
+    player.vy = my * (LEVEL.speed || 320);
+  } else {
+    player.vx = mx * (LEVEL.speed || 320);
+    if ((keys['Space'] || keys['KeyW'] || keys['ArrowUp']) && player.grounded) {
+      player.vy = LEVEL.jumpForce || -600;
+      player.grounded = false;
+    }
+    player.vy += (LEVEL.gravity || 1800) * dt;
   }
-  player.vy += (LEVEL.gravity || 1800) * dt;
 
   // Move X
   player.x += player.vx * dt;
@@ -2532,17 +3792,21 @@ function loop(now) {
 
   // Move Y
   player.y += player.vy * dt;
-  player.grounded = false;
+  if (!isTopDown) player.grounded = false;
   (LEVEL.platforms || []).forEach(p => {
     if (collide(player, p)) {
       if (player.vy > 0) {
-        player.y = p.y - player.h; player.vy = 0; player.grounded = true;
-        if (p.bouncy) { player.vy = (LEVEL.jumpForce || -600) * 1.35; player.grounded = false; }
+        player.y = p.y - player.h; player.vy = 0;
+        if (!isTopDown) {
+          player.grounded = true;
+          if (p.bouncy) { player.vy = (LEVEL.jumpForce || -600) * 1.35; player.grounded = false; }
+        }
       } else if (player.vy < 0) { player.y = p.y + p.h; player.vy = 0; }
     }
   });
 
-  if (player.y > 800) reset();
+  if (!isTopDown && player.y > 800) reset();
+  else if (isTopDown && (player.y > 1500 || player.y < -300 || player.x < -300 || player.x > 2500)) reset();
 
   // Coins
   (LEVEL.coins || []).forEach(c => {
@@ -2552,24 +3816,52 @@ function loop(now) {
     }
   });
 
-  // Camera
-  camera.x += (player.x - w / 2 - camera.x) * 0.1;
-  camera.y += (player.y - h / 2 - camera.y) * 0.1;
+  // Camera with zoom and offset
+  const camZoom = LEVEL.camera?.zoom || 1.0;
+  const camOffX = LEVEL.camera?.offsetX || 0;
+  const camOffY = LEVEL.camera?.offsetY || 0;
+  camera.x += (player.x - w / 2 - camera.x + camOffX) * 0.1;
+  camera.y += (player.y - h / 2 - camera.y + camOffY) * 0.1;
 
   // Draw
   ctx.fillStyle = LEVEL.theme?.bg || '#0a0a1a'; ctx.fillRect(0, 0, w, h);
-  ctx.save(); ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+  ctx.save();
+  ctx.translate(w / 2, h / 2);
+  ctx.scale(camZoom, camZoom);
+  ctx.translate(-w / 2, -h / 2);
+  ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
+
+  function drawObj(o, defFn) {
+    if (o.visualType === 'emoji' && o.visualValue) {
+      ctx.font = Math.round((o.h || 24) * 0.85) + 'px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(o.visualValue, (o.x || 0) + (o.w || 24) / 2, (o.y || 0) + (o.h || 24) / 2);
+    } else {
+      defFn();
+    }
+  }
 
   (LEVEL.platforms || []).forEach(p => {
-    ctx.fillStyle = p.bouncy ? '#10b981' : (LEVEL.theme?.platform || '#6c3483');
-    ctx.fillRect(p.x, p.y, p.w, p.h);
+    drawObj(p, () => {
+      if (isTopDown) { ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(p.x + 4, p.y + 6, p.w, p.h); }
+      ctx.fillStyle = p.bouncy ? '#10b981' : (LEVEL.theme?.platform || '#6c3483');
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+    });
   });
-  (LEVEL.hazards || []).forEach(hz => { ctx.fillStyle = '#ef4444'; ctx.fillRect(hz.x, hz.y, hz.w, hz.h); });
+  (LEVEL.hazards || []).forEach(hz => {
+    drawObj(hz, () => { ctx.fillStyle = '#ef4444'; ctx.fillRect(hz.x, hz.y, hz.w, hz.h); });
+  });
   (LEVEL.coins || []).forEach(c => {
-    if (!c.collected) { ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(c.x, c.y, 8, 0, Math.PI*2); ctx.fill(); }
+    if (!c.collected) {
+      drawObj({ ...c, w: 16, h: 16, x: c.x - 8, y: c.y - 8 }, () => {
+        ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(c.x, c.y, 8, 0, Math.PI*2); ctx.fill();
+      });
+    }
   });
   (LEVEL.npcs || []).forEach(n => {
-    ctx.fillStyle = '#8b5cf6'; ctx.fillRect(n.x - 10, n.y - 14, 20, 28);
+    drawObj({ ...n, w: 20, h: 28, x: n.x - 10, y: n.y - 14 }, () => {
+      ctx.fillStyle = '#8b5cf6'; ctx.fillRect(n.x - 10, n.y - 14, 20, 28);
+    });
   });
   if (LEVEL.portal) {
     ctx.fillStyle = LEVEL.theme?.accent || '#06b6d4';
@@ -2581,6 +3873,10 @@ function loop(now) {
   }
 
   // Player
+  if (isTopDown) {
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath(); ctx.ellipse(player.x + player.w / 2, player.y + player.h, player.w / 2, 4, 0, 0, Math.PI * 2); ctx.fill();
+  }
   ctx.fillStyle = '#38bdf8'; ctx.fillRect(player.x, player.y, player.w, player.h);
   ctx.restore();
 
@@ -2636,6 +3932,7 @@ document.getElementById('btnQuickPlay').onclick = () => switchMode('play');
 // ── Startup Initialization ──────────────────────────────────────────────────
 (function init() {
   loadProject();
+  pushHistory();
   document.getElementById('storyPrompt').value = state.level.storyIntro || '';
   renderInspector();
   renderEditor();
