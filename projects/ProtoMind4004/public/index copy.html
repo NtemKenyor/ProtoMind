@@ -1,0 +1,2560 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ProtoMind4004</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --panel: #ffffff;
+    --line: #d9dee3;
+    --accent: #1f7ae0;
+    --ink: #1c2630;
+    --muted: #64748b;
+    --danger: #e03131;
+    --ok: #2a8f3c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px 'Inter', system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+    z-index: 20;
+  }
+  header h1 { font-size: 16px; margin: 0 12px 0 0; }
+  header a { text-decoration: none; color: var(--accent); font-size: 13px; margin-right: 8px; font-weight: 500; }
+  button, select, input, textarea {
+    font: inherit;
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #fff;
+  }
+  button, select { cursor: pointer; }
+  button:hover:not(:disabled) { border-color: #b0bac5; background: #f8fafc; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.primary:hover:not(:disabled) { background: #1967be; }
+  button.success { background: var(--ok); color: #fff; border-color: var(--ok); }
+  button.success:hover:not(:disabled) { background: #217831; }
+  button.danger { background: var(--danger); color: #fff; border-color: #c92a2a; }
+  button.danger:hover:not(:disabled) { background: #c92a2a; }
+  button:disabled { opacity: .5; cursor: default; }
+  button.sim-active { background: var(--ok); color: #fff; border-color: var(--ok); }
+  .sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+  #status { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+  #setupBar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: #fff4d6;
+    border-bottom: 1px solid #e8d28a;
+  }
+  #setupBar[hidden] { display: none; }
+  #setupBar.ok { background: #e3f6e8; border-color: #a9d9b6; }
+
+  main { flex: 1; display: flex; min-height: 0; position: relative; }
+  #left {
+    flex: 1.4;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border-right: 1px solid var(--line);
+    position: relative;
+  }
+
+  /* Top Canvas Toolbar */
+  #canvasToolbar {
+    padding: 6px 10px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+    font-size: 12px;
+    z-index: 10;
+  }
+  #canvasToolbar button, #canvasToolbar select {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+  .color-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+  }
+  .color-dot.active { border-color: #1c2630; transform: scale(1.15); }
+
+  /* Workspace container: Sidebar + SVG Canvas */
+  #workspace {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Minimisable & Fadable Components Sidebar */
+  #compSidebar {
+    width: 215px;
+    background: rgba(255, 255, 255, 0.96);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.22s ease, opacity 0.25s ease;
+    z-index: 15;
+    user-select: none;
+    backdrop-filter: blur(8px);
+  }
+  #compSidebar.auto-fade:not(:hover) { opacity: 0.24; }
+  #compSidebar.minimized { width: 38px; }
+  #compSidebar.minimized .sidebar-body,
+  #compSidebar.minimized .sidebar-title-text,
+  #compSidebar.minimized #btnFadeToggle { display: none; }
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 8px;
+    border-bottom: 1px solid var(--line);
+    background: #f8fafc;
+    gap: 4px;
+  }
+  .sidebar-title-text { font-size: 12px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+  .sidebar-header button { padding: 3px 6px; font-size: 11px; line-height: 1; }
+  .sidebar-header button.active-toggle { background: #e0f2fe; border-color: #38bdf8; color: #0369a1; }
+  .sidebar-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .comp-group-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin: 0 0 6px 2px;
+  }
+  .comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .comp-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    text-align: left;
+    border-radius: 6px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    transition: all 0.12s;
+    position: relative;
+  }
+  .comp-btn:hover { border-color: var(--accent); background: #f0f7ff; transform: translateY(-1px); }
+  .comp-btn small { font-size: 9px; color: var(--muted); margin-top: 2px; }
+  .comp-btn .del-custom {
+    position: absolute;
+    top: 3px;
+    right: 4px;
+    font-size: 10px;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 0 2px;
+  }
+  .comp-btn .del-custom:hover { color: var(--danger); }
+
+  /* Canvas Wrap */
+  #canvasWrap { flex: 1; min-height: 0; position: relative; }
+  svg#canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background-image: radial-gradient(#cfd6dd 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  /* Component Inspector Floating Card */
+  #inspector {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 260px;
+    background: rgba(255, 255, 255, 0.97);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    padding: 12px;
+    z-index: 18;
+    font-size: 12px;
+    backdrop-filter: blur(8px);
+  }
+  #inspector[hidden] { display: none; }
+  .insp-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .insp-row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+  .insp-row label { font-size: 11px; color: var(--muted); font-weight: 600; }
+  .insp-row-inline { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+  .insp-row input, .insp-row select, .insp-row-inline input { padding: 5px 7px; font-size: 12px; width: 100%; }
+  .chk-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+  .chk-row input { width: auto; margin: 0; cursor: pointer; }
+
+  /* ── Floating Fadable / Disappearable Transparent AI Quick-Access HUD ── */
+  #aiQuickOrb {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    z-index: 25;
+    background: linear-gradient(135deg, rgba(31, 122, 224, 0.9), rgba(99, 102, 241, 0.9));
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 99px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    box-shadow: 0 8px 25px rgba(31, 122, 224, 0.35);
+    backdrop-filter: blur(8px);
+    transition: opacity 0.25s ease, transform 0.2s ease;
+  }
+  #aiQuickOrb.auto-fade:not(:hover) { opacity: 0.28; }
+  #aiQuickOrb:hover { transform: translateY(-2px); opacity: 1; }
+  #aiQuickOrb[hidden] { display: none; }
+
+  #aiFloatingHud {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    width: 390px;
+    max-width: calc(100% - 32px);
+    max-height: calc(100% - 32px);
+    display: flex;
+    flex-direction: column;
+    background: rgba(15, 23, 42, 0.86);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 14px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 26;
+    transition: opacity 0.28s ease, transform 0.2s ease;
+    overflow: hidden;
+  }
+  #aiFloatingHud[hidden] { display: none; }
+  #aiFloatingHud.auto-fade:not(:hover):not(:focus-within) {
+    opacity: 0.22;
+  }
+  .hud-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(30, 41, 59, 0.85);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    cursor: move;
+    user-select: none;
+  }
+  .hud-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #38bdf8;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hud-controls { display: flex; gap: 4px; }
+  .hud-controls button {
+    background: rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 2px 7px;
+    font-size: 11px;
+    border-radius: 5px;
+  }
+  .hud-controls button.active {
+    background: #0284c7;
+    color: #fff;
+    border-color: #38bdf8;
+  }
+  .hud-body {
+    padding: 10px 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12px;
+  }
+  #hudPrompt {
+    width: 100%;
+    min-height: 54px;
+    resize: vertical;
+    background: rgba(2, 6, 23, 0.75);
+    color: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 12px;
+    outline: none;
+  }
+  #hudPrompt:focus { border-color: #38bdf8; }
+  .hud-result {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(2, 6, 23, 0.65);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 10px;
+    padding: 10px;
+  }
+  .hud-result[hidden] { display: none; }
+  .hud-img-wrap {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: #090d16;
+  }
+  .hud-img-wrap img {
+    width: 100%;
+    height: auto;
+    display: block;
+    cursor: zoom-in;
+  }
+  .hud-spice-box {
+    background: #050811;
+    color: #93c5fd;
+    padding: 7px 9px;
+    border-radius: 6px;
+    font: 11px/1.35 ui-monospace, Menlo, Consolas, monospace;
+    max-height: 110px;
+    overflow: auto;
+    white-space: pre;
+    border: 1px solid #1e293b;
+  }
+
+  /* Wire / Pin Hover Tooltip */
+  #wireTooltip {
+    position: absolute;
+    bottom: 10px;
+    left: 12px;
+    background: rgba(15, 23, 42, 0.9);
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    pointer-events: none;
+    z-index: 20;
+  }
+  #wireTooltip[hidden] { display: none; }
+
+  /* Modals (Custom Component & SPICE Netlist Modal) */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  .modal-backdrop[hidden] { display: none; }
+  .modal {
+    background: #fff;
+    border-radius: 12px;
+    width: 540px;
+    max-width: 95vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+  }
+  .modal-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .modal-body {
+    padding: 16px 18px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-size: 13px;
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; font-weight: 600; color: var(--muted); }
+  .pin-list-header, .pin-item-row {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr 32px;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+  .pin-list-header { font-size: 11px; font-weight: 600; color: var(--muted); }
+  .modal-footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    background: #f8fafc;
+  }
+
+  /* Right Code & AI Panel */
+  #right { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #1e1e24; }
+  #code {
+    flex: 1;
+    width: 100%;
+    resize: none;
+    border: 0;
+    outline: 0;
+    padding: 12px;
+    background: #1e1e24;
+    color: #e6e6e6;
+    font: 13px/1.5 ui-monospace, Menlo, Consolas, monospace;
+    tab-size: 2;
+  }
+  #tabs { display: flex; background: #2a2a32; }
+  #tabs button {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #aab;
+    padding: 7px 14px;
+    font-size: 13px;
+  }
+  #tabs button.active { color: #fff; border-bottom: 2px solid var(--accent); }
+  #consoleBox { height: 30%; display: flex; flex-direction: column; border-top: 1px solid #000; }
+  pre#out {
+    flex: 1;
+    margin: 0;
+    padding: 8px 12px;
+    overflow: auto;
+    color: #b8e0b8;
+    font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace;
+    white-space: pre-wrap;
+  }
+
+  /* AI Guide Panel */
+  #aiPanel { display: none; flex-direction: column; background: #16161e; color: #d4d4d8; height: 100%; }
+  #aiPanel.active { display: flex; }
+  #aiChips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-bottom: 1px solid #333; }
+  .ai-chip {
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 99px;
+    background: #2a2a3a;
+    color: #a5b4fc;
+    border: 1px solid #3f3f5f;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .ai-chip:hover { background: #3f3f5f; color: #c7d2fe; }
+  #aiMessages { flex: 1; overflow-y: auto; padding: 12px; font-size: 13px; line-height: 1.6; }
+  #aiMessages .msg { margin-bottom: 12px; padding: 10px 14px; border-radius: 10px; }
+  #aiMessages .msg.user { background: #1e3a5f; border: 1px solid #2563eb; }
+  #aiMessages .msg.ai { background: #1e2a1e; border: 1px solid #22c55e; }
+  #aiMessages .msg pre { background: #111; padding: 8px; border-radius: 6px; overflow-x: auto; font-size: 12px; margin: 8px 0 4px; }
+  #aiMessages .msg button { font-size: 11px; padding: 4px 10px; margin-top: 6px; margin-right: 6px; border-radius: 6px; }
+  #aiInput { display: flex; gap: 6px; padding: 8px 12px; background: #1a1a24; border-top: 1px solid #333; }
+  #aiInput input {
+    flex: 1;
+    background: #0e0e18;
+    color: #e4e4e7;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font: 13px 'Inter', sans-serif;
+    outline: none;
+  }
+  #aiInput input:focus { border-color: #6366f1; }
+  #aiInput button { background: #6366f1; color: #fff; border: none; border-radius: 8px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
+  #aiInput button:hover { background: #4f46e5; }
+
+  /* SVG Schematic Elements */
+  .comp .body { cursor: grab; }
+  .comp .body:active { cursor: grabbing; }
+  .pin { fill: #fff; stroke: #334155; stroke-width: 1.8; cursor: crosshair; transition: r 0.1s, fill 0.1s; }
+  .pin:hover { fill: #ffd24d; r: 6.5; }
+  .pin.sel { fill: #ff7a00; r: 6.5; }
+  .pin.connected-highlight { fill: #38bdf8; stroke: #0284c7; r: 6.5; }
+  .wire-hit { stroke: transparent; stroke-width: 12; fill: none; cursor: pointer; }
+  .wire {
+    stroke: #2a8f3c;
+    stroke-width: 2.8;
+    fill: none;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    pointer-events: none;
+  }
+  .wire-group:hover .wire, .wire-group.sel .wire { stroke: #e03131 !important; stroke-width: 3.6; }
+  .wire-corner { fill: #2a8f3c; pointer-events: none; }
+  .wire-group:hover .wire-corner, .wire-group.sel .wire-corner { fill: #e03131 !important; }
+  .comp.sel .body { stroke: #e03131 !important; stroke-width: 2.5 !important; }
+  text { user-select: none; pointer-events: none; }
+  .val-badge { font-size: 10px; font-weight: 600; fill: #1e293b; }
+  .volt-badge { font-size: 9px; font-weight: 700; fill: #0369a1; }
+
+  /* Simulation animations */
+  .sim-glow { filter: url(#glowFilter); }
+  .sim-buzz-wave { animation: buzzPulse 0.3s infinite alternate; }
+  @keyframes buzzPulse { from { opacity: 0.45; } to { opacity: 1; } }
+  .sim-motor-spin {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: motorSpin 0.45s linear infinite;
+  }
+  @keyframes motorSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header>
+  <a href="/" title="Back to Hub">← Hub</a>
+  <h1>⚡ ProtoMind <small style="font-weight:400;color:#7a8794">4004</small></h1>
+  <button id="btnRefresh">Detect boards</button>
+  <select id="boardSel"><option value="">— no board detected —</option></select>
+  <select id="fqbnSel" title="Board type">
+    <option value="arduino:avr:uno">Arduino Uno</option>
+    <option value="arduino:avr:nano">Arduino Nano</option>
+    <option value="arduino:avr:mega">Arduino Mega</option>
+    <option value="esp32:esp32:esp32">ESP32 DevKit</option>
+    <option value="rp2040:rp2040:rpipico">Raspberry Pi Pico</option>
+  </select>
+  <button id="btnUpload" class="primary">▶ Upload</button>
+  <div class="sep"></div>
+  <button id="btnMonitor">Serial monitor</button>
+  <div class="sep"></div>
+  <button id="btnSim">⚡ Simulate Circuit</button>
+  <span id="status">connecting…</span>
+</header>
+
+<div id="setupBar" hidden>
+  <span id="setupMsg"></span>
+  <button id="btnInstall" class="primary">Install now</button>
+</div>
+
+<main>
+  <section id="left">
+    <!-- Top Canvas Controls -->
+    <div id="canvasToolbar">
+      <button id="btnWireMode" title="Switch between 90° orthogonal straight lines and direct straight lines">
+        📐 Connectors: Orthogonal (90°)
+      </button>
+      <div class="sep"></div>
+      <span style="color:var(--muted);">Wire:</span>
+      <button class="color-dot active" data-wcolor="#2a8f3c" style="background:#2a8f3c" title="Green"></button>
+      <button class="color-dot" data-wcolor="#e03131" style="background:#e03131" title="Red (VCC)"></button>
+      <button class="color-dot" data-wcolor="#1e293b" style="background:#1e293b" title="Black (GND)"></button>
+      <button class="color-dot" data-wcolor="#1f7ae0" style="background:#1f7ae0" title="Blue (Signal)"></button>
+      <button class="color-dot" data-wcolor="#d97706" style="background:#d97706" title="Orange (PWM/I2C)"></button>
+      <div class="sep"></div>
+      <button id="btnSpiceModal" title="View or paste universal SPICE Netlist">📜 SPICE Netlist</button>
+      <button id="btnOpenCustomModal" class="primary">+ Create Component</button>
+      <button id="btnToggleAiHud" title="Show/Hide Floating AI Quick Designer">✨ AI HUD</button>
+      <button id="btnClear" class="danger">✕ Clear</button>
+    </div>
+
+    <div id="workspace">
+      <!-- Minimisable & Fadable Components Sidebar -->
+      <aside id="compSidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title-text">🧩 Components</span>
+          <div style="display:flex; gap:4px;">
+            <button id="btnFadeToggle" title="Auto-fade sidebar when cursor is on the canvas">◐ Fade</button>
+            <button id="btnMinSidebar" title="Minimize / Expand sidebar">◀</button>
+          </div>
+        </div>
+
+        <div class="sidebar-body">
+          <div>
+            <div class="comp-group-title">Microcontrollers & Power</div>
+            <div class="comp-grid">
+              <button class="comp-btn" data-add="uno">Arduino Uno<small>5V · 18 Pins</small></button>
+              <button class="comp-btn" data-add="esp32">ESP32<small>3.3V · WiFi</small></button>
+              <button class="comp-btn" data-add="pico">Pi Pico<small>3.3V · RP2040</small></button>
+              <button class="comp-btn" data-add="vsrc">DC Source<small>Adj. Voltage</small></button>
+            </div>
+          </div>
+
+          <div>
+            <div class="comp-group-title">Passives (Editable)</div>
+            <div class="comp-grid">
+              <button class="comp-btn" data-add="res">Resistor<small>Default 220Ω</small></button>
+              <button class="comp-btn" data-add="cap">Capacitor<small>Default 100µF</small></button>
+              <button class="comp-btn" data-add="ind">Inductor<small>Default 10mH</small></button>
+            </div>
+          </div>
+
+          <div>
+            <div class="comp-group-title">Interactive Switches & Loads</div>
+            <div class="comp-grid">
+              <button class="comp-btn" data-add="sw">Toggle Switch<small>Click ON/OFF</small></button>
+              <button class="comp-btn" data-add="btn">Push Button<small>Click ON/OFF</small></button>
+              <button class="comp-btn" data-add="led">LED<small>Click ON/OFF</small></button>
+              <button class="comp-btn" data-add="motor">DC Motor<small>Click Spin/Stop</small></button>
+              <button class="comp-btn" data-add="servo">Micro Servo<small>PWM 4.8V–6V</small></button>
+              <button class="comp-btn" data-add="ultrasonic">HC-SR04<small>Ultrasonic</small></button>
+              <button class="comp-btn" data-add="buzzer">Buzzer<small>Piezo Tone</small></button>
+            </div>
+          </div>
+
+          <div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+              <div class="comp-group-title" style="margin:0;">Custom / AI Parts</div>
+              <button id="btnSidebarCreate" style="font-size:10px; padding:2px 6px;" class="primary">+ New</button>
+            </div>
+            <div id="customCompList" class="comp-grid"></div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Schematic SVG Canvas -->
+      <div id="canvasWrap">
+        <svg id="canvas">
+          <defs>
+            <filter id="glowFilter" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+        </svg>
+
+        <!-- Live Component Inspector / Editor -->
+        <div id="inspector" hidden>
+          <div class="insp-head">
+            <span id="inspTitle">Edit Component</span>
+            <button id="btnCloseInsp" style="padding:2px 6px; font-size:11px;">✕</button>
+          </div>
+          <div class="insp-row">
+            <label for="inspName">Label / SPICE Designator</label>
+            <input type="text" id="inspName" placeholder="e.g. R1, SW1, M1">
+          </div>
+          <div class="insp-row" id="inspValueRow">
+            <label for="inspValue">Value / Rating (Ω, µF, mH, RPM)</label>
+            <input type="text" id="inspValue" placeholder="e.g. 220Ω, 4.7kΩ, 100µF">
+          </div>
+          <label class="chk-row" title="When checked, Output Voltage equals Input Voltage automatically">
+            <input type="checkbox" id="inspPassThrough">
+            <span>⚡ Input Volts = Output Volts (Pass-through)</span>
+          </label>
+          <div class="insp-row-inline">
+            <div class="insp-row" style="margin:0;">
+              <label for="inspStartV">Start Volts (Min V)</label>
+              <input type="number" step="0.1" id="inspStartV">
+            </div>
+            <div class="insp-row" style="margin:0;">
+              <label for="inspOutV">Out Volts (V)</label>
+              <input type="number" step="0.1" id="inspOutV">
+            </div>
+          </div>
+          <div class="insp-row" id="inspColorRow">
+            <label for="inspColor">Component Color</label>
+            <input type="color" id="inspColor" style="height:30px; padding:2px;">
+          </div>
+          <div style="display:flex; gap:6px; margin-top:8px;">
+            <button id="btnToggleState" style="flex:1; font-size:11px;">🔄 Toggle ON/OFF</button>
+            <button id="btnDeleteComp" class="danger" style="font-size:11px;">🗑 Delete</button>
+          </div>
+        </div>
+
+        <!-- Floating, Fadable / Disappearable AI Quick-Access Orb & HUD -->
+        <button id="aiQuickOrb" class="auto-fade" title="Open Quick AI Circuit & Visual Designer" hidden>
+          ✨ Ask AI to Design
+        </button>
+
+        <div id="aiFloatingHud" class="auto-fade">
+          <div class="hud-header" id="hudDragHandle">
+            <span class="hud-title">✨ AI Quick Architect (SPICE + Code + Visual)</span>
+            <div class="hud-controls">
+              <button id="btnHudFade" class="active" title="Auto-fade transparent when not hovered">◐</button>
+              <button id="btnHudMin" title="Minimize to floating button">—</button>
+              <button id="btnHudClose" title="Hide HUD (re-open via ✨ AI HUD on toolbar)">✕</button>
+            </div>
+          </div>
+          <div class="hud-body">
+            <textarea id="hudPrompt" placeholder="Describe any circuit to design (e.g. 'Plant watering system with moisture sensor, relay & pump' or 'Switch controlling a DC motor and LED')..."></textarea>
+            <div style="display:flex; gap:6px;">
+              <button id="btnHudGenerate" class="primary" style="flex:1; font-weight:600; font-size:12px;">
+                🚀 Design Project + Code + Blueprint
+              </button>
+            </div>
+
+            <div id="hudResult" class="hud-result" hidden>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <strong id="hudResTitle" style="color:#38bdf8; font-size:12px;">Project Blueprint</strong>
+                <span style="font-size:10px; color:#94a3b8;">Click image to enlarge</span>
+              </div>
+              <div class="hud-img-wrap">
+                <img id="hudBlueprintImg" alt="AI Circuit Blueprint" title="Click to open full size" />
+              </div>
+              <div id="hudResDesc" style="font-size:11px; color:#cbd5e1; line-height:1.45; max-height:85px; overflow-y:auto;"></div>
+              <div>
+                <div style="font-size:10px; color:#94a3b8; margin-bottom:3px; font-weight:600;">SPICE NETLIST (AI INTENTIONS):</div>
+                <div id="hudSpicePreview" class="hud-spice-box"></div>
+              </div>
+              <div style="background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.35); border-radius:8px; padding:7px; text-align:center;">
+                <div style="font-size:11px; font-weight:600; color:#86efac; margin-bottom:6px;">
+                  Render this SPICE circuit &amp; auto-create any new components on the build board?
+                </div>
+                <div style="display:flex; gap:6px;">
+                  <button id="btnHudRenderBoard" class="success" style="flex:1.2; font-size:11px; font-weight:700;">
+                    ⚡ Render on Build Board
+                  </button>
+                  <button id="btnHudApplyCode" class="primary" style="flex:1; font-size:11px;">
+                    📋 Load C++ Code
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="wireTooltip" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Right Code / Output / AI Panel -->
+  <section id="right">
+    <div id="tabs">
+      <button id="tabCode" class="active">Editor</button>
+      <button id="tabLog">Output</button>
+      <button id="tabSerial">Serial</button>
+      <button id="tabAI">🤖 AI Circuit Guide</button>
+    </div>
+    <textarea id="code" spellcheck="false"></textarea>
+    <div id="consoleBox">
+      <pre id="out"></pre>
+    </div>
+    <div id="aiPanel">
+      <div id="aiChips">
+        <button class="ai-chip" data-prompt="Design a smart plant watering system with moisture sensor, relay, switch and pump" data-action="design-project">🌱 Plant Watering System</button>
+        <button class="ai-chip" data-prompt="Design an interactive switch controlling a DC motor and status LED" data-action="design-project">⚙️ Switch + DC Motor + LED</button>
+        <button class="ai-chip" data-prompt="Check my wiring and component values and tell me if anything is wrong." data-action="check-wiring">🔍 Check My Wiring</button>
+        <button class="ai-chip" data-prompt="How to wire ESP32 + Ultrasonic sensor + Servo?" data-action="design-project">📏 ESP32 Ultrasonic + Servo</button>
+      </div>
+      <div id="aiMessages"></div>
+      <div id="aiInput">
+        <input type="text" id="aiPromptInput" placeholder="Ask AI to design a project, SPICE netlist, or code..." />
+        <button id="aiSendBtn">Send ✨</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Modal: Create Custom Component -->
+<div id="customModal" class="modal-backdrop" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <span>🛠️ Create Custom Component</span>
+      <button id="btnCloseModal" style="padding:2px 8px;">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="field">
+          <label>Component Name *</label>
+          <input type="text" id="custName" placeholder="e.g. Relay 5V / Connector" value="Custom Module">
+        </div>
+        <div class="field">
+          <label>Default Value / Spec</label>
+          <input type="text" id="custValue" placeholder="e.g. 5V 1A / Pass-through" value="">
+        </div>
+      </div>
+
+      <label class="chk-row" style="background:#f0f9ff; padding:8px 10px; border-radius:8px; border:1px solid #bae6fd;">
+        <input type="checkbox" id="custSameVolt">
+        <span>⚡ Input Volts = Output Volts (Use same input &amp; output voltage / Pass-through)</span>
+      </label>
+
+      <div class="form-grid-3">
+        <div class="field">
+          <label>Start Volts (Min In V)</label>
+          <input type="number" step="0.1" id="custStartV" value="3.3">
+        </div>
+        <div class="field">
+          <label>Out Volts (Output V)</label>
+          <input type="number" step="0.1" id="custOutV" value="5.0">
+        </div>
+        <div class="field">
+          <label>Body Color</label>
+          <input type="color" id="custColor" value="#3b4252" style="height:32px; padding:2px;">
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label>Width (px)</label>
+          <input type="number" step="10" min="40" max="300" id="custW" value="110">
+        </div>
+        <div class="field">
+          <label>Height (px)</label>
+          <input type="number" step="10" min="30" max="240" id="custH" value="70">
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <label style="font-size:12px; font-weight:700;">Component Pins</label>
+          <button id="btnAddPinRow" type="button" style="font-size:11px; padding:3px 8px;">+ Add Pin</button>
+        </div>
+        <div class="pin-list-header">
+          <span>Pin ID / Name</span>
+          <span>Edge Side</span>
+          <span>Pin Role</span>
+          <span></span>
+        </div>
+        <div id="custPinRows"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button id="btnCancelModal">Cancel</button>
+      <button id="btnSaveCustom" class="primary">Create &amp; Add to Canvas</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Universal SPICE Netlist Viewer / Editor -->
+<div id="spiceModal" class="modal-backdrop" hidden>
+  <div class="modal" style="width:620px;">
+    <div class="modal-header">
+      <span>📜 Universal SPICE Netlist (Live Bi-Directional)</span>
+      <button id="btnCloseSpice" style="padding:2px 8px;">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin:0; font-size:12px; color:var(--muted);">
+        Standard SPICE syntax: each line defines a component, its connected nodes, its model, and optional properties. If you or the AI reference a component model that does not exist yet, ProtoMind4004 automatically creates it!
+      </p>
+      <textarea id="spiceTextarea" style="width:100%; height:240px; font:12px/1.45 ui-monospace, Menlo, Consolas, monospace; background:#0f172a; color:#93c5fd; padding:12px; border-radius:8px;" spellcheck="false"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button id="btnCopySpice">📋 Copy SPICE</button>
+      <button id="btnRenderSpiceModal" class="success">⚡ Render SPICE on Build Board</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- Starter sketch ----------
+const DEFAULT_CODE = `// ProtoMind4004 - Interactive Switch, Motor & LED Demo
+// Click "⚡ Simulate Circuit" and click the Switch, LED, or Motor to toggle states!
+
+void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  digitalWrite(LED_BUILTIN, HIGH);
+  Serial.println("Circuit active");
+  delay(500);
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(500);
+}
+`;
+const $ = (id) => document.getElementById(id);
+$('code').value = localStorage.getItem('protomind.code') || DEFAULT_CODE;
+$('code').addEventListener('input', () => localStorage.setItem('protomind.code', $('code').value));
+$('code').addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const t = e.target, s = t.selectionStart;
+    t.value = t.value.slice(0, s) + '  ' + t.value.slice(t.selectionEnd);
+    t.selectionStart = t.selectionEnd = s + 2;
+  }
+});
+
+// ---------- SVG helper & Resistor Color Calculator ----------
+const NS = 'http://www.w3.org/2000/svg';
+const el = (name, attrs = {}, parent) => {
+  const n = document.createElementNS(NS, name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  parent && parent.appendChild(n);
+  return n;
+};
+
+function resistorBands(valStr) {
+  const digitColors = ['#111', '#7c4700', '#d32f2f', '#f57c00', '#fbc02d', '#388e3c', '#1976d2', '#7b1fa2', '#757575', '#fff'];
+  const s = String(valStr || '220').trim().toLowerCase();
+  const m = s.match(/^(\d+(\.\d+)?)\s*([km])?/);
+  if (!m) return ['#d32f2f', '#d32f2f', '#7c4700'];
+  let ohms = parseFloat(m[1]);
+  if (m[3] === 'k') ohms *= 1e3;
+  if (m[3] === 'm') ohms *= 1e6;
+  if (!ohms || ohms < 1) return ['#111', '#111', '#111'];
+  const str = String(Math.round(ohms));
+  const d1 = parseInt(str[0]) || 0;
+  const d2 = parseInt(str[1]) || 0;
+  const mult = Math.max(0, Math.min(9, str.length - 2));
+  return [digitColors[d1], digitColors[d2], digitColors[mult]];
+}
+
+// ---------- Built-in & Custom Component Definitions ----------
+const DEFS = {
+  uno: {
+    w: 240, h: 130, name: 'Arduino UNO', spicePrefix: 'U', spiceModel: 'ARDUINO_UNO',
+    defaultProps: { name: 'U1', value: 'ATmega328P', startVolts: 5.0, outVolts: 5.0, passThroughVolts: false, color: '#00979d' },
+    pins: [
+      ...[13,12,11,10,9,8,7,6,5,4,3,2].map((n, i) => ({ id: 'D' + n, x: 22 + i * 17, y: 0, label: n, role: 'io' })),
+      ...['5V','GND','A0','A1','A2','A3'].map((n, i) => ({ id: n, x: 40 + i * 28, y: 130, label: n, role: n === '5V' ? 'power' : n === 'GND' ? 'gnd' : 'io' })),
+    ],
+    draw(g, comp) {
+      const p = comp.props;
+      el('rect', { class: 'body', width: 240, height: 130, rx: 8, fill: p.color || '#00979d', stroke: '#006d72', 'stroke-width': 2 }, g);
+      el('rect', { x: 8, y: 50, width: 40, height: 40, fill: '#bbb', stroke: '#888' }, g);
+      el('text', { x: 120, y: 66, 'text-anchor': 'middle', fill: '#fff', 'font-size': 18, 'font-weight': 700 }, g).textContent = `${p.name} · UNO`;
+      el('text', { x: 120, y: 86, 'text-anchor': 'middle', fill: '#cff', 'font-size': 11 }, g).textContent = `Out: ${p.outVolts}V · ${p.value || 'ARDUINO'}`;
+    },
+  },
+  esp32: {
+    w: 200, h: 110, name: 'ESP32 DevKit', spicePrefix: 'U', spiceModel: 'ESP32_DEVKIT',
+    defaultProps: { name: 'U1', value: 'WiFi+BT', startVolts: 3.3, outVolts: 3.3, passThroughVolts: false, color: '#2d2d2d' },
+    pins: [
+      ...['3V3','GND','D2','D4','D5'].map((n, i) => ({ id: n, x: 18 + i * 38, y: 0, label: n.replace('D',''), role: n === '3V3' ? 'power' : n === 'GND' ? 'gnd' : 'io' })),
+      ...['D12','D13','D14','D15','VP','VN'].map((n, i) => ({ id: n, x: 16 + i * 32, y: 110, label: n.replace('D',''), role: 'io' })),
+    ],
+    draw(g, comp) {
+      const p = comp.props;
+      el('rect', { class: 'body', width: 200, height: 110, rx: 8, fill: p.color || '#2d2d2d', stroke: '#444', 'stroke-width': 2 }, g);
+      el('rect', { x: 70, y: 2, width: 60, height: 16, rx: 3, fill: '#888', stroke: '#666' }, g);
+      el('text', { x: 100, y: 54, 'text-anchor': 'middle', fill: '#4fc3f7', 'font-size': 15, 'font-weight': 700 }, g).textContent = `${p.name} · ESP32`;
+      el('text', { x: 100, y: 72, 'text-anchor': 'middle', fill: '#81d4fa', 'font-size': 10 }, g).textContent = `Out: ${p.outVolts}V · ${p.value || 'DevKit V1'}`;
+    },
+  },
+  pico: {
+    w: 180, h: 100, name: 'Raspberry Pi Pico', spicePrefix: 'U', spiceModel: 'RPI_PICO',
+    defaultProps: { name: 'U1', value: 'RP2040', startVolts: 3.3, outVolts: 3.3, passThroughVolts: false, color: '#4a7c3f' },
+    pins: [
+      ...['3V3','GND','GP0','GP1','GP2'].map((n, i) => ({ id: n, x: 18 + i * 35, y: 0, label: n.replace('GP',''), role: n === '3V3' ? 'power' : n === 'GND' ? 'gnd' : 'io' })),
+      ...['GP14','GP15','GP16','GP25','ADC0'].map((n, i) => ({ id: n, x: 18 + i * 35, y: 100, label: n.replace('GP',''), role: 'io' })),
+    ],
+    draw(g, comp) {
+      const p = comp.props;
+      el('rect', { class: 'body', width: 180, height: 100, rx: 8, fill: p.color || '#4a7c3f', stroke: '#2d5a1e', 'stroke-width': 2 }, g);
+      el('text', { x: 90, y: 48, 'text-anchor': 'middle', fill: '#fff', 'font-size': 13, 'font-weight': 700 }, g).textContent = `${p.name} · PICO`;
+      el('text', { x: 90, y: 66, 'text-anchor': 'middle', fill: '#c5e1a5', 'font-size': 10 }, g).textContent = `Out: ${p.outVolts}V · ${p.value || 'RP2040'}`;
+    },
+  },
+  vsrc: {
+    w: 64, h: 64, name: 'DC Voltage Source', spicePrefix: 'V', spiceModel: 'DC_SOURCE',
+    defaultProps: { name: 'V1', value: '9V', startVolts: 0, outVolts: 9.0, passThroughVolts: false, color: '#334155' },
+    pins: [
+      { id: '+', x: 16, y: 0, label: '+', role: 'power' },
+      { id: '-', x: 48, y: 0, label: '−', role: 'gnd' }
+    ],
+    draw(g, comp) {
+      const p = comp.props;
+      el('rect', { class: 'body', y: 10, width: 64, height: 54, rx: 6, fill: p.color || '#334155', stroke: '#0f172a', 'stroke-width': 2 }, g);
+      el('rect', { x: 10, y: 4, width: 12, height: 6, fill: '#ef4444' }, g);
+      el('rect', { x: 42, y: 4, width: 12, height: 6, fill: '#94a3b8' }, g);
+      el('text', { x: 32, y: 34, 'text-anchor': 'middle', fill: '#fff', 'font-size': 11, 'font-weight': 700 }, g).textContent = p.name || 'V1';
+      el('text', { x: 32, y: 50, 'text-anchor': 'middle', fill: '#38bdf8', 'font-size': 11, 'font-weight': 700 }, g).textContent = `${p.outVolts}V`;
+    }
+  },
+  sw: {
+    w: 76, h: 42, name: 'Toggle Switch', spicePrefix: 'S', spiceModel: 'SW_TOGGLE',
+    defaultProps: { name: 'S1', value: 'SPST', startVolts: 0, outVolts: 0, passThroughVolts: true, color: '#334155' },
+    pins: [
+      { id: 'a', x: 0, y: 21, label: 'IN', role: 'input' },
+      { id: 'b', x: 76, y: 21, label: 'OUT', role: 'output' }
+    ],
+    draw(g, comp) {
+      const p = comp.props;
+      const isOn = !!comp.state?.on;
+      el('line', { x1: 0, y1: 21, x2: 18, y2: 21, stroke: '#475569', 'stroke-width': 2.5 }, g);
+      el('line', { x1: 58, y1: 21, x2: 76, y2: 21, stroke: '#475569', 'stroke-width': 2.5 }, g);
+      el('rect', { class: 'body', x: 12, y: 4, width: 52, height: 34, rx: 6, fill: p.color || '#334155', stroke: isOn ? '#22c55e' : '#0f172a', 'stroke-width': 2 }, g);
+      el('circle', { cx: 24, cy: 21, r: 3.5, fill: '#e2e8f0' }, g);
+      el('circle', { cx: 52, cy: 21, r: 3.5, fill: '#e2e8f0' }, g);
+      // Switch blade: closed when ON, angled open when OFF
+      el('line', {
+        x1: 24, y1: 21,
+        x2: isOn ? 52 : 48,
+        y2: isOn ? 21 : 10,
+        stroke: isOn ? '#4ade80' : '#f87171',
+        'stroke-width': 3,
+        'stroke-linecap': 'round'
+      }, g);
+      el('text', { x: 38, y: -3, 'text-anchor': 'middle', class: 'val-badge' }, g).textContent = `${p.name} (${isOn ? 'ON' : 'OFF'})`;
+    }
+  },
+  btn: {
+    w: 56, h: 44, name: 'Push Button', spicePrefix: 'S', spiceModel: 'SW_PUSH',
+    defaultProps: { name: 'BTN1', value: 'Push', startVolts: 0, outVolts: 0, passThroughVolts: true, color: '#444444' },
+    pins: [{ id: 'a', x: 0, y: 22, label: '', role: 'io' }, { id: 'b', x: 56, y: 22, label: '', role: 'io' }],
+    draw(g, comp) {
+      const p = comp.props;
+      const isOn = !!comp.state?.on;
+      el('line', { x1: 0, y1: 22, x2: 56, y2: 22, stroke: '#666', 'stroke-width': 2 }, g);
+      el('rect', { class: 'body', x: 10, y: 4, width: 36, height: 36, rx: 6, fill: p.color || '#444', stroke: '#111', 'stroke-width': 1.5 }, g);
+      el('circle', { cx: 28, cy: 22, r: isOn ? 9 : 11, fill: isOn ? '#22c55e' : '#ccc', stroke: '#888', class: 'btn-cap' }, g);
+      el('text', { x: 28, y: -3, 'text-anchor': 'middle', class: 'val-badge' }, g).textContent = `${p.name} (${isOn ? 'ON' : 'OFF'})`;
+    },
+  },
+  led: {
+    w: 40, h: 64, name: 'LED', spicePrefix: 'D', spiceModel: 'LED',
+    defaultProps: { name: 'D1', value: 'Red', startVolts: 1.8, outVolts: 0, passThroughVolts: false, color: '#ff5a5a' },
+    pins: [
+      { id: 'anode', x: 10, y: 64, label: '+', role: 'input' },
+      { id: 'cathode', x: 30, y: 64, label: '−', role: 'gnd' }
+    ],
+    draw(g, comp) {
+      const p = comp.props;
+      const isOffOverride = comp.state?.on === false;
+      el('rect', { class: 'body', width: 40, height: 64, rx: 8, fill: 'transparent', stroke: 'transparent' }, g);
+      el('circle', {
+        cx: 20, cy: 22, r: 16,
+        fill: isOffOverride ? '#475569' : (p.color || '#ff5a5a'),
+        stroke: '#7f1d1d',
+        'stroke-width': 2,
+        class: 'led-bulb'
+      }, g);
+      el('line', { x1: 10, y1: 38, x2: 10, y2: 64, stroke: '#666', 'stroke-width': 2 }, g);
+      el('line', { x1: 30, y1: 38, x2: 30, y2: 64, stroke: '#666', 'stroke-width': 2 }, g);
+      el('text', { x: 20, y: -5, 'text-anchor': 'middle', class: 'val-badge' }, g).textContent = `${p.name} (${p.startVolts}V)`;
+    },
+  },
+  motor: {
+    w: 68, h: 64, name: 'DC Motor', spicePrefix: 'M', spiceModel: 'DC_MOTOR',
+    defaultProps: { name: 'M1', value: '6000RPM', startVolts: 3.0, outVolts: 0, passThroughVolts: false, color: '#475569' },
+    pins: [
+      { id: '+', x: 16, y: 64, label: '+', role: 'input' },
+      { id: '-', x: 52, y: 64, label: '−', role: 'gnd' }
+    ],
+    draw(g, comp) {
+      const p = comp.props;
+      el('line', { x1: 16, y1: 46, x2: 16, y2: 64, stroke: '#dc2626', 'stroke-width': 2.5 }, g);
+      el('line', { x1: 52, y1: 46, x2: 52, y2: 64, stroke: '#1e293b', 'stroke-width': 2.5 }, g);
+      el('circle', { class: 'body', cx: 34, cy: 26, r: 22, fill: p.color || '#475569', stroke: '#1e293b', 'stroke-width': 2 }, g);
+      const rotor = el('g', { class: 'motor-rotor' }, g);
+      el('circle', { cx: 34, cy: 26, r: 14, fill: '#94a3b8', stroke: '#334155', 'stroke-width': 1.5 }, rotor);
+      el('line', { x1: 22, y1: 26, x2: 46, y2: 26, stroke: '#0f172a', 'stroke-width': 3 }, rotor);
+      el('line', { x1: 34, y1: 14, x2: 34, y2: 38, stroke: '#0f172a', 'stroke-width': 3 }, rotor);
+      el('circle', { cx: 34, cy: 26, r: 4, fill: '#f59e0b' }, rotor);
+      el('text', { x: 34, y: -3, 'text-anchor': 'middle', class: 'val-badge' }, g).textContent = `${p.name} (${p.value || 'Motor'})`;
+    }
+  },
+  res: {
+    w: 90, h: 28, name: 'Resistor', spicePrefix: 'R', spiceModel: 'RES',
+    defaultProps: { name: 'R1', value: '220Ω', startVolts: 0, outVolts: 0, passThroughVolts: true, color: '#e8c98a' },
+    pins: [
+      { id: 'a', x: 0, y: 14, label: '', role: 'io' },
+      { id: 'b', x: 90, y: 14, label: '', role: 'io' }
+    ],
+    draw(g, comp) {
+      const p = comp.props;
+      const bands = resistorBands(p.value);
+      el('line', { x1: 0, y1: 14, x2: 90, y2: 14, stroke: '#666', 'stroke-width': 2.2 }, g);
+      el('rect', { class: 'body', x: 16, y: 4, width: 58, height: 20, rx: 4, fill: p.color || '#e8c98a', stroke: '#8a6d2b', 'stroke-width': 1.5 }, g);
+      [26, 38, 50].forEach((x, i) => el('rect', { x, y: 4, width: 5, height: 20, fill: bands[i] }, g));
+      el('rect', { x: 62, y: 4, width: 3, height: 20, fill: '#d4af37' }, g);
+      el('text', { x: 45, y: -3, 'text-anchor': 'middle', class: 'val-badge' }, g).textContent = `${p.name ? p.name + ': ' : ''}${p.value}`;
+    },
+  },
+  cap: {
+    w: 80, h: 36, name: 'Capacitor', spicePrefix: 'C', spiceModel: 'CAP',
+    defaultProps: { name: 'C1', value: '100µF', startVolts: 0, outVolts: 0, passThroughVolts: false, color: '#1e3a8a' },
+    pins: [
+      { id: 'a', x: 0, y: 18, label: '+', role: 'io' },
+      { id: 'b', x: 80, y: 18, label: '−', role: 'io' }
+    ],
+    draw(g, comp) {
+      const p = comp.props;
+      el('rect', { class: 'body', x: 16, y: 2, width: 48, height: 32, rx: 4, fill: p.color || '#1e3a8a', stroke: '#172554', 'stroke-width': 1.5 }, g);
+      el('line', { x1: 0, y1: 18, x2: 16, y2: 18, stroke: '#666', 'stroke-width': 2.2 }, g);
+      el('line', { x1: 64, y1: 18, x2: 80, y2: 18, stroke: '#666', 'stroke-width': 2.2 }, g);
+      el('line', { x1: 36, y1: 8, x2: 36, y2: 28, stroke: '#fff', 'stroke-width': 2.5 }, g);
+      el('line', { x1: 44, y1: 8, x2: 44, y2: 28, stroke: '#93c5fd', 'stroke-width': 2.5 }, g);
+      el('text', { x: 40, y: -4, 'text-anchor': 'middle', class: 'val-badge' }, g).textContent = `${p.name ? p.name + ': ' : ''}${p.value}`;
+    },
+  },
+  ind: {
+    w: 90, h: 32, name: 'Inductor', spicePrefix: 'L', spiceModel: 'IND',
+    defaultProps: { name: 'L1', value: '10mH', startVolts: 0, outVolts: 0, passThroughVolts: true, color: '#065f46' },
+    pins: [
+      { id: 'a', x: 0, y: 16, label: '', role: 'io' },
+      { id: 'b', x: 90, y: 16, label: '', role: 'io' }
+    ],
+    draw(g, comp) {
+      const p = comp.props;
+      el('line', { x1: 0, y1: 16, x2: 14, y2: 16, stroke: '#666', 'stroke-width': 2.2 }, g);
+      el('line', { x1: 76, y1: 16, x2: 90, y2: 16, stroke: '#666', 'stroke-width': 2.2 }, g);
+      el('rect', { class: 'body', x: 14, y: 4, width: 62, height: 24, rx: 6, fill: p.color || '#065f46', stroke: '#064e3b', 'stroke-width': 1.5 }, g);
+      el('path', { d: 'M 20,20 A 6,6 0 0,1 32,20 A 6,6 0 0,1 44,20 A 6,6 0 0,1 56,20 A 6,6 0 0,1 68,20', fill: 'none', stroke: '#fbbf24', 'stroke-width': 2.2 }, g);
+      el('text', { x: 45, y: -3, 'text-anchor': 'middle', class: 'val-badge' }, g).textContent = `${p.name ? p.name + ': ' : ''}${p.value}`;
+    },
+  },
+  servo: {
+    w: 74, h: 50, name: 'Micro Servo', spicePrefix: 'U', spiceModel: 'MICRO_SERVO',
+    defaultProps: { name: 'SRV1', value: 'SG90', startVolts: 4.8, outVolts: 0, passThroughVolts: false, color: '#2196f3' },
+    pins: [
+      { id: 'PWM', x: 15, y: 50, label: 'PWM', role: 'input' },
+      { id: 'VCC', x: 37, y: 50, label: 'VCC', role: 'power' },
+      { id: 'GND', x: 59, y: 50, label: 'GND', role: 'gnd' },
+    ],
+    draw(g, comp) {
+      const p = comp.props;
+      el('rect', { class: 'body', width: 74, height: 35, rx: 4, fill: p.color || '#2196f3', stroke: '#1565c0', 'stroke-width': 1.5 }, g);
+      el('circle', { cx: 56, cy: 17, r: 10, fill: '#1565c0', stroke: '#0d47a1' }, g);
+      el('line', { x1: 56, y1: 17, x2: 56, y2: 5, stroke: '#fff', 'stroke-width': 3, 'stroke-linecap': 'round', class: 'servo-horn' }, g);
+      el('text', { x: 25, y: 21, 'text-anchor': 'middle', fill: '#fff', 'font-size': 9, 'font-weight': 700 }, g).textContent = p.name || 'SERVO';
+      el('line', { x1: 15, y1: 35, x2: 15, y2: 50, stroke: '#ff9800', 'stroke-width': 2 }, g);
+      el('line', { x1: 37, y1: 35, x2: 37, y2: 50, stroke: '#f44336', 'stroke-width': 2 }, g);
+      el('line', { x1: 59, y1: 35, x2: 59, y2: 50, stroke: '#333', 'stroke-width': 2 }, g);
+    },
+  },
+  ultrasonic: {
+    w: 94, h: 42, name: 'HC-SR04', spicePrefix: 'U', spiceModel: 'HC_SR04',
+    defaultProps: { name: 'U_SONIC', value: '2-400cm', startVolts: 3.3, outVolts: 3.3, passThroughVolts: false, color: '#26a69a' },
+    pins: [
+      { id: 'VCC', x: 12, y: 42, label: 'VCC', role: 'power' },
+      { id: 'TRIG', x: 34, y: 42, label: 'TRIG', role: 'input' },
+      { id: 'ECHO', x: 58, y: 42, label: 'ECHO', role: 'output' },
+      { id: 'GND', x: 82, y: 42, label: 'GND', role: 'gnd' },
+    ],
+    draw(g, comp) {
+      const p = comp.props;
+      el('rect', { class: 'body', width: 94, height: 30, rx: 4, fill: p.color || '#26a69a', stroke: '#00897b', 'stroke-width': 1.5 }, g);
+      el('circle', { cx: 24, cy: 15, r: 9, fill: '#e0e0e0', stroke: '#bdbdbd', 'stroke-width': 1.5 }, g);
+      el('circle', { cx: 70, cy: 15, r: 9, fill: '#e0e0e0', stroke: '#bdbdbd', 'stroke-width': 1.5 }, g);
+      el('text', { x: 47, y: 18, 'text-anchor': 'middle', fill: '#fff', 'font-size': 7, 'font-weight': 700 }, g).textContent = p.name || 'HC-SR04';
+      [12, 34, 58, 82].forEach(x => el('line', { x1: x, y1: 30, x2: x, y2: 42, stroke: '#666', 'stroke-width': 2 }, g));
+    },
+  },
+  buzzer: {
+    w: 44, h: 44, name: 'Buzzer', spicePrefix: 'U', spiceModel: 'BUZZER',
+    defaultProps: { name: 'BZ1', value: '2kHz', startVolts: 3.0, outVolts: 0, passThroughVolts: false, color: '#212121' },
+    pins: [
+      { id: '+', x: 13, y: 44, label: '+', role: 'input' },
+      { id: '-', x: 31, y: 44, label: '−', role: 'gnd' },
+    ],
+    draw(g, comp) {
+      const p = comp.props;
+      el('rect', { class: 'body', width: 44, height: 32, rx: 16, fill: p.color || '#212121', stroke: '#000', 'stroke-width': 1.5 }, g);
+      el('circle', { cx: 22, cy: 16, r: 8, fill: '#333', stroke: '#555' }, g);
+      el('text', { x: 22, y: 20, 'text-anchor': 'middle', fill: '#bbb', 'font-size': 9, 'font-weight': 700, class: 'buz-note' }, g).textContent = '♪';
+      el('line', { x1: 13, y1: 32, x2: 13, y2: 44, stroke: '#c00', 'stroke-width': 2 }, g);
+      el('line', { x1: 31, y1: 32, x2: 31, y2: 44, stroke: '#333', 'stroke-width': 2 }, g);
+    },
+  },
+};
+
+// Generic renderer for user-created or AI-synthesized custom components
+function registerCustomDef(cdef) {
+  DEFS[cdef.type] = {
+    w: cdef.w,
+    h: cdef.h,
+    name: cdef.name,
+    spicePrefix: 'X',
+    spiceModel: cdef.spiceModel || cdef.name.toUpperCase().replace(/[^A-Z0-9_]/g, '_'),
+    isCustom: true,
+    defaultProps: {
+      name: cdef.name,
+      value: cdef.value || '',
+      startVolts: Number(cdef.startVolts ?? 3.3),
+      outVolts: Number(cdef.outVolts ?? 5.0),
+      passThroughVolts: !!cdef.passThroughVolts,
+      color: cdef.color || '#3b4252',
+    },
+    pins: cdef.pins,
+    draw(g, comp) {
+      const p = comp.props;
+      const isOn = comp.state?.on !== false;
+      el('rect', {
+        class: 'body',
+        width: cdef.w,
+        height: cdef.h,
+        rx: 7,
+        fill: p.color || cdef.color || '#3b4252',
+        stroke: isOn ? '#38bdf8' : '#1e293b',
+        'stroke-width': 2,
+      }, g);
+      el('path', {
+        d: `M ${cdef.w / 2 - 8},0 A 8,8 0 0,0 ${cdef.w / 2 + 8},0`,
+        fill: '#1e293b'
+      }, g);
+      el('text', {
+        x: cdef.w / 2,
+        y: cdef.h / 2 - 4,
+        'text-anchor': 'middle',
+        fill: '#ffffff',
+        'font-size': 11,
+        'font-weight': 700
+      }, g).textContent = p.name || cdef.name;
+
+      const vInfo = p.passThroughVolts ? 'In=Out (Pass)' : `In≥${p.startVolts}V Out:${p.outVolts}V`;
+      el('text', {
+        x: cdef.w / 2,
+        y: cdef.h / 2 + 11,
+        'text-anchor': 'middle',
+        fill: '#cbd5e1',
+        'font-size': 8.5
+      }, g).textContent = `${p.value ? p.value + ' · ' : ''}${vInfo}`;
+    }
+  };
+}
+
+let customDefs = [];
+function loadCustomDefs() {
+  try {
+    const raw = localStorage.getItem('protomind.customDefs');
+    customDefs = raw ? JSON.parse(raw) : [];
+    customDefs.forEach(registerCustomDef);
+  } catch (e) { customDefs = []; }
+  renderCustomSidebar();
+}
+function saveCustomDefs() {
+  localStorage.setItem('protomind.customDefs', JSON.stringify(customDefs));
+  renderCustomSidebar();
+}
+function renderCustomSidebar() {
+  const box = $('customCompList');
+  box.innerHTML = '';
+  if (!customDefs.length) {
+    box.innerHTML = '<div style="grid-column:1/-1; font-size:11px; color:var(--muted);">No custom parts yet.</div>';
+    return;
+  }
+  customDefs.forEach((cd) => {
+    const btn = document.createElement('button');
+    btn.className = 'comp-btn';
+    const sub = cd.passThroughVolts ? 'In=Out Pass' : `In:${cd.startVolts}V Out:${cd.outVolts}V`;
+    btn.innerHTML = `<span>${cd.name}</span><small>${sub}</small><span class="del-custom" title="Delete custom component">✕</span>`;
+    btn.addEventListener('click', (e) => {
+      if (e.target.classList.contains('del-custom')) {
+        e.stopPropagation();
+        customDefs = customDefs.filter(x => x.type !== cd.type);
+        saveCustomDefs();
+        return;
+      }
+      addComponent(cd.type, 280 + comps.length * 10, 140 + comps.length * 10);
+      saveCircuit();
+    });
+    box.appendChild(btn);
+  });
+}
+
+// ---------- Canvas & Straight-Line Connector State ----------
+const svg = $('canvas');
+const wireLayer = el('g', {}, svg);
+const compLayer = el('g', {}, svg);
+let comps = [];          // {uid, type, x, y, props, state:{on:bool}, g}
+let wires = [];          // {from:{uid,pin}, to:{uid,pin}, color, group, path, hitPath}
+let pendingPin = null;   // {uid, pin, node}
+let selected = null;     // {kind:'comp'|'wire', ref}
+let uidCounter = 1;
+let simMode = false;
+let wireRouting = 'orthogonal';
+let activeWireColor = '#2a8f3c';
+
+function getDef(type) {
+  return DEFS[type] || DEFS.res;
+}
+
+function pinPos(uid, pinId) {
+  const c = comps.find((c) => c.uid === uid);
+  if (!c) return { x: 0, y: 0, side: 'bottom' };
+  const def = getDef(c.type);
+  const p = def.pins.find((p) => p.id === pinId) || def.pins[0];
+  let side = p.side;
+  if (!side) {
+    if (p.y <= 0) side = 'top';
+    else if (p.y >= def.h) side = 'bottom';
+    else if (p.x <= 0) side = 'left';
+    else side = 'right';
+  }
+  return { x: c.x + p.x, y: c.y + p.y, side };
+}
+
+function buildStraightWirePath(a, b, indexOffset = 0) {
+  if (wireRouting === 'direct') {
+    return {
+      d: `M ${a.x},${a.y} L ${b.x},${b.y}`,
+      corners: [{ x: a.x, y: a.y }, { x: b.x, y: b.y }]
+    };
+  }
+  const stub = 14;
+  const dir = (s) => (s === 'top' ? [0, -1] : s === 'bottom' ? [0, 1] : s === 'left' ? [-1, 0] : [1, 0]);
+  const [dax, day] = dir(a.side);
+  const [dbx, dby] = dir(b.side);
+
+  const p1 = { x: a.x + dax * stub, y: a.y + day * stub };
+  const p2 = { x: b.x + dbx * stub, y: b.y + dby * stub };
+  const laneShift = (indexOffset % 5 - 2) * 6;
+  const pts = [{ x: a.x, y: a.y }, p1];
+
+  if (Math.abs(p1.x - p2.x) < 2 || Math.abs(p1.y - p2.y) < 2) {
+    pts.push(p2);
+  } else if (a.side === 'top' || a.side === 'bottom') {
+    const midY = Math.round((p1.y + p2.y) / 2 + laneShift);
+    pts.push({ x: p1.x, y: midY }, { x: p2.x, y: midY }, p2);
+  } else {
+    const midX = Math.round((p1.x + p2.x) / 2 + laneShift);
+    pts.push({ x: midX, y: p1.y }, { x: midX, y: p2.y }, p2);
+  }
+  pts.push({ x: b.x, y: b.y });
+  const d = pts.map((pt, idx) => `${idx === 0 ? 'M' : 'L'} ${pt.x},${pt.y}`).join(' ');
+  return { d, corners: pts };
+}
+
+function redrawWires() {
+  wires.forEach((w, idx) => {
+    const a = pinPos(w.from.uid, w.from.pin);
+    const b = pinPos(w.to.uid, w.to.pin);
+    const { d, corners } = buildStraightWirePath(a, b, idx);
+    w.path.setAttribute('d', d);
+    w.hitPath.setAttribute('d', d);
+    w.path.style.stroke = w.color || '#2a8f3c';
+
+    w.group.querySelectorAll('.wire-corner').forEach(n => n.remove());
+    corners.slice(1, -1).forEach(pt => {
+      el('circle', {
+        class: 'wire-corner',
+        cx: pt.x,
+        cy: pt.y,
+        r: 2.6,
+        style: `fill:${w.color || '#2a8f3c'}`
+      }, w.group);
+    });
+  });
+}
+
+// Toggle component state on click (Switch, Button, LED, Motor, Servo, Buzzer, Custom)
+function toggleComponentInteractiveState(comp) {
+  if (!comp.state) comp.state = { on: true };
+  comp.state.on = !comp.state.on;
+  renderComponentGraphics(comp);
+  if (selected && selected.kind === 'comp' && selected.ref === comp) {
+    comp.g.classList.add('sel');
+  }
+  if (simMode) updateSimulation();
+  saveCircuit();
+}
+
+function renderComponentGraphics(comp) {
+  const def = getDef(comp.type);
+  const g = comp.g;
+  g.innerHTML = '';
+  def.draw(g, comp);
+
+  for (const p of def.pins) {
+    const c = el('circle', { class: 'pin', cx: p.x, cy: p.y, r: 5, 'data-pin': p.id }, g);
+    c.addEventListener('pointerdown', (e) => { e.stopPropagation(); onPinClick(comp, p, c); });
+    c.addEventListener('pointerenter', () => {
+      showTooltip(`${comp.props.name || def.name} · Pin ${p.label || p.id} (${p.role || 'io'})`);
+    });
+    c.addEventListener('pointerleave', hideTooltip);
+
+    if (p.label !== '') {
+      const isBoard = ['uno','esp32','pico'].includes(comp.type) || def.isCustom;
+      let tx = p.x, ty = p.y;
+      if (p.y <= 0) ty = p.y + (isBoard ? 14 : -8);
+      else if (p.y >= def.h) ty = p.y + (isBoard ? -7 : 15);
+      else if (p.x <= 0) { tx = p.x + 14; ty = p.y + 3; }
+      else if (p.x >= def.w) { tx = p.x - 14; ty = p.y + 3; }
+
+      el('text', {
+        x: tx,
+        y: ty,
+        'text-anchor': 'middle',
+        'font-size': 9,
+        'font-weight': 600,
+        fill: isBoard ? '#e2e8f0' : '#334155'
+      }, g).textContent = p.label;
+    }
+  }
+
+  el('text', { x: def.w / 2, y: def.h + 24, 'text-anchor': 'middle', class: 'volt-badge sim-v-text' }, g);
+
+  const bodyEl = g.querySelector('.body') || g;
+  bodyEl.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    select({ kind: 'comp', ref: comp });
+    const start = svgPoint(e), ox = comp.x, oy = comp.y;
+    let moved = false;
+
+    const move = (ev) => {
+      const pt = svgPoint(ev);
+      if (Math.hypot(pt.x - start.x, pt.y - start.y) > 4) moved = true;
+      comp.x = Math.round((ox + pt.x - start.x) / 10) * 10;
+      comp.y = Math.round((oy + pt.y - start.y) / 10) * 10;
+      g.setAttribute('transform', `translate(${comp.x},${comp.y})`);
+      redrawWires();
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      // If clicked without dragging, toggle state for interactive components!
+      if (!moved && (simMode || ['sw', 'btn'].includes(comp.type))) {
+        if (['sw', 'btn', 'led', 'motor', 'servo', 'buzzer'].includes(comp.type) || getDef(comp.type).isCustom) {
+          toggleComponentInteractiveState(comp);
+          return;
+        }
+      }
+      saveCircuit();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  });
+}
+
+function addComponent(type, x, y, customProps = null, initialState = null) {
+  if (!DEFS[type]) return null;
+  const def = getDef(type);
+  const props = Object.assign({}, def.defaultProps, customProps || {});
+  if (props.passThroughVolts) props.outVolts = props.startVolts;
+  const defaultOn = ['sw', 'btn'].includes(type) ? true : true;
+  const state = Object.assign({ on: defaultOn }, initialState || {});
+  const comp = { uid: uidCounter++, type, x, y, props, state };
+  const g = el('g', { class: 'comp' }, compLayer);
+  comp.g = g;
+  renderComponentGraphics(comp);
+  g.setAttribute('transform', `translate(${comp.x},${comp.y})`);
+  comps.push(comp);
+  select({ kind: 'comp', ref: comp });
+  if (simMode) updateSimulation();
+  return comp;
+}
+
+function createWireObject(from, to, color) {
+  const group = el('g', { class: 'wire-group' }, wireLayer);
+  const hitPath = el('path', { class: 'wire-hit' }, group);
+  const path = el('path', { class: 'wire' }, group);
+  const wire = { from, to, color: color || activeWireColor, group, path, hitPath };
+
+  group.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    select({ kind: 'wire', ref: wire });
+  });
+  group.addEventListener('pointerenter', () => {
+    highlightWirePins(wire, true);
+    const fc = comps.find(c => c.uid === wire.from.uid);
+    const tc = comps.find(c => c.uid === wire.to.uid);
+    if (fc && tc) {
+      showTooltip(`Wire: ${fc.props.name}.${wire.from.pin} ━━▶ ${tc.props.name}.${wire.to.pin}`);
+    }
+  });
+  group.addEventListener('pointerleave', () => {
+    highlightWirePins(wire, false);
+    hideTooltip();
+  });
+
+  wires.push(wire);
+  redrawWires();
+  if (simMode) updateSimulation();
+  return wire;
+}
+
+function highlightWirePins(wire, on) {
+  [wire.from, wire.to].forEach(end => {
+    const c = comps.find(x => x.uid === end.uid);
+    if (!c) return;
+    const pinNode = c.g.querySelector(`.pin[data-pin="${CSS.escape(end.pin)}"]`);
+    if (pinNode) pinNode.classList.toggle('connected-highlight', on);
+  });
+}
+
+function showTooltip(text) {
+  const t = $('wireTooltip');
+  t.textContent = text;
+  t.hidden = false;
+}
+function hideTooltip() { $('wireTooltip').hidden = true; }
+
+function onPinClick(comp, pin, node) {
+  if (!pendingPin) {
+    pendingPin = { uid: comp.uid, pin: pin.id, node };
+    node.classList.add('sel');
+    return;
+  }
+  const same = pendingPin.uid === comp.uid && pendingPin.pin === pin.id;
+  pendingPin.node.classList.remove('sel');
+  if (!same) {
+    createWireObject({ uid: pendingPin.uid, pin: pendingPin.pin }, { uid: comp.uid, pin: pin.id }, activeWireColor);
+    saveCircuit();
+  }
+  pendingPin = null;
+}
+
+// ---------- Selection & Live Component Inspector ----------
+function select(sel) {
+  document.querySelectorAll('.sel').forEach((n) => n.classList.remove('sel'));
+  selected = sel;
+  if (!sel) {
+    $('inspector').hidden = true;
+    return;
+  }
+  if (sel.kind === 'comp') {
+    sel.ref.g.classList.add('sel');
+    openInspector(sel.ref);
+  } else if (sel.kind === 'wire') {
+    sel.ref.group.classList.add('sel');
+    $('inspector').hidden = true;
+  }
+}
+
+function openInspector(comp) {
+  const def = getDef(comp.type);
+  const p = comp.props;
+  $('inspector').hidden = false;
+  $('inspTitle').textContent = `Edit ${def.name}`;
+  $('inspName').value = p.name ?? '';
+  $('inspValue').value = p.value ?? '';
+  $('inspPassThrough').checked = !!p.passThroughVolts;
+  $('inspStartV').value = p.startVolts ?? 0;
+  $('inspOutV').value = p.passThroughVolts ? (p.startVolts ?? 0) : (p.outVolts ?? 0);
+  $('inspOutV').disabled = !!p.passThroughVolts;
+  $('inspColor').value = p.color || '#1f7ae0';
+}
+
+['inspName', 'inspValue', 'inspPassThrough', 'inspStartV', 'inspOutV', 'inspColor'].forEach((id) => {
+  $(id).addEventListener('input', () => {
+    if (!selected || selected.kind !== 'comp') return;
+    const c = selected.ref;
+    c.props.name = $('inspName').value;
+    c.props.value = $('inspValue').value;
+    c.props.passThroughVolts = $('inspPassThrough').checked;
+    c.props.startVolts = parseFloat($('inspStartV').value) || 0;
+    if (c.props.passThroughVolts) {
+      $('inspOutV').value = c.props.startVolts;
+      $('inspOutV').disabled = true;
+      c.props.outVolts = c.props.startVolts;
+    } else {
+      $('inspOutV').disabled = false;
+      c.props.outVolts = parseFloat($('inspOutV').value) || 0;
+    }
+    c.props.color = $('inspColor').value;
+    renderComponentGraphics(c);
+    c.g.classList.add('sel');
+    if (simMode) updateSimulation();
+    saveCircuit();
+  });
+});
+
+$('btnToggleState').onclick = () => {
+  if (selected && selected.kind === 'comp') toggleComponentInteractiveState(selected.ref);
+};
+$('btnCloseInsp').onclick = () => select(null);
+$('btnDeleteComp').onclick = () => deleteSelected();
+
+function svgPoint(evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function deleteSelected() {
+  if (!selected) return;
+  if (selected.kind === 'wire') {
+    selected.ref.group.remove();
+    wires = wires.filter((w) => w !== selected.ref);
+  } else {
+    const c = selected.ref;
+    wires = wires.filter((w) => {
+      const hit = w.from.uid === c.uid || w.to.uid === c.uid;
+      if (hit) w.group.remove();
+      return !hit;
+    });
+    c.g.remove();
+    comps = comps.filter((x) => x !== c);
+  }
+  select(null);
+  if (simMode) updateSimulation();
+  saveCircuit();
+}
+
+function clearCanvas() {
+  wires.forEach(w => w.group.remove());
+  comps.forEach(c => c.g.remove());
+  wires = [];
+  comps = [];
+  uidCounter = 1;
+  select(null);
+  pendingPin = null;
+  localStorage.removeItem('protomind.circuit');
+}
+
+svg.addEventListener('pointerdown', () => {
+  select(null);
+  if (pendingPin) { pendingPin.node.classList.remove('sel'); pendingPin = null; }
+});
+window.addEventListener('keydown', (e) => {
+  const tag = document.activeElement?.tagName;
+  if ((e.key === 'Delete' || e.key === 'Backspace') && tag !== 'TEXTAREA' && tag !== 'INPUT') {
+    deleteSelected();
+  }
+});
+
+// ---------- Universal SPICE Netlist Generator & Parser (with Auto-Component Creation) ----------
+function exportToSpice() {
+  const lines = ['* ProtoMind4004 SPICE Netlist'];
+  if (!comps.length) {
+    lines.push('.end');
+    return lines.join('\n');
+  }
+
+  // Build connected node nets via Union-Find
+  const parent = {};
+  const keyOf = (uid, pin) => `${uid}:${pin}`;
+  const find = (k) => (parent[k] === undefined || parent[k] === k ? (parent[k] = k) : (parent[k] = find(parent[k])));
+  const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[ra] = rb; };
+
+  comps.forEach(c => getDef(c.type).pins.forEach(p => find(keyOf(c.uid, p.id))));
+  wires.forEach(w => union(keyOf(w.from.uid, w.from.pin), keyOf(w.to.uid, w.to.pin)));
+
+  // Name each root net (0 for GND, or MCU pin name, or N001...)
+  const netNames = {};
+  let netCounter = 1;
+  comps.forEach(c => {
+    getDef(c.type).pins.forEach(p => {
+      const root = find(keyOf(c.uid, p.id));
+      if (p.id === 'GND' || p.id === '-' || p.role === 'gnd') {
+        netNames[root] = '0';
+      } else if (['uno', 'esp32', 'pico'].includes(c.type) && !netNames[root]) {
+        netNames[root] = p.id;
+      }
+    });
+  });
+
+  comps.forEach((c, idx) => {
+    const def = getDef(c.type);
+    const desig = (c.props.name || `${def.spicePrefix || 'X'}${idx + 1}`).replace(/\s+/g, '_');
+    const pinNets = def.pins.map(p => {
+      const root = find(keyOf(c.uid, p.id));
+      if (!netNames[root]) {
+        const connected = wires.some(w => find(keyOf(w.from.uid, w.from.pin)) === root);
+        netNames[root] = connected ? `N${String(netCounter++).padStart(3, '0')}` : `NC_${c.uid}_${p.id}`;
+      }
+      return netNames[root];
+    });
+    const model = def.spiceModel || c.type.toUpperCase();
+    const meta = [
+      `Value=${c.props.value || model}`,
+      `StartV=${c.props.startVolts ?? 0}`,
+      `OutV=${c.props.outVolts ?? 0}`,
+      `PassThrough=${!!c.props.passThroughVolts}`,
+      `State=${c.state?.on === false ? 'OFF' : 'ON'}`
+    ];
+    if (def.isCustom) {
+      meta.push(`Pins=${def.pins.map(p => p.id).join(',')}`);
+    }
+    lines.push(`${desig} ${pinNets.join(' ')} ${model} ; ${meta.join(' ')}`);
+  });
+
+  lines.push('.end');
+  return lines.join('\n');
+}
+
+function resolveOrSynthesizeSpiceType(desig, model, nodeCount, meta) {
+  const mUpper = String(model || '').toUpperCase();
+  const dUpper = String(desig || '').toUpperCase();
+
+  if (mUpper.includes('UNO') || mUpper.includes('ARDUINO')) return 'uno';
+  if (mUpper.includes('ESP32')) return 'esp32';
+  if (mUpper.includes('PICO') || mUpper.includes('RP2040')) return 'pico';
+  if (mUpper.includes('SR04') || mUpper.includes('ULTRASONIC')) return 'ultrasonic';
+  if (mUpper.includes('SERVO')) return 'servo';
+  if (mUpper.includes('BUZZ')) return 'buzzer';
+  if (mUpper.includes('MOTOR') || dUpper.startsWith('M')) return 'motor';
+  if (mUpper.includes('TOGGLE') || mUpper === 'SW_TOGGLE' || dUpper.startsWith('SW')) return 'sw';
+  if (mUpper.includes('PUSH') || mUpper.includes('BTN')) return 'btn';
+  if (mUpper.includes('LED') || dUpper.startsWith('D')) return 'led';
+  if (dUpper.startsWith('R') && nodeCount === 2) return 'res';
+  if (dUpper.startsWith('C') && nodeCount === 2) return 'cap';
+  if (dUpper.startsWith('L') && nodeCount === 2) return 'ind';
+  if (dUpper.startsWith('V') && nodeCount === 2) return 'vsrc';
+  if (dUpper.startsWith('S') && nodeCount === 2) return 'sw';
+
+  // Check if a custom component with this model or name already exists
+  const existing = customDefs.find(cd =>
+    cd.name.toUpperCase().replace(/[^A-Z0-9_]/g, '_') === mUpper ||
+    cd.type.toUpperCase() === mUpper
+  );
+  if (existing) return existing.type;
+
+  // Auto-create a brand new Custom Component for unknown SPICE models!
+  const pinNames = meta.Pins
+    ? meta.Pins.split(',').map(s => s.trim()).filter(Boolean)
+    : Array.from({ length: Math.max(2, nodeCount) }, (_, i) => {
+        if (i === 0) return 'VCC';
+        if (i === nodeCount - 1) return 'GND';
+        return `P${i}`;
+      });
+
+  const w = Math.max(96, pinNames.length * 28);
+  const h = 64;
+  const computedPins = pinNames.map((pid, idx) => {
+    const side = idx < Math.ceil(pinNames.length / 2) ? 'left' : 'right';
+    const sideCount = side === 'left' ? Math.ceil(pinNames.length / 2) : (pinNames.length - Math.ceil(pinNames.length / 2));
+    const sideIdx = side === 'left' ? idx : idx - Math.ceil(pinNames.length / 2);
+    const role = /GND|0|-/i.test(pid) ? 'gnd' : /VCC|VIN|5V|3V3/i.test(pid) ? 'power' : 'io';
+    return {
+      id: pid,
+      label: pid,
+      side,
+      role,
+      x: side === 'left' ? 0 : w,
+      y: Math.round(((sideIdx + 1) * h) / (sideCount + 1))
+    };
+  });
+
+  const type = 'cust_' + mUpper.toLowerCase().replace(/[^a-z0-9]/g, '') + '_' + Date.now().toString().slice(-4);
+  const passThrough = meta.PassThrough === 'true';
+  const startV = parseFloat(meta.StartV) || 3.3;
+  const outV = passThrough ? startV : (parseFloat(meta.OutV) || 3.3);
+  const cdef = {
+    type,
+    name: model.replace(/_/g, ' '),
+    spiceModel: mUpper,
+    value: meta.Value || model,
+    startVolts: startV,
+    outVolts: outV,
+    passThroughVolts: passThrough,
+    color: '#3730a3',
+    w,
+    h,
+    pins: computedPins
+  };
+  customDefs.push(cdef);
+  registerCustomDef(cdef);
+  saveCustomDefs();
+  return type;
+}
+
+function renderSpiceNetlist(spiceText) {
+  if (!spiceText || !spiceText.trim()) return;
+  const rawLines = spiceText.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('*') && !l.startsWith('.'));
+  if (!rawLines.length) return;
+
+  clearCanvas();
+  const netEndpoints = {}; // netName -> [{uid, pin, role}]
+
+  rawLines.forEach((line, idx) => {
+    const [mainPart, commentPart] = line.split(';').map(s => (s || '').trim());
+    const tokens = mainPart.split(/\s+/).filter(Boolean);
+    if (tokens.length < 3) return;
+
+    const desig = tokens[0];
+    const model = tokens[tokens.length - 1];
+    const nodes = tokens.slice(1, -1);
+
+    const meta = {};
+    if (commentPart) {
+      commentPart.split(/\s+/).forEach(kv => {
+        const eq = kv.indexOf('=');
+        if (eq > 0) meta[kv.slice(0, eq)] = kv.slice(eq + 1);
+      });
+    }
+
+    const type = resolveOrSynthesizeSpiceType(desig, model, nodes.length, meta);
+    const def = getDef(type);
+    const isBoard = ['uno', 'esp32', 'pico'].includes(type);
+    const col = isBoard ? 0 : ((idx - 1) % 3) + 1;
+    const row = isBoard ? 0 : Math.floor((idx - 1) / 3);
+    const x = isBoard ? 50 : 320 + (col - 1) * 160;
+    const y = isBoard ? 140 : 70 + row * 125;
+
+    const passThroughVolts = meta.PassThrough !== undefined ? meta.PassThrough === 'true' : def.defaultProps.passThroughVolts;
+    const startVolts = meta.StartV !== undefined ? parseFloat(meta.StartV) : def.defaultProps.startVolts;
+    const outVolts = passThroughVolts ? startVolts : (meta.OutV !== undefined ? parseFloat(meta.OutV) : def.defaultProps.outVolts);
+    const value = meta.Value || (/^[RCL]/i.test(desig) ? model : def.defaultProps.value);
+
+    const comp = addComponent(
+      type,
+      x,
+      y,
+      { name: desig, value, startVolts, outVolts, passThroughVolts },
+      { on: meta.State ? meta.State.toUpperCase() !== 'OFF' : true }
+    );
+
+    // Map each SPICE node token to a pin on this component
+    nodes.forEach((netName, nIdx) => {
+      if (!netName || netName.startsWith('NC_')) return;
+      let targetPin = def.pins.find(p => p.id.toUpperCase() === netName.toUpperCase());
+      if (!targetPin) {
+        if ((netName === '0' || netName.toUpperCase() === 'GND') && def.pins.some(p => p.id === 'GND' || p.id === '-' || p.id === 'cathode')) {
+          targetPin = def.pins.find(p => p.id === 'GND' || p.id === '-' || p.id === 'cathode');
+        } else {
+          targetPin = def.pins[nIdx] || def.pins[def.pins.length - 1];
+        }
+      }
+      if (!targetPin) return;
+      const normNet = netName === '0' ? 'GND' : netName;
+      if (!netEndpoints[normNet]) netEndpoints[normNet] = [];
+      netEndpoints[normNet].push({ uid: comp.uid, pin: targetPin.id });
+    });
+  });
+
+  // Connect all pins sharing the same SPICE net name
+  Object.entries(netEndpoints).forEach(([netName, list]) => {
+    if (list.length < 2) return;
+    let color = '#2a8f3c';
+    if (netName === 'GND' || netName === '0') color = '#1e293b';
+    else if (['5V', '3V3', 'VCC', 'VIN'].includes(netName.toUpperCase())) color = '#e03131';
+    else if (/^D\d+|GP\d+|A\d+/i.test(netName)) color = '#1f7ae0';
+
+    for (let i = 0; i < list.length - 1; i++) {
+      if (list[i].uid === list[i + 1].uid && list[i].pin === list[i + 1].pin) continue;
+      createWireObject(list[i], list[i + 1], color);
+    }
+  });
+
+  select(null);
+  saveCircuit();
+  if (simMode) updateSimulation();
+}
+
+// SPICE Modal handlers
+$('btnSpiceModal').onclick = () => {
+  $('spiceTextarea').value = exportToSpice();
+  $('spiceModal').hidden = false;
+};
+$('btnCloseSpice').onclick = () => { $('spiceModal').hidden = true; };
+$('btnCopySpice').onclick = () => {
+  navigator.clipboard.writeText($('spiceTextarea').value);
+  $('btnCopySpice').textContent = '✅ Copied!';
+  setTimeout(() => { $('btnCopySpice').textContent = '📋 Copy SPICE'; }, 1500);
+};
+$('btnRenderSpiceModal').onclick = () => {
+  renderSpiceNetlist($('spiceTextarea').value);
+  $('spiceModal').hidden = true;
+};
+
+// ---------- Toolbar & Sidebar Controls ----------
+$('btnWireMode').onclick = () => {
+  wireRouting = wireRouting === 'orthogonal' ? 'direct' : 'orthogonal';
+  $('btnWireMode').textContent = wireRouting === 'orthogonal'
+    ? '📐 Connectors: Orthogonal (90°)'
+    : '📏 Connectors: Direct Straight';
+  redrawWires();
+};
+
+document.querySelectorAll('.color-dot').forEach(dot => {
+  dot.addEventListener('click', () => {
+    document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('active'));
+    dot.classList.add('active');
+    activeWireColor = dot.dataset.wcolor;
+    if (selected && selected.kind === 'wire') {
+      selected.ref.color = activeWireColor;
+      redrawWires();
+      saveCircuit();
+    }
+  });
+});
+
+const sidebar = $('compSidebar');
+$('btnMinSidebar').onclick = () => {
+  const min = sidebar.classList.toggle('minimized');
+  $('btnMinSidebar').textContent = min ? '▶' : '◀';
+};
+$('btnFadeToggle').onclick = () => {
+  const fade = sidebar.classList.toggle('auto-fade');
+  $('btnFadeToggle').classList.toggle('active-toggle', fade);
+};
+
+document.querySelectorAll('[data-add]').forEach((b) =>
+  b.addEventListener('click', () => {
+    const n = comps.length;
+    const isBoard = ['uno','esp32','pico'].includes(b.dataset.add);
+    addComponent(b.dataset.add, isBoard ? 60 : 340 + (n % 5) * 20, isBoard ? 160 : 100 + (n % 6) * 30);
+    saveCircuit();
+  })
+);
+$('btnClear').addEventListener('click', clearCanvas);
+
+// ---------- Custom Component Builder Modal (with InV == OutV Pass-Through Checkbox) ----------
+const defaultModalPins = [
+  { id: 'VIN', side: 'left', role: 'power' },
+  { id: 'GND', side: 'bottom', role: 'gnd' },
+  { id: 'OUT', side: 'right', role: 'output' }
+];
+let modalPins = [];
+
+$('custSameVolt').addEventListener('change', () => {
+  const same = $('custSameVolt').checked;
+  $('custOutV').disabled = same;
+  if (same) $('custOutV').value = $('custStartV').value;
+});
+$('custStartV').addEventListener('input', () => {
+  if ($('custSameVolt').checked) $('custOutV').value = $('custStartV').value;
+});
+
+function renderModalPinRows() {
+  const container = $('custPinRows');
+  container.innerHTML = '';
+  modalPins.forEach((p, idx) => {
+    const row = document.createElement('div');
+    row.className = 'pin-item-row';
+    row.innerHTML = `
+      <input type="text" value="${p.id}" placeholder="Pin label" data-idx="${idx}" data-field="id">
+      <select data-idx="${idx}" data-field="side">
+        <option value="left" ${p.side === 'left' ? 'selected' : ''}>Left</option>
+        <option value="right" ${p.side === 'right' ? 'selected' : ''}>Right</option>
+        <option value="top" ${p.side === 'top' ? 'selected' : ''}>Top</option>
+        <option value="bottom" ${p.side === 'bottom' ? 'selected' : ''}>Bottom</option>
+      </select>
+      <select data-idx="${idx}" data-field="role">
+        <option value="io" ${p.role === 'io' ? 'selected' : ''}>I/O Signal</option>
+        <option value="input" ${p.role === 'input' ? 'selected' : ''}>Input</option>
+        <option value="output" ${p.role === 'output' ? 'selected' : ''}>Output</option>
+        <option value="power" ${p.role === 'power' ? 'selected' : ''}>Start/VCC</option>
+        <option value="gnd" ${p.role === 'gnd' ? 'selected' : ''}>GND</option>
+      </select>
+      <button type="button" data-del="${idx}" style="padding:4px;">✕</button>
+    `;
+    container.appendChild(row);
+  });
+
+  container.querySelectorAll('input, select').forEach(inp => {
+    inp.oninput = () => {
+      const i = Number(inp.dataset.idx);
+      modalPins[i][inp.dataset.field] = inp.value;
+    };
+  });
+  container.querySelectorAll('[data-del]').forEach(btn => {
+    btn.onclick = () => {
+      if (modalPins.length <= 1) return;
+      modalPins.splice(Number(btn.dataset.del), 1);
+      renderModalPinRows();
+    };
+  });
+}
+
+function openCustomModal() {
+  modalPins = JSON.parse(JSON.stringify(defaultModalPins));
+  renderModalPinRows();
+  $('customModal').hidden = false;
+}
+function closeCustomModal() { $('customModal').hidden = true; }
+
+$('btnOpenCustomModal').onclick = openCustomModal;
+$('btnSidebarCreate').onclick = openCustomModal;
+$('btnCloseModal').onclick = closeCustomModal;
+$('btnCancelModal').onclick = closeCustomModal;
+$('btnAddPinRow').onclick = () => {
+  modalPins.push({ id: `P${modalPins.length + 1}`, side: 'right', role: 'io' });
+  renderModalPinRows();
+};
+
+$('btnSaveCustom').onclick = () => {
+  const name = $('custName').value.trim() || 'Custom Part';
+  const value = $('custValue').value.trim();
+  const passThroughVolts = $('custSameVolt').checked;
+  const startVolts = parseFloat($('custStartV').value) || 0;
+  const outVolts = passThroughVolts ? startVolts : (parseFloat($('custOutV').value) || 0);
+  const color = $('custColor').value || '#3b4252';
+  const w = Math.max(50, Math.min(300, parseInt($('custW').value) || 110));
+  const h = Math.max(40, Math.min(240, parseInt($('custH').value) || 70));
+
+  const bySide = { top: [], bottom: [], left: [], right: [] };
+  modalPins.forEach(p => {
+    const cleanId = (p.id || 'P').trim();
+    bySide[p.side || 'bottom'].push({ id: cleanId, label: cleanId, side: p.side, role: p.role });
+  });
+
+  const computedPins = [];
+  ['top', 'bottom'].forEach(side => {
+    const list = bySide[side];
+    list.forEach((p, i) => {
+      computedPins.push({
+        id: p.id, label: p.label, side, role: p.role,
+        x: Math.round(((i + 1) * w) / (list.length + 1)),
+        y: side === 'top' ? 0 : h
+      });
+    });
+  });
+  ['left', 'right'].forEach(side => {
+    const list = bySide[side];
+    list.forEach((p, i) => {
+      computedPins.push({
+        id: p.id, label: p.label, side, role: p.role,
+        x: side === 'left' ? 0 : w,
+        y: Math.round(((i + 1) * h) / (list.length + 1))
+      });
+    });
+  });
+
+  const type = 'cust_' + Date.now();
+  const cdef = { type, name, value, startVolts, outVolts, passThroughVolts, color, w, h, pins: computedPins };
+  customDefs.push(cdef);
+  registerCustomDef(cdef);
+  saveCustomDefs();
+
+  addComponent(type, 260, 160);
+  saveCircuit();
+  closeCustomModal();
+};
+
+// ---------- Canvas Persistence ----------
+function saveCircuit() {
+  try {
+    const data = {
+      comps: comps.map(c => ({ uid: c.uid, type: c.type, x: c.x, y: c.y, props: c.props, state: c.state })),
+      wires: wires.map(w => ({ from: w.from, to: w.to, color: w.color })),
+      uidCounter
+    };
+    localStorage.setItem('protomind.circuit', JSON.stringify(data));
+  } catch (e) {}
+}
+
+function loadCircuit() {
+  try {
+    const raw = localStorage.getItem('protomind.circuit');
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data.comps || !data.comps.length) return false;
+    uidCounter = data.uidCounter || 1;
+    const uidMap = {};
+    for (const cd of data.comps) {
+      if (!DEFS[cd.type]) continue;
+      const comp = addComponent(cd.type, cd.x, cd.y, cd.props, cd.state);
+      if (comp) uidMap[cd.uid] = comp.uid;
+    }
+    for (const wd of data.wires) {
+      const fromUid = uidMap[wd.from.uid] || wd.from.uid;
+      const toUid = uidMap[wd.to.uid] || wd.to.uid;
+      const fromComp = comps.find(c => c.uid === fromUid);
+      const toComp = comps.find(c => c.uid === toUid);
+      if (!fromComp || !toComp) continue;
+      createWireObject({ uid: fromUid, pin: wd.from.pin }, { uid: toUid, pin: wd.to.pin }, wd.color || '#2a8f3c');
+    }
+    select(null);
+    return true;
+  } catch (e) { return false; }
+}
+
+loadCustomDefs();
+if (!loadCircuit()) {
+  (function seed() {
+    const uno = addComponent('uno', 40, 140);
+    const sw = addComponent('sw', 320, 80, { name: 'S1', value: 'Toggle', passThroughVolts: true });
+    const motor = addComponent('motor', 450, 70, { name: 'M1', value: '6000RPM', startVolts: 3.0 });
+    const r = addComponent('res', 320, 210, { name: 'R1', value: '220Ω' });
+    const led = addComponent('led', 450, 195, { name: 'D1', startVolts: 1.8, color: '#ff5a5a' });
+
+    createWireObject({ uid: uno.uid, pin: '5V' }, { uid: sw.uid, pin: 'a' }, '#e03131');
+    createWireObject({ uid: sw.uid, pin: 'b' }, { uid: motor.uid, pin: '+' }, '#d97706');
+    createWireObject({ uid: motor.uid, pin: '-' }, { uid: uno.uid, pin: 'GND' }, '#1e293b');
+
+    createWireObject({ uid: uno.uid, pin: 'D13' }, { uid: r.uid, pin: 'a' }, '#1f7ae0');
+    createWireObject({ uid: r.uid, pin: 'b' }, { uid: led.uid, pin: 'anode' }, '#e03131');
+    createWireObject({ uid: led.uid, pin: 'cathode' }, { uid: uno.uid, pin: 'GND' }, '#1e293b');
+    select(null);
+    saveCircuit();
+  })();
+}
+
+// ---------- Voltage-Aware & Interactive State Simulation Mode ----------
+$('btnSim').addEventListener('click', () => {
+  simMode = !simMode;
+  $('btnSim').classList.toggle('sim-active', simMode);
+  $('btnSim').textContent = simMode ? '⚡ Simulating (Click parts to toggle!)' : '⚡ Simulate Circuit';
+  if (simMode) updateSimulation();
+  else clearSimulation();
+});
+
+function updateSimulation() {
+  if (!simMode) return;
+  clearSimulation();
+
+  const compVoltages = {};
+  comps.forEach(c => {
+    if (['uno', 'esp32', 'pico', 'vsrc'].includes(c.type)) {
+      compVoltages[c.uid] = Number(c.props.outVolts) || 5.0;
+    } else if (getDef(c.type).isCustom && !c.props.passThroughVolts && c.props.outVolts > 0 && c.state?.on !== false) {
+      compVoltages[c.uid] = Number(c.props.outVolts);
+    } else {
+      compVoltages[c.uid] = 0;
+    }
+  });
+
+  // Propagate voltage across wires, switches, buttons, passives, and pass-through components
+  for (let pass = 0; pass < 6; pass++) {
+    wires.forEach(w => {
+      const cA = comps.find(c => c.uid === w.from.uid);
+      const cB = comps.find(c => c.uid === w.to.uid);
+      if (!cA || !cB) return;
+      if (w.from.pin === 'GND' || w.to.pin === 'GND' || w.from.pin === '-' || w.to.pin === '-') return;
+
+      const vA = compVoltages[cA.uid] || 0;
+      const vB = compVoltages[cB.uid] || 0;
+
+      const conducts = (comp) => {
+        if (['sw', 'btn'].includes(comp.type)) return !!comp.state?.on;
+        if (['res', 'ind'].includes(comp.type)) return true;
+        if (['uno', 'esp32', 'pico', 'vsrc'].includes(comp.type)) return true;
+        if (comp.props?.passThroughVolts) return comp.state?.on !== false;
+        return false;
+      };
+
+      if (vA > vB && conducts(cA)) {
+        compVoltages[cB.uid] = cB.props?.passThroughVolts ? vA : Math.max(vB, vA);
+      }
+      if (vB > vA && conducts(cB)) {
+        compVoltages[cA.uid] = cA.props?.passThroughVolts ? vB : Math.max(vA, vB);
+      }
+    });
+  }
+
+  // Update visual states, spinning rotors, LED glow, and voltage badges
+  comps.forEach(c => {
+    const vIn = compVoltages[c.uid] || 0;
+    const minV = Number(c.props.startVolts) || 0;
+    const isStateOn = c.state?.on !== false;
+    const powered = vIn >= minV && vIn > 0;
+    const active = powered && isStateOn;
+
+    const badge = c.g.querySelector('.sim-v-text');
+    if (badge) {
+      if (['sw', 'btn'].includes(c.type)) {
+        badge.textContent = isStateOn ? `🟢 CLOSED (${vIn.toFixed(1)}V)` : `🔴 OPEN (0V)`;
+        badge.setAttribute('fill', isStateOn ? '#15803d' : '#dc2626');
+      } else if (vIn > 0) {
+        if (!isStateOn) {
+          badge.textContent = `⏸ ${vIn.toFixed(1)}V (Switched OFF)`;
+          badge.setAttribute('fill', '#64748b');
+        } else {
+          badge.textContent = powered ? `⚡ ${vIn.toFixed(1)}V ON` : `⚠️ ${vIn.toFixed(1)}V < ${minV}V`;
+          badge.setAttribute('fill', powered ? '#15803d' : '#b45309');
+        }
+      } else {
+        badge.textContent = '';
+      }
+    }
+
+    if (c.type === 'led' && active) {
+      const bulb = c.g.querySelector('.led-bulb');
+      if (bulb) bulb.classList.add('sim-glow');
+    }
+    if (c.type === 'motor' && active) {
+      const rotor = c.g.querySelector('.motor-rotor');
+      if (rotor) rotor.classList.add('sim-motor-spin');
+    }
+    if (c.type === 'buzzer' && active) {
+      const txt = c.g.querySelector('.buz-note');
+      if (txt) { txt.classList.add('sim-buzz-wave'); txt.setAttribute('fill', '#4caf50'); }
+    }
+    if (c.type === 'servo' && active) {
+      const horn = c.g.querySelector('.servo-horn');
+      if (horn) horn.setAttribute('transform', `rotate(${45 + Math.random() * 90}, 56, 17)`);
+    }
+  });
+}
+
+function clearSimulation() {
+  comps.forEach(c => {
+    const badge = c.g.querySelector('.sim-v-text');
+    if (badge) badge.textContent = '';
+    if (c.type === 'led') {
+      const bulb = c.g.querySelector('.led-bulb');
+      if (bulb) bulb.classList.remove('sim-glow');
+    }
+    if (c.type === 'motor') {
+      const rotor = c.g.querySelector('.motor-rotor');
+      if (rotor) rotor.classList.remove('sim-motor-spin');
+    }
+    if (c.type === 'buzzer') {
+      const txt = c.g.querySelector('.buz-note');
+      if (txt) { txt.classList.remove('sim-buzz-wave'); txt.setAttribute('fill', '#bbb'); }
+    }
+    if (c.type === 'servo') {
+      const horn = c.g.querySelector('.servo-horn');
+      if (horn) horn.removeAttribute('transform');
+    }
+  });
+}
+
+// ---------- Floating Fadable / Disappearable AI Quick HUD Logic ----------
+const aiHud = $('aiFloatingHud');
+const aiOrb = $('aiQuickOrb');
+let lastAiBlueprint = { spiceNetlist: '', code: '', imageUrl: '' };
+
+$('btnHudFade').onclick = () => {
+  const f = aiHud.classList.toggle('auto-fade');
+  aiOrb.classList.toggle('auto-fade', f);
+  $('btnHudFade').classList.toggle('active', f);
+};
+$('btnHudMin').onclick = () => {
+  aiHud.hidden = true;
+  aiOrb.hidden = false;
+};
+$('btnHudClose').onclick = () => {
+  aiHud.hidden = true;
+  aiOrb.hidden = true;
+};
+aiOrb.onclick = () => {
+  aiOrb.hidden = true;
+  aiHud.hidden = false;
+};
+$('btnToggleAiHud').onclick = () => {
+  if (!aiHud.hidden) {
+    aiHud.hidden = true;
+    aiOrb.hidden = true;
+  } else {
+    aiOrb.hidden = true;
+    aiHud.hidden = false;
+  }
+};
+
+// Make Floating AI HUD draggable by header
+(function makeHudDraggable() {
+  const handle = $('hudDragHandle');
+  let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.target.tagName === 'BUTTON') return;
+    dragging = true;
+    const rect = aiHud.getBoundingClientRect();
+    const parentRect = $('canvasWrap').getBoundingClientRect();
+    sx = e.clientX; sy = e.clientY;
+    ox = rect.left - parentRect.left;
+    oy = rect.top - parentRect.top;
+    aiHud.style.right = 'auto';
+    aiHud.style.bottom = 'auto';
+    aiHud.style.left = `${ox}px`;
+    aiHud.style.top = `${oy}px`;
+  });
+  window.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    aiHud.style.left = `${Math.max(8, ox + e.clientX - sx)}px`;
+    aiHud.style.top = `${Math.max(8, oy + e.clientY - sy)}px`;
+  });
+  window.addEventListener('pointerup', () => { dragging = false; });
+})();
+
+$('btnHudGenerate').onclick = () => {
+  const p = $('hudPrompt').value.trim() || 'Interactive switch, motor and status LED controller';
+  runFullAiDesignWorkflow(p, 'design-project');
+};
+
+$('btnHudRenderBoard').onclick = () => {
+  if (lastAiBlueprint.spiceNetlist) {
+    renderSpiceNetlist(lastAiBlueprint.spiceNetlist);
+  }
+  if (lastAiBlueprint.code) {
+    $('code').value = lastAiBlueprint.code;
+    localStorage.setItem('protomind.code', lastAiBlueprint.code);
+  }
+};
+
+$('btnHudApplyCode').onclick = () => {
+  if (lastAiBlueprint.code) {
+    $('code').value = lastAiBlueprint.code;
+    localStorage.setItem('protomind.code', lastAiBlueprint.code);
+    switchTab('code');
+  }
+};
+
+$('hudBlueprintImg').onclick = () => {
+  if (!lastAiBlueprint.imageUrl) return;
+  const w = window.open('');
+  if (w) w.document.write(`<body style="margin:0;background:#090d16;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img src="${lastAiBlueprint.imageUrl}" style="max-width:96vw;height:auto;"/></body>`);
+};
+
+// ---------- Unified AI Workflow (Design + Code + SPICE + Blueprint Image) ----------
+function getCircuitData() {
+  return {
+    comps: comps.map(c => ({
+      uid: c.uid,
+      type: c.type,
+      name: c.props.name || getDef(c.type).name,
+      value: c.props.value,
+      startVolts: c.props.startVolts,
+      outVolts: c.props.outVolts,
+      passThroughVolts: c.props.passThroughVolts
+    })),
+    wires: wires.map(w => ({ from: w.from, to: w.to })),
+    spiceNetlist: exportToSpice(),
+    code: $('code').value
+  };
+}
+
+async function runFullAiDesignWorkflow(prompt, action = 'design-project') {
+  const btn = $('btnHudGenerate');
+  btn.disabled = true;
+  btn.textContent = '🤖 Designing Circuit, SPICE & Blueprint...';
+
+  // Also log in AI tab
+  const msgs = $('aiMessages');
+  const userDiv = document.createElement('div');
+  userDiv.className = 'msg user';
+  userDiv.textContent = prompt;
+  msgs.appendChild(userDiv);
+
+  const loadDiv = document.createElement('div');
+  loadDiv.className = 'msg ai';
+  loadDiv.innerHTML = '<em>🤖 Synthesizing SPICE Netlist, C++ Firmware, and Visual Blueprint...</em>';
+  msgs.appendChild(loadDiv);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  try {
+    // Step 1: Request Design Description + SPICE Netlist + C++ Code from /api/ai
+    const resp = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project: 'protomind',
+        action: action || 'design-project',
+        prompt,
+        context: getCircuitData()
+      })
+    });
+    const data = await resp.json();
+    const title = data.title || 'AI Circuit Blueprint';
+    const replyText = data.reply || 'Design ready.';
+    const spiceNetlist = data.spiceNetlist || exportToSpice();
+    const code = data.suggestedCode || $('code').value;
+
+    // Step 2: Send Description + Code + SPICE Netlist to /api/ai/image to get the Visual Blueprint Image
+    const imgResp = await fetch('/api/ai/image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, description: replyText, code, spiceNetlist })
+    });
+    const imgData = await imgResp.json();
+    const imageUrl = imgData.imageUrl || '';
+
+    lastAiBlueprint = { spiceNetlist, code, imageUrl };
+
+    // Update Floating AI HUD
+    $('hudResult').hidden = false;
+    $('hudResTitle').textContent = `⚡ ${title}`;
+    $('hudBlueprintImg').src = imageUrl;
+    $('hudResDesc').innerHTML = replyText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+    $('hudSpicePreview').textContent = spiceNetlist;
+
+    // Update AI Tab Message with Image + SPICE + Code + Confirmation Button
+    loadDiv.innerHTML = '';
+    const formatted = replyText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+    const textWrap = document.createElement('div');
+    textWrap.innerHTML = formatted;
+    loadDiv.appendChild(textWrap);
+
+    if (imageUrl) {
+      const img = document.createElement('img');
+      img.src = imageUrl;
+      img.style.cssText = 'width:100%; border-radius:8px; margin-top:8px; border:1px solid #334155;';
+      loadDiv.appendChild(img);
+    }
+
+    if (spiceNetlist) {
+      const spicePre = document.createElement('pre');
+      spicePre.style.color = '#93c5fd';
+      spicePre.textContent = spiceNetlist;
+      loadDiv.appendChild(spicePre);
+    }
+
+    if (code) {
+      const codePre = document.createElement('pre');
+      codePre.textContent = code;
+      loadDiv.appendChild(codePre);
+    }
+
+    const renderBtn = document.createElement('button');
+    renderBtn.className = 'success';
+    renderBtn.textContent = '⚡ Render SPICE on Build Board';
+    renderBtn.onclick = () => {
+      renderSpiceNetlist(spiceNetlist);
+      if (code) {
+        $('code').value = code;
+        localStorage.setItem('protomind.code', code);
+      }
+    };
+    loadDiv.appendChild(renderBtn);
+
+    if (code) {
+      const applyBtn = document.createElement('button');
+      applyBtn.className = 'primary';
+      applyBtn.textContent = '📋 Apply C++ Code';
+      applyBtn.onclick = () => {
+        $('code').value = code;
+        localStorage.setItem('protomind.code', code);
+        switchTab('code');
+      };
+      loadDiv.appendChild(applyBtn);
+    }
+  } catch (e) {
+    loadDiv.innerHTML = `<span style="color:#ef4444">Error: ${e.message}</span>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🚀 Design Project + Code + Blueprint';
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+}
+
+$('aiSendBtn').addEventListener('click', () => {
+  const input = $('aiPromptInput');
+  const prompt = input.value.trim();
+  if (!prompt) return;
+  input.value = '';
+  runFullAiDesignWorkflow(prompt, 'design-project');
+});
+$('aiPromptInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') $('aiSendBtn').click();
+});
+document.querySelectorAll('.ai-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    runFullAiDesignWorkflow(chip.dataset.prompt, chip.dataset.action || 'design-project');
+  });
+});
+
+// ---------- Tab switching & WebSocket Hardware Link ----------
+let activeTab = 'code';
+function switchTab(tab) {
+  activeTab = tab;
+  $('tabCode').classList.toggle('active', tab === 'code');
+  $('tabLog').classList.toggle('active', tab === 'log');
+  $('tabSerial').classList.toggle('active', tab === 'serial');
+  $('tabAI').classList.toggle('active', tab === 'ai');
+  $('code').style.display = tab === 'code' ? '' : 'none';
+  $('consoleBox').style.display = (tab === 'log' || tab === 'serial') ? '' : 'none';
+  $('aiPanel').classList.toggle('active', tab === 'ai');
+  if (tab === 'log' || tab === 'serial') {
+    view = tab === 'log' ? 'log' : 'serial';
+    refreshOut();
+  }
+}
+$('tabCode').onclick = () => switchTab('code');
+$('tabLog').onclick = () => switchTab('log');
+$('tabSerial').onclick = () => switchTab('serial');
+$('tabAI').onclick = () => switchTab('ai');
+
+let ws, busy = false, monitorOn = false, serialText = '', logText = '', view = 'log';
+function connect() {
+  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/protomind/ws`);
+  ws.onopen = () => { $('status').textContent = 'connected'; send({ type: 'listBoards' }); };
+  ws.onclose = () => { $('status').textContent = 'disconnected – retrying…'; setTimeout(connect, 1500); };
+  ws.onmessage = (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'boards') renderBoards(m.boards);
+    if (m.type === 'refreshBoards') send({ type: 'listBoards' });
+    if (m.type === 'setup') renderSetup(m);
+    if (m.type === 'log') { logText += m.text; refreshOut(); }
+    if (m.type === 'serial') { serialText += m.text; if (serialText.length > 20000) serialText = serialText.slice(-20000); refreshOut(); }
+    if (m.type === 'busy') { busy = m.busy; $('btnUpload').disabled = busy; $('btnUpload').textContent = busy ? 'Working…' : '▶ Upload'; }
+    if (m.type === 'monitorState') { monitorOn = m.running; $('btnMonitor').textContent = monitorOn ? 'Stop monitor' : 'Serial monitor'; }
+  };
+}
+const send = (o) => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+
+let setupReady = false;
+function renderSetup({ status, installing }) {
+  const bar = $('setupBar'), msg = $('setupMsg'), btn = $('btnInstall');
+  if (installing) {
+    bar.hidden = false; bar.classList.remove('ok');
+    msg.textContent = 'Installing the Arduino toolchain… progress is in the Output panel.';
+    btn.disabled = true; btn.textContent = 'Installing…';
+    switchTab('log');
+    return;
+  }
+  if (!status) return;
+  setupReady = status.ready;
+  btn.disabled = false; btn.textContent = status.cliInstalled ? 'Install board support' : 'Install now';
+  if (status.ready) {
+    bar.hidden = false; bar.classList.add('ok');
+    msg.textContent = `Toolchain ready (arduino-cli ${status.version || ''} · ${status.platform}).`;
+    btn.hidden = true;
+    setTimeout(() => { if (setupReady) bar.hidden = true; }, 4000);
+  } else {
+    bar.hidden = false; bar.classList.remove('ok'); btn.hidden = !status.supported;
+    msg.textContent = !status.supported
+      ? `Your platform (${status.platform}) isn't supported for auto-install yet.`
+      : status.cliInstalled
+        ? 'Board support (Arduino AVR) is missing. One click installs it.'
+        : 'First run: ProtoMind needs the Arduino toolchain (~100 MB, no admin rights needed).';
+  }
+}
+$('btnInstall').onclick = () => { logText = ''; send({ type: 'setupInstall' }); };
+function refreshOut() {
+  const o = $('out');
+  o.textContent = view === 'log' ? logText : serialText;
+  o.scrollTop = o.scrollHeight;
+}
+
+let detected = [];
+function renderBoards(boards) {
+  detected = boards;
+  const sel = $('boardSel');
+  sel.innerHTML = '';
+  if (!boards.length) sel.innerHTML = '<option value="">— no board detected —</option>';
+  boards.forEach((b, i) => {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = `${b.address}${b.boardName ? ' · ' + b.boardName : ''}`;
+    sel.appendChild(o);
+  });
+  onBoardChange();
+}
+function onBoardChange() {
+  const b = detected[$('boardSel').value];
+  if (b && b.fqbn) {
+    const f = $('fqbnSel');
+    if (![...f.options].some((o) => o.value === b.fqbn)) f.add(new Option(b.boardName || b.fqbn, b.fqbn));
+    f.value = b.fqbn;
+  }
+}
+$('boardSel').onchange = onBoardChange;
+$('btnRefresh').onclick = () => send({ type: 'listBoards' });
+$('btnUpload').onclick = () => {
+  const b = detected[$('boardSel').value];
+  if (!b) { logText += 'No board selected. Plug in an Arduino and click "Detect boards".\n'; switchTab('log'); return; }
+  logText = ''; switchTab('log');
+  send({ type: 'upload', code: $('code').value, fqbn: $('fqbnSel').value, port: b.address });
+};
+$('btnMonitor').onclick = () => {
+  if (monitorOn) return send({ type: 'monitorStop' });
+  const b = detected[$('boardSel').value];
+  if (!b) return;
+  serialText = ''; switchTab('serial');
+  send({ type: 'monitorStart', port: b.address, baud: 9600 });
+};
+connect();
+</script>
+</body>
+</html>

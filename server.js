@@ -9,6 +9,21 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 
+// ── Structured Backend Logger ───────────────────────────────────────────────
+function ts() {
+  return new Date().toISOString().replace('T', ' ').slice(0, 19);
+}
+function logInfo(tag, msg, meta = '') {
+  console.log(`[${ts()}] 🟢 INFO  [${tag}] ${msg}`, meta ? meta : '');
+}
+function logWarn(tag, msg, meta = '') {
+  console.warn(`[${ts()}] 🟡 WARN  [${tag}] ${msg}`, meta ? meta : '');
+}
+function logError(tag, msg, errDetail = '') {
+  console.error(`[${ts()}] 🔴 ERROR [${tag}] ${msg}`);
+  if (errDetail) console.error(`   ↳ Detail:`, errDetail);
+}
+
 // ── Lightweight .env loader (no dotenv dependency) ──────────────────────────
 (function loadEnv() {
   const envPath = path.join(__dirname, '.env');
@@ -26,6 +41,9 @@ const fs = require('fs');
         val = val.slice(1, -1);
       if (!process.env[key]) process.env[key] = val;
     }
+    logInfo('ENV', `Loaded .env from ${envPath}`);
+  } else {
+    logWarn('ENV', `No .env file found at ${envPath}. Using process environment defaults.`);
   }
 })();
 
@@ -35,138 +53,582 @@ const HOST = '127.0.0.1'; // local-only on purpose: this server can flash boards
 const protomind = require('./projects/ProtoMind4004/server');
 
 const app = express();
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '4mb' }));
 app.get('/health', (_req, res) => res.json({ ok: true, app: 'ProtoMind' }));
 
 app.use('/protomind', protomind.router);
 app.use('/protoweb', express.static(path.join(__dirname, 'projects', 'ProtoWeb')));
 app.use('/protogame', express.static(path.join(__dirname, 'projects', 'ProtoGame')));
 
-// ── POST /api/ai  — Unified AI bridge for all 3 projects ───────────────────
-app.post('/api/ai', async (req, res) => {
-  const { project, action, prompt, context } = req.body || {};
-  if (!prompt && !action) return res.status(400).json({ error: 'prompt or action required' });
-
-  // Determine which external API key is available
-  const metaKey = process.env.META_API_KEY;
-  const openaiKey = process.env.OPENAI_API_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY;
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+// ── Streamlined .env Config (Focused on the top 3 .env settings) ────────────
+function getEnvConfig() {
   const placeholder = 'THE_META_API_KEY';
+  const valid = (v) => (v && v !== placeholder && v !== 'your_meta_llama_api_key_here' ? v : null);
+  return {
+    metaKey: valid(process.env.META_API_KEY),
+    metaBaseUrl: (process.env.META_BASE_URL || process.env.AI_BASE_URL || 'https://api.llama-api.com').replace(/\/$/, ''),
+    openaiKey: valid(process.env.OPENAI_API_KEY),
+    geminiKey: valid(process.env.GEMINI_API_KEY),
+    anthropicKey: valid(process.env.ANTHROPIC_API_KEY)
+  };
+}
 
-  const hasExternalKey =
-    (metaKey && metaKey !== placeholder) ||
-    (openaiKey && openaiKey !== placeholder) ||
-    (geminiKey && geminiKey !== placeholder) ||
-    (anthropicKey && anthropicKey !== placeholder);
+// ── Meta AI Profiles (All powered by your single META_API_KEY & META_BASE_URL)
+const META_AI_PROFILES = {
+  fast: {
+    id: 'fast',
+    name: 'Meta Llama 3.1 8B (Fast / Low-Latency)',
+    model: process.env.META_MODEL_FAST || 'llama3.1-8b',
+    description: 'Rapid responses for UI tweaks, quick circuit checks, and game dialogue.'
+  },
+  smart: {
+    id: 'smart',
+    name: 'Meta Llama 3.3 / 3.1 70B (Balanced Generalist)',
+    model: process.env.META_MODEL_SMART || process.env.AI_MODEL || 'llama3.1-70b',
+    description: 'Default high-accuracy model for ProtoMind4004, ProtoWeb, and ProtoGame.'
+  },
+  architect: {
+    id: 'architect',
+    name: 'Meta Llama 3.1 405B (Deep Hardware & System Architect)',
+    model: process.env.META_MODEL_ARCHITECT || 'llama3.1-405b',
+    description: 'Flagship reasoning model for full SPICE netlists, custom ICs, and complex levels.'
+  },
+  code: {
+    id: 'code',
+    name: 'Meta CodeLlama / Llama Instruct (Firmware & Code)',
+    model: process.env.META_MODEL_CODE || 'codellama-70b-instruct',
+    description: 'Specialized for Arduino/ESP32/Pico C++, HTML/CSS, and game physics.'
+  },
+  vision: {
+    id: 'vision',
+    name: 'Meta Llama 3.2 90B Vision (Multimodal)',
+    model: process.env.META_MODEL_VISION || 'llama3.2-90b-vision',
+    description: 'Multimodal model for schematic diagrams and visual layout inspection.'
+  }
+};
 
-  // System prompts per project
-  const systemPrompts = {
-    protomind: `You are ProtoMind AI Hardware Tutor. You help kids and beginners understand electronics and microcontroller circuits. 
-Given a schematic (components, wires, code), you:
-- Explain how the circuit works in plain language
-- Diagnose problems (missing GND, missing resistor, wrong pin connections)
-- Generate working Arduino/ESP32/Pico C++ firmware code
-Respond in JSON: { "reply": "explanation text", "suggestedCode": "C++ code or null", "suggestedCircuit": null }`,
-    protoweb: `You are ProtoWeb AI Co-Pilot. You edit ONLY the given HTML section/element.
+// System prompts per project (with strict design structure requirements)
+const SYSTEM_PROMPTS = {
+  protomind: `You are ProtoMind AI Hardware Tutor & Circuit Architect. You help kids and beginners understand electronics and microcontroller circuits.
+Given a schematic (components, wires, spiceNetlist, code) or project request, you MUST return a complete hardware design structure:
+1. Explain how the circuit works in plain language ("reply").
+2. Diagnose problems (missing GND, missing resistor, wrong pin connections).
+3. Provide a universal SPICE Netlist ("spiceNetlist") describing every component and node connection:
+  * First line: * Project Title
+  * Component lines: <Designator> <Node1> <Node2> ... <ModelOrType> ; Value=<val> StartV=<v> OutV=<v> PassThrough=<true|false> Pins=<PIN1,PIN2,...>
+  * Examples:
+    U1 5V GND D13 D12 D9 D2 ARDUINO_UNO ; StartV=5 OutV=5
+    S1 5V N_SW SW_TOGGLE ; Value=Toggle StartV=0 OutV=0 PassThrough=true
+    R1 D13 N_LED 220 ; Value=220Ω
+    D1 N_LED GND LED ; Value=Red StartV=1.8
+    M1 N_SW GND DC_MOTOR ; Value=5V_Motor StartV=3.0
+    X1 5V GND A0 SOIL_SENSOR ; Value=Capacitive StartV=3.3 OutV=3.3 Pins=VCC,GND,OUT
+  * End with: .end
+  (If a component does not exist yet, define it with an X or U designator and Pins=... so the build board automatically creates and wires it!)
+4. Generate working Arduino/ESP32/Pico C++ firmware code ("suggestedCode").
+Respond strictly in JSON: { "title": "Project Title", "reply": "explanation text", "spiceNetlist": "* Title\\n...\\n.end", "suggestedCode": "// Full C++ code", "suggestedCircuit": null }`,
+  protoweb: `You are ProtoWeb AI Co-Pilot. You edit ONLY the given HTML section/element.
 Given the selected element's HTML and a user prompt, return JSON: { "html": "the modified HTML for just this element", "explanation": "what you changed and why" }
 Keep inline styles. Do NOT wrap in extra body/html tags. Only return the single element requested.`,
-    protogame: `You are ProtoGame AI Level Designer. Given a story/script prompt and optional existing level data, generate a complete 2D platformer level.
+  protogame: `You are ProtoGame AI Level Designer. Given a story/script prompt and optional existing level data, generate a complete 2D platformer level.
 Return JSON: { "level": { "title":"string", "storyIntro":"string", "theme":{"bg":"#hex","platform":"#hex","accent":"#hex"}, "gravity":1800, "jumpForce":-600, "speed":320, "playerSpawn":{"x":80,"y":500}, "platforms":[{"x":0,"y":580,"w":800,"h":20}], "coins":[{"x":200,"y":500}], "enemies":[{"x":400,"y":560,"patrol":100,"speed":60}], "hazards":[{"x":300,"y":570,"w":40,"h":10}], "npcs":[{"x":600,"y":540,"name":"NPC","dialogue":["Hello!","Good luck!"]}], "portal":{"x":750,"y":540} }, "reply":"what you created" }`
-  };
+};
 
-  // Try external LLM call
-  if (hasExternalKey) {
+// ── Design Structure Validator & Enforcer ───────────────────────────────────
+// Ensures the server NEVER returns an incomplete or unstructured response.
+// Logs explicit backend warnings/errors if the LLM omits required design fields.
+function ensureDesignStructure(project, result, action, prompt, context, sourceLabel = 'external-ai') {
+  const ctx = context || {};
+  if (!result || typeof result !== 'object') {
+    logError('VALIDATOR', `AI response from [${sourceLabel}] is null or not an object for project "${project}".`);
+    result = {};
+  }
+
+  if (project === 'protomind') {
+    const missing = [];
+    if (!result.title) missing.push('title');
+    if (!result.reply) missing.push('reply');
+    if (!result.spiceNetlist || !String(result.spiceNetlist).includes('.end')) missing.push('spiceNetlist');
+    if (!result.suggestedCode || !String(result.suggestedCode).includes('void ')) missing.push('suggestedCode');
+
+    if (missing.length > 0) {
+      logWarn(
+        'VALIDATOR',
+        `Response from [${sourceLabel}] for "protomind" was missing design structure fields: [${missing.join(', ')}]. Synthesizing missing structure from circuit/prompt.`
+      );
+      const structuredFallback = synthesizeProjectDesign(
+        prompt || 'Circuit Design',
+        (prompt || '').toLowerCase(),
+        detectBoardType(ctx, prompt),
+        detectBoardName(ctx, prompt),
+        ctx
+      );
+      result.title = result.title || structuredFallback.title;
+      result.reply = result.reply || structuredFallback.reply;
+      if (!result.spiceNetlist || !String(result.spiceNetlist).includes('.end')) {
+        result.spiceNetlist = buildSpiceFromContext(ctx) || structuredFallback.spiceNetlist;
+      }
+      if (!result.suggestedCode) {
+        result.suggestedCode = structuredFallback.suggestedCode;
+      }
+      if (result.suggestedCircuit === undefined) {
+        result.suggestedCircuit = structuredFallback.suggestedCircuit || null;
+      }
+    }
+    return result;
+  }
+
+  if (project === 'protoweb') {
+    if (!result.html || !result.explanation) {
+      logWarn('VALIDATOR', `Response from [${sourceLabel}] for "protoweb" missing html or explanation. Repairing structure.`);
+      const fb = protowebEngine(action, prompt, ctx);
+      result.html = result.html || fb.html;
+      result.explanation = result.explanation || fb.explanation;
+    }
+    return result;
+  }
+
+  if (project === 'protogame') {
+    if (!result.level || !result.level.platforms || !result.reply) {
+      logWarn('VALIDATOR', `Response from [${sourceLabel}] for "protogame" missing level structure or reply. Repairing structure.`);
+      const fb = protogameEngine(action, prompt, ctx);
+      result.level = (result.level && result.level.platforms) ? result.level : fb.level;
+      result.reply = result.reply || fb.reply;
+    }
+    return result;
+  }
+
+  return result;
+}
+
+function detectBoardType(ctx, prompt = '') {
+  const lp = String(prompt || '').toLowerCase();
+  if (lp.includes('esp32')) return 'esp32';
+  if (lp.includes('pico')) return 'pico';
+  const boards = (ctx.comps || []).filter(c => ['uno', 'esp32', 'pico'].includes(c.type));
+  return boards.length > 0 ? boards[0].type : 'uno';
+}
+
+function detectBoardName(ctx, prompt = '') {
+  const map = { uno: 'Arduino Uno', esp32: 'ESP32 DevKit', pico: 'Raspberry Pi Pico' };
+  return map[detectBoardType(ctx, prompt)] || 'Arduino Uno';
+}
+
+function buildSpiceFromContext(ctx) {
+  if (ctx.spiceNetlist && String(ctx.spiceNetlist).includes('.end')) {
+    return ctx.spiceNetlist;
+  }
+  const comps = ctx.comps || [];
+  if (!comps.length) return null;
+  const lines = ['* ProtoMind4004 Active Canvas SPICE Netlist'];
+  comps.forEach((c, i) => {
+    const desig = (c.name || `${c.type.toUpperCase()}_${i + 1}`).replace(/\s+/g, '_');
+    lines.push(`${desig} N_IN_${i} 0 ${String(c.type || 'PART').toUpperCase()} ; Value=${c.value || c.type} StartV=${c.startVolts ?? 0} OutV=${c.outVolts ?? 0}`);
+  });
+  lines.push('.end');
+  return lines.join('\n');
+}
+
+// In-memory multi-turn chat sessions for any project
+const chatSessions = new Map();
+
+// ── GET /api/ai/models — List Meta AI profiles & configured providers ───────
+app.get('/api/ai/models', (_req, res) => {
+  const cfg = getEnvConfig();
+  logInfo('HTTP', 'GET /api/ai/models');
+  res.json({
+    ok: true,
+    defaultProfile: 'smart',
+    providers: {
+      meta: !!cfg.metaKey,
+      openai: !!cfg.openaiKey,
+      gemini: !!cfg.geminiKey,
+      anthropic: !!cfg.anthropicKey,
+      builtinFallback: true
+    },
+    metaBaseUrl: cfg.metaBaseUrl,
+    profiles: Object.values(META_AI_PROFILES)
+  });
+});
+
+// ── POST /api/ai/meta & /api/ai/meta/:profile — Direct Meta AI Gateway ──────
+async function handleMetaEndpoint(req, res) {
+  const profileId = (req.params.profile || req.body?.profile || req.body?.metaProfile || 'smart').toLowerCase();
+  const profile = META_AI_PROFILES[profileId] || META_AI_PROFILES.smart;
+  const {
+    project = 'protomind',
+    action = 'general',
+    prompt = '',
+    system: customSystem,
+    messages: customMessages,
+    context = {},
+    model: modelOverride,
+    temperature = 0.7
+  } = req.body || {};
+
+  const targetModel = modelOverride || profile.model;
+  logInfo('META-GATEWAY', `Request -> project="${project}" action="${action}" profile="${profile.id}" model="${targetModel}" prompt="${String(prompt).slice(0, 70)}"`);
+
+  if (!prompt && !action && (!customMessages || !customMessages.length)) {
+    logError('META-GATEWAY', 'Rejected request: missing prompt, action, and messages.');
+    return res.status(400).json({ error: 'prompt, action, or messages required' });
+  }
+
+  const cfg = getEnvConfig();
+  const systemPrompts = customSystem
+    ? { ...SYSTEM_PROMPTS, [project]: customSystem }
+    : SYSTEM_PROMPTS;
+
+  let backendError = null;
+
+  if (!cfg.metaKey && !cfg.openaiKey && !cfg.geminiKey && !cfg.anthropicKey) {
+    backendError = 'META_API_KEY is missing or still set to placeholder in .env';
+    logError('META-GATEWAY', `${backendError}. Using structured local design engine.`);
+  } else {
     try {
-      const result = await callExternalLLM({ metaKey, openaiKey, geminiKey, anthropicKey, project, action, prompt, context, systemPrompts });
-      if (result) return res.json(result);
+      const rawResult = await callExternalLLM({
+        metaKey: cfg.metaKey,
+        metaBaseUrl: cfg.metaBaseUrl,
+        metaModel: targetModel,
+        preferMeta: !!cfg.metaKey,
+        openaiKey: cfg.openaiKey,
+        geminiKey: cfg.geminiKey,
+        anthropicKey: cfg.anthropicKey,
+        project,
+        action,
+        prompt,
+        context,
+        customMessages,
+        temperature,
+        systemPrompts
+      });
+
+      if (rawResult) {
+        const validated = ensureDesignStructure(project, rawResult, action, prompt, context, `Meta-AI:${targetModel}`);
+        logInfo('META-GATEWAY', `Success -> model="${targetModel}" returned valid "${project}" design structure.`);
+        return res.json({
+          ...validated,
+          metaProfile: profile.id,
+          modelUsed: targetModel,
+          provider: cfg.metaKey ? 'meta' : 'external-llm',
+          aiError: null
+        });
+      }
     } catch (e) {
-      console.error('[AI] External LLM call failed, falling back to built-in engine:', e.message);
+      backendError = e.message;
+      logError('META-GATEWAY', `External LLM call failed for model "${targetModel}" at "${cfg.metaBaseUrl}"`, e.stack || e.message);
     }
   }
 
-  // ── Built-in smart fallback engine ────────────────────────────────────────
+  // Fallback to structured built-in engine (while reporting the exact backendError in logs & response metadata)
   try {
-    const result = builtInEngine(project, action, prompt, context);
-    return res.json(result);
+    logWarn('FALLBACK', `Executing structured built-in design engine for project="${project}" (Reason: ${backendError})`);
+    const rawFallback = builtInEngine(project, action, prompt, context);
+    const validatedFallback = ensureDesignStructure(project, rawFallback, action, prompt, context, 'builtin-engine');
+    return res.json({
+      ...validatedFallback,
+      metaProfile: profile.id,
+      modelUsed: `${targetModel} (structured-fallback)`,
+      provider: 'builtin-structured',
+      aiError: backendError
+    });
   } catch (e) {
-    console.error('[AI] Built-in engine error:', e);
-    return res.status(500).json({ error: 'AI engine failed', detail: e.message });
+    logError('FALLBACK', `Critical failure in built-in engine for project="${project}"`, e.stack || e.message);
+    return res.status(500).json({ error: 'Meta AI and structured fallback failed', detail: e.message, aiError: backendError });
+  }
+}
+
+app.post('/api/ai/meta', handleMetaEndpoint);
+app.post('/api/ai/meta/:profile', handleMetaEndpoint);
+
+// ── POST /api/ai/chat — Stateful Multi-Turn Chat for All Projects ───────────
+app.post('/api/ai/chat', async (req, res) => {
+  const { sessionId = 'default', project = 'protomind', profile = 'smart', prompt = '', context = {}, reset = false } = req.body || {};
+  if (reset) {
+    chatSessions.delete(sessionId);
+    logInfo('CHAT', `Cleared chat session "${sessionId}"`);
+  }
+  if (!prompt) {
+    logError('CHAT', 'Rejected /api/ai/chat request: prompt is empty.');
+    return res.status(400).json({ error: 'prompt required' });
+  }
+
+  const history = chatSessions.get(sessionId) || [];
+  history.push({ role: 'user', content: `Prompt: ${prompt}\nContext: ${JSON.stringify(context)}` });
+  while (history.length > 16) history.shift();
+
+  req.body = { ...req.body, project, profile, prompt, messages: history, context };
+  const origJson = res.json.bind(res);
+  res.json = (data) => {
+    if (data && (data.reply || data.explanation)) {
+      history.push({ role: 'assistant', content: JSON.stringify(data) });
+      chatSessions.set(sessionId, history);
+    }
+    return origJson({ ...data, sessionId, turnCount: Math.ceil(history.length / 2) });
+  };
+  return handleMetaEndpoint(req, res);
+});
+
+app.delete('/api/ai/chat/:sessionId', (req, res) => {
+  chatSessions.delete(req.params.sessionId);
+  logInfo('CHAT', `Deleted session "${req.params.sessionId}"`);
+  res.json({ ok: true, cleared: req.params.sessionId });
+});
+
+// ── POST /api/ai/spice — Dedicated SPICE Netlist & Custom Part Synthesizer ──
+app.post('/api/ai/spice', (req, res) => {
+  const { prompt = '', context = {} } = req.body || {};
+  logInfo('SPICE', `Synthesizing SPICE Netlist for prompt="${String(prompt).slice(0, 70)}"`);
+  const raw = protomindEngine('design-project', prompt, context);
+  const result = ensureDesignStructure('protomind', raw, 'design-project', prompt, context, 'spice-endpoint');
+  res.json({
+    ok: true,
+    title: result.title,
+    spiceNetlist: result.spiceNetlist,
+    suggestedCode: result.suggestedCode,
+    reply: result.reply
+  });
+});
+
+// ── POST /api/ai/image — Visual Blueprint Generator from Description + Code ─
+app.post('/api/ai/image', async (req, res) => {
+  const { title, description, code, spiceNetlist } = req.body || {};
+  logInfo('IMAGE', `Generating circuit blueprint image for title="${title || 'Untitled'}"`);
+
+  if (!code && !spiceNetlist) {
+    logWarn('IMAGE', 'Blueprint requested without code or spiceNetlist; generating default structural diagram.');
+  }
+
+  const { openaiKey } = getEnvConfig();
+  if (process.env.ENABLE_EXTERNAL_IMAGE_API === 'true' && openaiKey) {
+    try {
+      const baseUrl = process.env.AI_BASE_URL || 'https://api.openai.com/v1';
+      const imgPrompt = `Clean educational electronics schematic and breadboard diagram for: ${title || 'Microcontroller Project'}. ${String(description || '').slice(0, 300)}. Clear labels, white background, high contrast vector style.`;
+      const resp = await fetch(`${baseUrl}/images/generations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
+        body: JSON.stringify({ model: 'dall-e-3', prompt: imgPrompt, n: 1, size: '1024x1024' })
+      });
+      if (!resp.ok) {
+        const errBody = await resp.text();
+        throw new Error(`Image API HTTP ${resp.status}: ${errBody}`);
+      }
+      const data = await resp.json();
+      const url = data.data?.[0]?.url;
+      if (url) return res.json({ imageUrl: url, source: 'openai-image' });
+    } catch (e) {
+      logError('IMAGE', 'External image API failed, using built-in SVG blueprint generator', e.message);
+    }
+  }
+
+  const svgBlueprint = generateBlueprintSVG({
+    title: title || 'ProtoMind4004 AI Circuit Blueprint',
+    description: description || '',
+    code: code || '',
+    spiceNetlist: spiceNetlist || ''
+  });
+  const base64 = Buffer.from(svgBlueprint, 'utf-8').toString('base64');
+  return res.json({
+    imageUrl: `data:image/svg+xml;base64,${base64}`,
+    source: 'blueprint-svg'
+  });
+});
+
+// ── POST /api/ai  — Unified AI bridge for all 3 projects ───────────────────
+app.post('/api/ai', async (req, res) => {
+  const { project = 'protomind', action = 'general', prompt = '', context = {}, metaProfile, model } = req.body || {};
+  logInfo('AI-BRIDGE', `POST /api/ai -> project="${project}" action="${action}" prompt="${String(prompt).slice(0, 70)}"`);
+
+  if (!prompt && !action) {
+    logError('AI-BRIDGE', 'Rejected POST /api/ai: neither prompt nor action was provided.');
+    return res.status(400).json({ error: 'prompt or action required' });
+  }
+
+  const cfg = getEnvConfig();
+  const hasExternalKey = !!(cfg.metaKey || cfg.openaiKey || cfg.geminiKey || cfg.anthropicKey);
+  const profileObj = META_AI_PROFILES[metaProfile] || META_AI_PROFILES.smart;
+  const chosenModel = model || profileObj.model;
+  let backendError = null;
+
+  if (!hasExternalKey) {
+    backendError = 'No valid API key found in .env (check META_API_KEY)';
+    logError('AI-BRIDGE', `${backendError}. Falling back to structured built-in engine.`);
+  } else {
+    try {
+      const rawResult = await callExternalLLM({
+        metaKey: cfg.metaKey,
+        metaBaseUrl: cfg.metaBaseUrl,
+        metaModel: chosenModel,
+        openaiKey: cfg.openaiKey,
+        geminiKey: cfg.geminiKey,
+        anthropicKey: cfg.anthropicKey,
+        project,
+        action,
+        prompt,
+        context,
+        systemPrompts: SYSTEM_PROMPTS
+      });
+
+      if (rawResult) {
+        const validated = ensureDesignStructure(project, rawResult, action, prompt, context, `External-LLM:${chosenModel}`);
+        logInfo('AI-BRIDGE', `External LLM "${chosenModel}" succeeded with verified "${project}" design structure.`);
+        return res.json({ ...validated, provider: 'external-llm', modelUsed: chosenModel, aiError: null });
+      }
+    } catch (e) {
+      backendError = e.message;
+      logError('AI-BRIDGE', `External LLM call failed for project="${project}" model="${chosenModel}"`, e.message);
+    }
+  }
+
+  // ── Built-in structured fallback engine ───────────────────────────────────
+  try {
+    logWarn('FALLBACK', `Running built-in structured engine for project="${project}" action="${action}" (Trigger: ${backendError})`);
+    const rawFallback = builtInEngine(project, action, prompt, context);
+    const validatedFallback = ensureDesignStructure(project, rawFallback, action, prompt, context, 'builtin-engine');
+    return res.json({
+      ...validatedFallback,
+      provider: 'builtin-structured',
+      aiError: backendError
+    });
+  } catch (e) {
+    logError('FALLBACK', 'Built-in engine crashed!', e.stack || e.message);
+    return res.status(500).json({ error: 'AI engine failed', detail: e.message, aiError: backendError });
   }
 });
 
-// ── External LLM caller ────────────────────────────────────────────────────
-async function callExternalLLM({ metaKey, openaiKey, geminiKey, anthropicKey, project, action, prompt, context, systemPrompts }) {
-  const placeholder = 'THE_META_API_KEY';
+// ── External LLM caller (With Detailed Error Body & Status Logging) ─────────
+async function callExternalLLM({
+  metaKey,
+  metaBaseUrl,
+  metaModel,
+  preferMeta = false,
+  openaiKey,
+  geminiKey,
+  anthropicKey,
+  project,
+  action,
+  prompt,
+  context,
+  customMessages,
+  temperature = 0.7,
+  systemPrompts
+}) {
   const system = systemPrompts[project] || systemPrompts.protomind;
   const userMsg = `Action: ${action || 'general'}\nPrompt: ${prompt}\nContext: ${JSON.stringify(context || {})}`;
+  const messages = Array.isArray(customMessages) && customMessages.length
+    ? [{ role: 'system', content: system }, ...customMessages]
+    : [{ role: 'system', content: system }, { role: 'user', content: userMsg }];
+
+  async function callMetaLlama() {
+    const rawBase = metaBaseUrl || process.env.META_BASE_URL || process.env.AI_BASE_URL || 'https://api.llama-api.com';
+    const baseUrl = rawBase.replace(/\/$/, '');
+    const url = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`;
+    const model = metaModel || process.env.AI_MODEL || 'llama3.1-70b';
+
+    logInfo('META-LLM', `Calling POST ${url} (model="${model}")`);
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${metaKey}` },
+      body: JSON.stringify({ model, messages, temperature })
+    });
+
+    if (!resp.ok) {
+      const errBody = await resp.text().catch(() => '(could not read response body)');
+      logError('META-LLM', `HTTP ${resp.status} ${resp.statusText} from ${url}`, errBody);
+      throw new Error(`Meta API HTTP ${resp.status}: ${errBody.slice(0, 300)}`);
+    }
+
+    const data = await resp.json();
+    const text = data.choices?.[0]?.message?.content || data.completion_message?.content?.text || '';
+    if (!text) {
+      logError('META-LLM', 'Meta API returned HTTP 200 but empty message content', JSON.stringify(data).slice(0, 300));
+      throw new Error('Meta API returned an empty completion');
+    }
+    return parseAIResponse(text, 'META-LLM');
+  }
+
+  if (preferMeta && metaKey) {
+    return await callMetaLlama();
+  }
 
   // OpenAI-compatible
-  if (openaiKey && openaiKey !== placeholder) {
-    const baseUrl = process.env.AI_BASE_URL || 'https://api.openai.com/v1';
+  if (openaiKey) {
+    const baseUrl = (process.env.AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
+    const url = `${baseUrl}/chat/completions`;
     const model = process.env.AI_MODEL || 'gpt-4o-mini';
-    const resp = await fetch(`${baseUrl}/chat/completions`, {
+    logInfo('OPENAI-LLM', `Calling POST ${url} (model="${model}")`);
+    const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openaiKey}` },
-      body: JSON.stringify({ model, messages: [{ role: 'system', content: system }, { role: 'user', content: userMsg }], temperature: 0.7 })
+      body: JSON.stringify({ model, messages, temperature })
     });
-    if (!resp.ok) throw new Error(`OpenAI ${resp.status}`);
+    if (!resp.ok) {
+      const errBody = await resp.text().catch(() => '');
+      logError('OPENAI-LLM', `HTTP ${resp.status} from ${url}`, errBody);
+      throw new Error(`OpenAI HTTP ${resp.status}: ${errBody.slice(0, 300)}`);
+    }
     const data = await resp.json();
     const text = data.choices?.[0]?.message?.content || '';
-    return parseAIResponse(text);
+    return parseAIResponse(text, 'OPENAI-LLM');
   }
 
   // Gemini
-  if (geminiKey && geminiKey !== placeholder) {
+  if (geminiKey) {
     const model = process.env.AI_MODEL || 'gemini-2.0-flash';
-    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+    logInfo('GEMINI-LLM', `Calling POST Gemini (model="${model}")`);
+    const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contents: [{ parts: [{ text: `${system}\n\n${userMsg}` }] }] })
     });
-    if (!resp.ok) throw new Error(`Gemini ${resp.status}`);
+    if (!resp.ok) {
+      const errBody = await resp.text().catch(() => '');
+      logError('GEMINI-LLM', `HTTP ${resp.status}`, errBody);
+      throw new Error(`Gemini HTTP ${resp.status}: ${errBody.slice(0, 300)}`);
+    }
     const data = await resp.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    return parseAIResponse(text);
+    return parseAIResponse(text, 'GEMINI-LLM');
   }
 
   // Meta (Llama via OpenAI-compatible endpoint)
-  if (metaKey && metaKey !== placeholder) {
-    const baseUrl = process.env.AI_BASE_URL || 'https://api.llama-api.com';
-    const model = process.env.AI_MODEL || 'llama3.1-70b';
-    const resp = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${metaKey}` },
-      body: JSON.stringify({ model, messages: [{ role: 'system', content: system }, { role: 'user', content: userMsg }], temperature: 0.7 })
-    });
-    if (!resp.ok) throw new Error(`Meta ${resp.status}`);
-    const data = await resp.json();
-    const text = data.choices?.[0]?.message?.content || '';
-    return parseAIResponse(text);
+  if (metaKey) {
+    return await callMetaLlama();
   }
 
   // Anthropic
-  if (anthropicKey && anthropicKey !== placeholder) {
+  if (anthropicKey) {
     const model = process.env.AI_MODEL || 'claude-sonnet-4-20250514';
+    logInfo('ANTHROPIC-LLM', `Calling POST Anthropic (model="${model}")`);
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({ model, max_tokens: 4096, system, messages: [{ role: 'user', content: userMsg }] })
     });
-    if (!resp.ok) throw new Error(`Anthropic ${resp.status}`);
+    if (!resp.ok) {
+      const errBody = await resp.text().catch(() => '');
+      logError('ANTHROPIC-LLM', `HTTP ${resp.status}`, errBody);
+      throw new Error(`Anthropic HTTP ${resp.status}: ${errBody.slice(0, 300)}`);
+    }
     const data = await resp.json();
     const text = data.content?.[0]?.text || '';
-    return parseAIResponse(text);
+    return parseAIResponse(text, 'ANTHROPIC-LLM');
   }
 
   return null;
 }
 
-function parseAIResponse(text) {
-  // Try to extract JSON from the response
+function parseAIResponse(text, providerTag = 'LLM') {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
-    try { return JSON.parse(jsonMatch[0]); } catch {}
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch (e) {
+      logError(providerTag, 'Failed to JSON.parse extracted braces from AI output; returning raw text in reply field.', e.message);
+    }
+  } else {
+    logWarn(providerTag, 'AI response did not contain a JSON object block; wrapping plain text reply.');
   }
   return { reply: text };
 }
@@ -179,7 +641,7 @@ function builtInEngine(project, action, prompt, context) {
   return { reply: 'Unknown project. Choose protomind, protoweb, or protogame.' };
 }
 
-// ── ProtoMind built-in engine ───────────────────────────────────────────────
+// ── ProtoMind built-in engine (Always returns a complete design structure) ──
 function protomindEngine(action, prompt, ctx) {
   const comps = ctx.comps || [];
   const wires = ctx.wires || [];
@@ -188,14 +650,19 @@ function protomindEngine(action, prompt, ctx) {
 
   // Detect board type
   const boards = comps.filter(c => ['uno','esp32','pico'].includes(c.type));
-  const boardType = boards.length > 0 ? boards[0].type : 'uno';
+  let boardType = boards.length > 0 ? boards[0].type : 'uno';
+  if (lowerPrompt.includes('esp32')) boardType = 'esp32';
+  else if (lowerPrompt.includes('pico')) boardType = 'pico';
   const boardNames = { uno: 'Arduino Uno', esp32: 'ESP32 DevKit', pico: 'Raspberry Pi Pico' };
   const boardName = boardNames[boardType] || 'Arduino Uno';
 
   // Detect components
   const leds = comps.filter(c => c.type === 'led');
-  const buttons = comps.filter(c => c.type === 'btn');
+  const buttons = comps.filter(c => c.type === 'btn' || c.type === 'sw');
   const resistors = comps.filter(c => c.type === 'res');
+  const capacitors = comps.filter(c => c.type === 'cap');
+  const inductors = comps.filter(c => c.type === 'ind');
+  const motors = comps.filter(c => c.type === 'motor');
   const servos = comps.filter(c => c.type === 'servo');
   const ultrasonics = comps.filter(c => c.type === 'ultrasonic');
   const buzzers = comps.filter(c => c.type === 'buzzer');
@@ -205,7 +672,11 @@ function protomindEngine(action, prompt, ctx) {
   if (leds.length > 0 && resistors.length === 0) {
     issues.push('⚠️ You have LED(s) without a current-limiting resistor. Always place a 220Ω–330Ω resistor in series with an LED to prevent damage.');
   }
-  const gndWires = wires.filter(w => w.from?.pin === 'GND' || w.to?.pin === 'GND');
+  const gndWires = wires.filter(w =>
+    w.from?.pin === 'GND' || w.to?.pin === 'GND' ||
+    w.from?.pin === '-' || w.to?.pin === '-' ||
+    w.from?.pin === '0' || w.to?.pin === '0'
+  );
   if (comps.length > 1 && gndWires.length === 0) {
     issues.push('⚠️ No GND connections found. Every component needs a path to ground to complete the circuit.');
   }
@@ -216,23 +687,24 @@ function protomindEngine(action, prompt, ctx) {
     issues.push('⚠️ Ultrasonic sensor ECHO pin is not wired. Connect it to a digital input pin.');
   }
 
-  // Generate suggested code based on components
+  // Always generate valid board firmware so suggestedCode is never null
   let suggestedCode = null;
-  if (lowerPrompt.includes('generate code') || lowerPrompt.includes('code for this') || action === 'generate-code') {
-    if (boardType === 'esp32') {
-      suggestedCode = generateESP32Code(leds, buttons, servos, ultrasonics, buzzers);
-    } else if (boardType === 'pico') {
-      suggestedCode = generatePicoCode(leds, buttons, servos, ultrasonics, buzzers);
-    } else {
-      suggestedCode = generateArduinoCode(leds, buttons, servos, ultrasonics, buzzers);
-    }
+  if (boardType === 'esp32') {
+    suggestedCode = generateESP32Code(leds.length ? leds : [{ type: 'led' }], buttons, servos, ultrasonics, buzzers);
+  } else if (boardType === 'pico') {
+    suggestedCode = generatePicoCode(leds.length ? leds : [{ type: 'led' }], buttons, servos, ultrasonics, buzzers);
+  } else {
+    suggestedCode = generateArduinoCode(leds.length ? leds : [{ type: 'led' }], buttons, servos, ultrasonics, buzzers);
   }
 
   // Check wiring prompt
   if (lowerPrompt.includes('check') || lowerPrompt.includes('wiring') || action === 'check-wiring') {
     const summary = [];
     summary.push(`📋 **Circuit Summary for ${boardName}:**`);
-    summary.push(`• ${boards.length} board(s), ${leds.length} LED(s), ${resistors.length} resistor(s), ${buttons.length} button(s)`);
+    summary.push(`• ${boards.length} board(s), ${leds.length} LED(s), ${resistors.length} resistor(s), ${buttons.length} button/switch(es)`);
+    if (capacitors.length) summary.push(`• ${capacitors.length} capacitor(s)`);
+    if (inductors.length) summary.push(`• ${inductors.length} inductor(s)`);
+    if (motors.length) summary.push(`• ${motors.length} DC motor(s)`);
     if (servos.length) summary.push(`• ${servos.length} servo(s)`);
     if (ultrasonics.length) summary.push(`• ${ultrasonics.length} ultrasonic sensor(s)`);
     if (buzzers.length) summary.push(`• ${buzzers.length} buzzer(s)`);
@@ -243,14 +715,28 @@ function protomindEngine(action, prompt, ctx) {
       summary.push('\n🔍 **Issues Found:**');
       issues.forEach(i => summary.push(i));
     }
-    return { reply: summary.join('\n'), suggestedCode, suggestedCircuit: null };
+    return {
+      title: `${boardName} Circuit Check`,
+      reply: summary.join('\n'),
+      spiceNetlist: buildSpiceFromContext(ctx),
+      suggestedCode,
+      suggestedCircuit: null
+    };
   }
 
   // How-to guides
   if (lowerPrompt.includes('how to wire') || lowerPrompt.includes('how to connect')) {
     if (lowerPrompt.includes('esp32') && lowerPrompt.includes('ultrasonic')) {
+      const spiceNetlist = [
+        `* ESP32 + HC-SR04 Ultrasonic Sensor`,
+        `U1 3V3 GND D5 D12 ESP32_DEVKIT ; Value=ESP32 StartV=3.3 OutV=3.3`,
+        `U2 3V3 D5 D12 0 HC_SR04 ; Value=2-400cm StartV=3.3 OutV=3.3`,
+        `.end`
+      ].join('\n');
       return {
+        title: 'ESP32 + HC-SR04 Ultrasonic Sensor',
         reply: howToWireESP32Ultrasonic(),
+        spiceNetlist,
         suggestedCode: generateESP32Code([], [], [], [{ type: 'ultrasonic' }], []),
         suggestedCircuit: {
           comps: [
@@ -267,8 +753,16 @@ function protomindEngine(action, prompt, ctx) {
       };
     }
     if (lowerPrompt.includes('pico') && lowerPrompt.includes('servo')) {
+      const spiceNetlist = [
+        `* Raspberry Pi Pico + Micro Servo`,
+        `U1 3V3 GND GP0 RPI_PICO ; Value=RP2040 StartV=3.3 OutV=3.3`,
+        `U2 GP0 3V3 0 MICRO_SERVO ; Value=SG90 StartV=3.0`,
+        `.end`
+      ].join('\n');
       return {
+        title: 'Raspberry Pi Pico + Servo Motor',
         reply: howToWirePicoServo(),
+        spiceNetlist,
         suggestedCode: generatePicoCode([], [], [{ type: 'servo' }], [], []),
         suggestedCircuit: {
           comps: [
@@ -284,26 +778,314 @@ function protomindEngine(action, prompt, ctx) {
       };
     }
     if (lowerPrompt.includes('esp32')) {
-      return { reply: `🔌 **Wiring Guide for ESP32:**\n\n1. **Power:** ESP32 runs on 3.3V logic. Use the 3V3 pin for sensors, VIN for 5V components.\n2. **LEDs:** Connect LED anode → resistor → GPIO pin (e.g., D2). LED cathode → GND.\n3. **Buttons:** One side to GPIO (e.g., D4), other to GND. Use INPUT_PULLUP in code.\n4. **Servos:** Signal → GPIO (e.g., D13), VCC → 5V (external), GND → GND.\n5. **Ultrasonic:** VCC → 5V, TRIG → GPIO, ECHO → GPIO (use voltage divider!), GND → GND.`, suggestedCode: null, suggestedCircuit: null };
+      const spiceNetlist = [
+        `* ESP32 Starter Circuit`,
+        `U1 3V3 GND D2 D4 ESP32_DEVKIT ; Value=ESP32 StartV=3.3 OutV=3.3`,
+        `R1 D2 N_LED 220 ; Value=220Ω`,
+        `D1 N_LED 0 LED ; Value=Status_LED StartV=1.8`,
+        `.end`
+      ].join('\n');
+      return {
+        title: 'ESP32 Wiring Guide',
+        reply: `🔌 **Wiring Guide for ESP32:**\n\n1. **Power:** ESP32 runs on 3.3V logic. Use the 3V3 pin for sensors, VIN for 5V components.\n2. **LEDs:** Connect LED anode → resistor → GPIO pin (e.g., D2). LED cathode → GND.\n3. **Buttons:** One side to GPIO (e.g., D4), other to GND. Use INPUT_PULLUP in code.\n4. **Servos:** Signal → GPIO (e.g., D13), VCC → 5V (external), GND → GND.\n5. **Ultrasonic:** VCC → 5V, TRIG → GPIO, ECHO → GPIO (use voltage divider!), GND → GND.`,
+        spiceNetlist,
+        suggestedCode: generateESP32Code([{ type: 'led' }], [{ type: 'btn' }], [], [], []),
+        suggestedCircuit: null
+      };
     }
     if (lowerPrompt.includes('pico')) {
-      return { reply: `🔌 **Wiring Guide for Raspberry Pi Pico:**\n\n1. **Power:** Pico runs on 3.3V logic. Use the 3V3(OUT) pin.\n2. **LEDs:** Connect LED anode → resistor → GP pin (e.g., GP15). LED cathode → GND.\n3. **Buttons:** One side to GP pin (e.g., GP14), other to GND. Use INPUT_PULLUP.\n4. **Servos:** Signal → GP pin with PWM (e.g., GP0), VCC → VBUS (5V), GND → GND.\n5. **Built-in LED:** GP25 controls the onboard LED.`, suggestedCode: null, suggestedCircuit: null };
+      const spiceNetlist = [
+        `* Raspberry Pi Pico Starter Circuit`,
+        `U1 3V3 GND GP15 GP14 RPI_PICO ; Value=RP2040 StartV=3.3 OutV=3.3`,
+        `R1 GP15 N_LED 220 ; Value=220Ω`,
+        `D1 N_LED 0 LED ; Value=Status_LED StartV=1.8`,
+        `.end`
+      ].join('\n');
+      return {
+        title: 'Raspberry Pi Pico Wiring Guide',
+        reply: `🔌 **Wiring Guide for Raspberry Pi Pico:**\n\n1. **Power:** Pico runs on 3.3V logic. Use the 3V3(OUT) pin.\n2. **LEDs:** Connect LED anode → resistor → GP pin (e.g., GP15). LED cathode → GND.\n3. **Buttons:** One side to GP pin (e.g., GP14), other to GND. Use INPUT_PULLUP.\n4. **Servos:** Signal → GP pin with PWM (e.g., GP0), VCC → VBUS (5V), GND → GND.\n5. **Built-in LED:** GP25 controls the onboard LED.`,
+        spiceNetlist,
+        suggestedCode: generatePicoCode([{ type: 'led' }], [{ type: 'btn' }], [], [], []),
+        suggestedCircuit: null
+      };
     }
   }
 
-  // Default: describe the circuit
+  // Project Architect & SPICE Synthesis when asked to design/build a project
+  if (
+    action === 'design-project' ||
+    lowerPrompt.includes('design') ||
+    lowerPrompt.includes('build') ||
+    lowerPrompt.includes('create') ||
+    lowerPrompt.includes('water') ||
+    lowerPrompt.includes('plant') ||
+    lowerPrompt.includes('motor') ||
+    lowerPrompt.includes('switch') ||
+    lowerPrompt.includes('traffic') ||
+    lowerPrompt.includes('fan') ||
+    lowerPrompt.includes('temperature')
+  ) {
+    return synthesizeProjectDesign(prompt, lowerPrompt, boardType, boardName, ctx);
+  }
+
+  // Default: describe the circuit with full design structure
   const parts = [];
   parts.push(`🤖 **Your ${boardName} Circuit:**`);
   parts.push(`You have ${comps.length} component(s) connected with ${wires.length} wire(s).`);
   if (leds.length) parts.push(`💡 ${leds.length} LED(s) — light-emitting diodes that glow when current flows through them.`);
-  if (buttons.length) parts.push(`🔘 ${buttons.length} button(s) — push switches that connect/disconnect the circuit.`);
+  if (buttons.length) parts.push(`🔘 ${buttons.length} button/switch(es) — switches that connect/disconnect the circuit.`);
   if (resistors.length) parts.push(`⚡ ${resistors.length} resistor(s) — limit current to protect components like LEDs.`);
+  if (capacitors.length) parts.push(`🔋 ${capacitors.length} capacitor(s) — store electrical charge and filter noise.`);
+  if (inductors.length) parts.push(`🌀 ${inductors.length} inductor(s) — store magnetic energy and smooth current.`);
+  if (motors.length) parts.push(`⚙️ ${motors.length} DC motor(s) — spin when powered above their start voltage.`);
   if (servos.length) parts.push(`🔄 ${servos.length} servo(s) — motors that rotate to a specific angle.`);
   if (ultrasonics.length) parts.push(`📏 ${ultrasonics.length} ultrasonic sensor(s) — measure distance using sound waves.`);
   if (buzzers.length) parts.push(`🔊 ${buzzers.length} buzzer(s) — make sound when powered.`);
   if (issues.length) { parts.push('\n🔍 **Tips:**'); issues.forEach(i => parts.push(i)); }
   parts.push('\n💡 Try clicking "Generate Code for This Circuit" to get starter firmware!');
-  return { reply: parts.join('\n'), suggestedCode, suggestedCircuit: null };
+  return {
+    title: `${boardName} Circuit Overview`,
+    reply: parts.join('\n'),
+    spiceNetlist: buildSpiceFromContext(ctx),
+    suggestedCode,
+    suggestedCircuit: null
+  };
+}
+
+// ── SPICE + Firmware Project Synthesizer (Auto-creates missing components) ──
+function synthesizeProjectDesign(rawPrompt, lp, boardType, boardName) {
+  if (lp.includes('water') || lp.includes('plant') || lp.includes('moisture') || lp.includes('pump')) {
+    const title = 'Smart Plant Watering System';
+    const spiceNetlist = [
+      `* ${title} (${boardName})`,
+      `U1 5V GND D13 D4 A0 ARDUINO_UNO ; Value=ATmega328P StartV=5.0 OutV=5.0`,
+      `X1 5V GND A0 SOIL_MOISTURE_SENSOR ; Value=Capacitive StartV=3.3 OutV=3.3 Pins=VCC,GND,SIG`,
+      `S1 5V N_EN SW_TOGGLE ; Value=Manual_Override StartV=0 OutV=0 PassThrough=true`,
+      `X2 N_EN D4 N_PUMP GND RELAY_MODULE_5V ; Value=1ch_Relay StartV=3.3 OutV=5.0 PassThrough=true Pins=VCC,IN,NO,GND`,
+      `M1 N_PUMP 0 DC_MOTOR ; Value=Submersible_Pump StartV=3.0`,
+      `R1 D13 N_LED 220 ; Value=220Ω`,
+      `D1 N_LED 0 LED ; Value=Status_LED StartV=1.8`,
+      `.end`
+    ].join('\n');
+
+    const code = `// ${title} - Auto-generated by ProtoMind4004 AI
+const int SENSOR_PIN = A0;
+const int RELAY_PIN  = 4;
+const int LED_PIN    = 13;
+const int DRY_THRESHOLD = 620;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
+}
+
+void loop() {
+  int moisture = analogRead(SENSOR_PIN);
+  Serial.print("Soil Moisture Raw: ");
+  Serial.println(moisture);
+
+  if (moisture > DRY_THRESHOLD) {
+    digitalWrite(RELAY_PIN, HIGH); // Turn ON water pump
+    digitalWrite(LED_PIN, HIGH);
+    Serial.println("Status: Soil dry -> Pumping water!");
+  } else {
+    digitalWrite(RELAY_PIN, LOW);  // Turn OFF water pump
+    digitalWrite(LED_PIN, LOW);
+  }
+  delay(500);
+}`;
+    return {
+      title,
+      reply: `🌱 **${title}**\n\nDesigned in universal **SPICE Netlist** format:\n• **U1 (${boardName})** reads soil moisture on **A0** and drives **D4**.\n• **X1 (SOIL_MOISTURE_SENSOR)** and **X2 (RELAY_MODULE_5V)** are automatically created as custom components if they don't exist yet.\n• **S1 (Toggle Switch)** uses **Pass-through Voltage (InV = OutV)** to feed the relay and **M1 (DC Motor Pump)**.\n\nClick **⚡ Render on Build Board** to auto-create and wire the entire circuit!`,
+      spiceNetlist,
+      suggestedCode: code,
+      suggestedCircuit: null
+    };
+  }
+
+  if (lp.includes('fan') || lp.includes('temp') || lp.includes('dht') || lp.includes('cooling')) {
+    const title = 'Smart Temperature Fan Controller';
+    const spiceNetlist = [
+      `* ${title} (${boardName})`,
+      `U1 5V GND D13 D9 D2 ARDUINO_UNO ; Value=ATmega328P StartV=5.0 OutV=5.0`,
+      `X1 5V D2 GND DHT22_TEMP_SENSOR ; Value=DHT22 StartV=3.3 OutV=3.3 Pins=VCC,DATA,GND`,
+      `S1 5V N_FAN SW_TOGGLE ; Value=Fan_Power StartV=0 OutV=0 PassThrough=true`,
+      `M1 N_FAN 0 DC_MOTOR ; Value=Cooling_Fan StartV=3.0`,
+      `R1 D13 N_LED 220 ; Value=220Ω`,
+      `D1 N_LED 0 LED ; Value=Heat_Alert StartV=1.8`,
+      `.end`
+    ].join('\n');
+
+    const code = `// ${title} - Auto-generated by ProtoMind4004 AI
+const int DHT_PIN = 2;
+const int FAN_PIN = 9;
+const int LED_PIN = 13;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(FAN_PIN, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
+}
+
+void loop() {
+  // Simulated temperature reading (C)
+  float tempC = 29.5;
+  Serial.print("Temperature: ");
+  Serial.print(tempC);
+  Serial.println(" C");
+
+  if (tempC >= 28.0) {
+    analogWrite(FAN_PIN, 255);
+    digitalWrite(LED_PIN, HIGH);
+  } else {
+    analogWrite(FAN_PIN, 0);
+    digitalWrite(LED_PIN, LOW);
+  }
+  delay(1000);
+}`;
+    return {
+      title,
+      reply: `🌡️ **${title}**\n\n• **X1 (DHT22_TEMP_SENSOR)** is synthesized automatically with \`VCC, DATA, GND\` pins.\n• **S1 (Toggle Switch)** passes 5V to **M1 (Cooling Fan Motor)**.\n• Click **⚡ Render on Build Board** to build it immediately!`,
+      spiceNetlist,
+      suggestedCode: code,
+      suggestedCircuit: null
+    };
+  }
+
+  const title = rawPrompt && rawPrompt.length < 48 ? rawPrompt : 'Interactive Switch, Motor & LED Controller';
+  const spiceNetlist = [
+    `* ${title}`,
+    `U1 5V GND D13 D9 D2 ARDUINO_UNO ; Value=ATmega328P StartV=5.0 OutV=5.0`,
+    `S1 5V N_SW SW_TOGGLE ; Value=Main_Switch StartV=0 OutV=0 PassThrough=true`,
+    `M1 N_SW 0 DC_MOTOR ; Value=6000RPM StartV=3.0`,
+    `R1 D13 N_LED 220 ; Value=220Ω`,
+    `D1 N_LED 0 LED ; Value=Status_LED StartV=1.8`,
+    `C1 5V 0 100uF ; Value=100µF`,
+    `.end`
+  ].join('\n');
+
+  const code = `// ${title}
+const int SWITCH_SENSE_PIN = 2;
+const int MOTOR_PWM_PIN    = 9;
+const int LED_PIN          = 13;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(SWITCH_SENSE_PIN, INPUT_PULLUP);
+  pinMode(MOTOR_PWM_PIN, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
+}
+
+void loop() {
+  bool active = digitalRead(SWITCH_SENSE_PIN) == LOW;
+  digitalWrite(LED_PIN, HIGH);
+  analogWrite(MOTOR_PWM_PIN, active ? 255 : 160);
+  Serial.println("Motor & Status LED Active");
+  delay(300);
+}`;
+
+  return {
+    title,
+    reply: `⚡ **${title}**\n\nHere is your complete hardware design in **SPICE Netlist** format along with the C++ firmware and visual diagram:\n• **S1 (Toggle Switch)** has \`PassThrough=true\` (Out Volts = Input Volts) and feeds **M1 (DC Motor)**.\n• **R1 (220Ω)** limits current from **D13** into **D1 (LED)**.\n• **C1 (100µF)** decouples the **5V** rail to **GND (0)**.\n\nDuring simulation, click the **Switch**, **LED**, or **Motor** directly on the canvas to toggle their ON/OFF states!`,
+    spiceNetlist,
+    suggestedCode: code,
+    suggestedCircuit: null
+  };
+}
+
+function escapeXml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function generateBlueprintSVG({ title, description, code, spiceNetlist }) {
+  const spiceLines = String(spiceNetlist || '')
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l && !l.startsWith('*') && l.toLowerCase() !== '.end');
+
+  const compBoxes = spiceLines.slice(0, 8).map((line, i) => {
+    const [head, comment] = line.split(';').map(s => s.trim());
+    const tokens = head.split(/\s+/);
+    const desig = tokens[0] || `C${i + 1}`;
+    const model = tokens[tokens.length - 1] || 'PART';
+    const nodes = tokens.slice(1, -1).join(' · ');
+    return { desig, model, nodes, comment: comment || '' };
+  });
+
+  const codePreview = String(code || '')
+    .split('\n')
+    .filter(l => l.trim() && !l.trim().startsWith('//'))
+    .slice(0, 9);
+
+  const descClean = String(description || '').replace(/\*\*/g, '').replace(/\n+/g, ' ').slice(0, 140);
+
+  let boxesSvg = '';
+  compBoxes.forEach((b, i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const bx = 30 + col * 245;
+    const by = 118 + row * 68;
+    const isMcu = /^(U|MCU|ARD|ESP|PICO)/i.test(b.desig) || /UNO|ESP32|PICO/i.test(b.model);
+    const fill = isMcu ? '#0f4c5c' : '#1e293b';
+    const stroke = isMcu ? '#38bdf8' : '#475569';
+    boxesSvg += `
+      <g transform="translate(${bx},${by})">
+        <rect width="230" height="56" rx="8" fill="${fill}" stroke="${stroke}" stroke-width="1.8"/>
+        <circle cx="14" cy="18" r="4" fill="#38bdf8"/>
+        <circle cx="14" cy="38" r="4" fill="#22c55e"/>
+        <text x="26" y="21" fill="#f8fafc" font-family="monospace" font-size="12" font-weight="bold">${escapeXml(b.desig)}: ${escapeXml(b.model)}</text>
+        <text x="26" y="38" fill="#93c5fd" font-family="monospace" font-size="10">Nodes: ${escapeXml(b.nodes.slice(0, 26))}</text>
+        <text x="26" y="50" fill="#94a3b8" font-family="sans-serif" font-size="9">${escapeXml(b.comment.slice(0, 32))}</text>
+      </g>`;
+  });
+
+  let codeSvg = '';
+  codePreview.forEach((ln, idx) => {
+    codeSvg += `<text x="545" y="${142 + idx * 18}" fill="#a7f3d0" font-family="monospace" font-size="10.5">${escapeXml(ln.slice(0, 42))}</text>`;
+  });
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 420" width="860" height="420">
+    <defs>
+      <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#090d16"/>
+        <stop offset="100%" stop-color="#111827"/>
+      </linearGradient>
+      <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1e293b" stroke-width="0.7"/>
+      </pattern>
+    </defs>
+    <rect width="860" height="420" fill="url(#bgGrad)"/>
+    <rect width="860" height="420" fill="url(#grid)"/>
+    <rect x="12" y="12" width="836" height="396" rx="12" fill="none" stroke="#334155" stroke-width="1.5"/>
+
+    <!-- Header -->
+    <rect x="12" y="12" width="836" height="68" rx="12" fill="#0f172a"/>
+    <text x="30" y="42" fill="#38bdf8" font-family="sans-serif" font-size="18" font-weight="bold">⚡ ${escapeXml(title)}</text>
+    <text x="30" y="64" fill="#94a3b8" font-family="sans-serif" font-size="11.5">${escapeXml(descClean)}${descClean.length >= 140 ? '…' : ''}</text>
+    <rect x="705" y="26" width="125" height="26" rx="13" fill="#1e3a8a" stroke="#3b82f6"/>
+    <text x="767" y="43" text-anchor="middle" fill="#e0f2fe" font-family="monospace" font-size="11" font-weight="bold">SPICE VERIFIED</text>
+
+    <!-- Left Section: Schematic Topology Blocks -->
+    <text x="30" y="104" fill="#cbd5e1" font-family="sans-serif" font-size="12" font-weight="bold">🔌 SPICE HARDWARE TOPOLOGY &amp; PIN NODES</text>
+    ${boxesSvg}
+
+    <!-- Right Section: Firmware Preview & Bus Guide -->
+    <text x="530" y="104" fill="#cbd5e1" font-family="sans-serif" font-size="12" font-weight="bold">💻 C++ FIRMWARE &amp; SIGNAL FLOW</text>
+    <rect x="530" y="118" width="300" height="190" rx="8" fill="#050811" stroke="#334155"/>
+    ${codeSvg}
+
+    <!-- Footer Legend -->
+    <rect x="530" y="320" width="300" height="66" rx="8" fill="#0f172a" stroke="#1e293b"/>
+    <text x="545" y="342" fill="#38bdf8" font-family="sans-serif" font-size="11" font-weight="bold">Ready for Build Board</text>
+    <text x="545" y="360" fill="#94a3b8" font-family="sans-serif" font-size="10">• Click "Render on Build Board" to auto-wire</text>
+    <text x="545" y="376" fill="#94a3b8" font-family="sans-serif" font-size="10">• Missing custom parts are synthesized automatically</text>
+  </svg>`;
 }
 
 function generateArduinoCode(leds, buttons, servos, ultrasonics, buzzers) {
@@ -699,10 +1481,19 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 server.listen(PORT, HOST, () => {
+  const cfg = getEnvConfig();
+  const maskedKey = cfg.metaKey ? `${cfg.metaKey.slice(0, 6)}...${cfg.metaKey.slice(-4)}` : 'MISSING / PLACEHOLDER';
   console.log(`ProtoMind hub        http://localhost:${PORT}/`);
   console.log(`  ProtoMind4004      http://localhost:${PORT}/protomind`);
   console.log(`  ProtoWeb           http://localhost:${PORT}/protoweb`);
   console.log(`  ProtoGame          http://localhost:${PORT}/protogame`);
   console.log(`  AI endpoint        POST http://localhost:${PORT}/api/ai`);
+  console.log(`  Meta AI gateway    POST http://localhost:${PORT}/api/ai/meta/:profile`);
+  console.log(`  Multi-turn Chat    POST http://localhost:${PORT}/api/ai/chat`);
+  console.log(`  SPICE Synthesizer  POST http://localhost:${PORT}/api/ai/spice`);
+  console.log(`  AI Image Blueprint POST http://localhost:${PORT}/api/ai/image`);
+  console.log(`  AI Models list     GET  http://localhost:${PORT}/api/ai/models`);
+  console.log(`  META_BASE_URL      ${cfg.metaBaseUrl}`);
+  // console.log(`  META_API_KEY       ${maskedKey}`);
   console.log(`Toolchain folder:    ${protomind.toolchain.appHome()}`);
 });

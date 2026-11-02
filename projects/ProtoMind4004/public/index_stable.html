@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ProtoMind4004</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#f4f6f8; --panel:#fff; --line:#d9dee3; --accent:#1f7ae0; --ink:#1c2630; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px 'Inter', system-ui, sans-serif; color:var(--ink); background:var(--bg);
+         height:100vh; display:flex; flex-direction:column; }
+  header { display:flex; gap:8px; align-items:center; padding:8px 12px; background:var(--panel);
+           border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0 12px 0 0; }
+  header a { text-decoration:none; color:var(--accent); font-size:13px; margin-right:8px; }
+  button, select { font:inherit; padding:6px 10px; border:1px solid var(--line); border-radius:6px; background:#fff; cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  button.sim-active { background:#2a8f3c; color:#fff; border-color:#2a8f3c; }
+  .sep { width:1px; height:22px; background:var(--line); margin:0 4px; }
+  #status { margin-left:auto; font-size:12px; color:#7a8794; }
+  #setupBar { display:flex; align-items:center; gap:12px; padding:8px 12px; background:#fff4d6; border-bottom:1px solid #e8d28a; }
+  #setupBar[hidden] { display:none; }
+  #setupBar.ok { background:#e3f6e8; border-color:#a9d9b6; }
+  main { flex:1; display:flex; min-height:0; }
+  #left { flex:1.2; display:flex; flex-direction:column; min-width:0; border-right:1px solid var(--line); }
+  #palette { padding:6px 10px; display:flex; gap:6px; align-items:center; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  #palette span.label { color:#7a8794; font-size:12px; margin-right:4px; }
+  #palette button { font-size:12px; padding:4px 8px; }
+  #palette button.danger { background:#e03131; color:#fff; border-color:#c92a2a; }
+  #canvasWrap { flex:1; min-height:0; }
+  svg#canvas { width:100%; height:100%; display:block;
+    background-image: radial-gradient(#cfd6dd 1px, transparent 1px); background-size:20px 20px; }
+  #right { flex:1; display:flex; flex-direction:column; min-width:0; background:#1e1e24; }
+  #code { flex:1; width:100%; resize:none; border:0; outline:0; padding:12px; background:#1e1e24; color:#e6e6e6;
+          font:13px/1.5 ui-monospace, Menlo, Consolas, monospace; tab-size:2; }
+  #tabs { display:flex; background:#2a2a32; }
+  #tabs button { border:0; border-radius:0; background:transparent; color:#aab; padding:6px 14px; font-size:13px; }
+  #tabs button.active { color:#fff; border-bottom:2px solid var(--accent); }
+  #consoleBox { height:30%; display:flex; flex-direction:column; border-top:1px solid #000; }
+  pre#out { flex:1; margin:0; padding:8px 12px; overflow:auto; color:#b8e0b8; font:12px/1.4 ui-monospace, Menlo, Consolas, monospace; white-space:pre-wrap; }
+  /* AI Guide Panel */
+  #aiPanel { display:none; flex-direction:column; background:#16161e; color:#d4d4d8; height:100%; }
+  #aiPanel.active { display:flex; }
+  #aiChips { display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px; border-bottom:1px solid #333; }
+  .ai-chip { font-size:11px; padding:5px 10px; border-radius:99px; background:#2a2a3a; color:#a5b4fc; border:1px solid #3f3f5f; cursor:pointer; transition:all .15s; }
+  .ai-chip:hover { background:#3f3f5f; color:#c7d2fe; }
+  #aiMessages { flex:1; overflow-y:auto; padding:12px; font-size:13px; line-height:1.6; }
+  #aiMessages .msg { margin-bottom:12px; padding:10px 14px; border-radius:10px; }
+  #aiMessages .msg.user { background:#1e3a5f; border:1px solid #2563eb; }
+  #aiMessages .msg.ai { background:#1e2a1e; border:1px solid #22c55e; }
+  #aiMessages .msg pre { background:#111; padding:8px; border-radius:6px; overflow-x:auto; font-size:12px; margin:8px 0 4px; }
+  #aiMessages .msg button { font-size:11px; padding:4px 10px; margin-top:6px; border-radius:6px; }
+  #aiInput { display:flex; gap:6px; padding:8px 12px; background:#1a1a24; border-top:1px solid #333; }
+  #aiInput input { flex:1; background:#0e0e18; color:#e4e4e7; border:1px solid #333; border-radius:8px; padding:8px 12px; font:13px 'Inter', sans-serif; outline:none; }
+  #aiInput input:focus { border-color:#6366f1; }
+  #aiInput button { background:#6366f1; color:#fff; border:none; border-radius:8px; padding:8px 14px; font-weight:600; cursor:pointer; }
+  #aiInput button:hover { background:#4f46e5; }
+  .comp .body { cursor:grab; }
+  .pin { fill:#fff; stroke:#444; stroke-width:1.5; cursor:crosshair; }
+  .pin:hover { fill:#ffd24d; }
+  .pin.sel { fill:#ff7a00; }
+  .wire { stroke:#2a8f3c; stroke-width:3; fill:none; stroke-linecap:round; cursor:pointer; }
+  .wire:hover, .wire.sel { stroke:#e03131; }
+  .comp.sel .body { stroke:#e03131; stroke-width:2; }
+  text { user-select:none; pointer-events:none; }
+  /* Simulation glow filter */
+  .sim-glow { filter: url(#glowFilter); }
+  .sim-buzz-wave { animation: buzzPulse 0.3s infinite alternate; }
+  @keyframes buzzPulse { from { opacity:0.5; } to { opacity:1; } }
+  .sim-servo-sweep { transition: transform 0.3s ease; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/" title="Back to Hub">← Hub</a>
+  <h1>⚡ ProtoMind <small style="font-weight:400;color:#7a8794">4004</small></h1>
+  <button id="btnRefresh">Detect boards</button>
+  <select id="boardSel"><option value="">— no board detected —</option></select>
+  <select id="fqbnSel" title="Board type">
+    <option value="arduino:avr:uno">Arduino Uno</option>
+    <option value="arduino:avr:nano">Arduino Nano</option>
+    <option value="arduino:avr:mega">Arduino Mega</option>
+    <option value="esp32:esp32:esp32">ESP32 DevKit</option>
+    <option value="rp2040:rp2040:rpipico">Raspberry Pi Pico</option>
+  </select>
+  <button id="btnUpload" class="primary">▶ Upload</button>
+  <div class="sep"></div>
+  <button id="btnMonitor">Serial monitor</button>
+  <div class="sep"></div>
+  <button id="btnSim">⚡ Simulate Circuit</button>
+  <span id="status">connecting…</span>
+</header>
+<div id="setupBar" hidden>
+  <span id="setupMsg"></span>
+  <button id="btnInstall" class="primary">Install now</button>
+</div>
+<main>
+  <section id="left">
+    <div id="palette">
+      <span class="label">Add:</span>
+      <button data-add="uno">Arduino Uno</button>
+      <button data-add="esp32">ESP32</button>
+      <button data-add="pico">Pi Pico</button>
+      <div class="sep"></div>
+      <button data-add="led">LED</button>
+      <button data-add="res">Resistor</button>
+      <button data-add="btn">Button</button>
+      <button data-add="servo">Servo</button>
+      <button data-add="ultrasonic">Ultrasonic</button>
+      <button data-add="buzzer">Buzzer</button>
+      <div class="sep"></div>
+      <button id="btnClear" class="danger">✕ Clear / Reset Circuit</button>
+      <span style="margin-left:auto; font-size:11px; color:#999;">Click pin → pin to wire · Del removes selection</span>
+    </div>
+    <div id="canvasWrap"><svg id="canvas">
+      <defs>
+        <filter id="glowFilter" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+    </svg></div>
+  </section>
+  <section id="right">
+    <div id="tabs">
+      <button id="tabCode" class="active">Editor</button>
+      <button id="tabLog">Output</button>
+      <button id="tabSerial">Serial</button>
+      <button id="tabAI">🤖 AI Circuit Guide</button>
+    </div>
+    <textarea id="code" spellcheck="false"></textarea>
+    <div id="consoleBox">
+      <pre id="out"></pre>
+    </div>
+    <div id="aiPanel">
+      <div id="aiChips">
+        <button class="ai-chip" data-prompt="Check my wiring and tell me if anything is wrong.">Check My Wiring</button>
+        <button class="ai-chip" data-prompt="Generate code for this circuit." data-action="generate-code">Generate Code for This Circuit</button>
+        <button class="ai-chip" data-prompt="How to wire ESP32 + Ultrasonic sensor?">How to Wire ESP32 + Ultrasonic</button>
+        <button class="ai-chip" data-prompt="How to wire Pi Pico + Servo motor?">How to Wire Pi Pico + Servo</button>
+      </div>
+      <div id="aiMessages"></div>
+      <div id="aiInput">
+        <input type="text" id="aiPromptInput" placeholder="Ask about your circuit..." />
+        <button id="aiSendBtn">Send ✨</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+// ---------- Starter sketch ----------
+const DEFAULT_CODE = `// ProtoMind4004 - first test sketch
+// Blinks the on-board LED (pin 13) and prints to the serial monitor.
+
+void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  digitalWrite(LED_BUILTIN, HIGH);
+  Serial.println("LED on");
+  delay(500);
+  digitalWrite(LED_BUILTIN, LOW);
+  Serial.println("LED off");
+  delay(500);
+}
+`;
+const $ = (id) => document.getElementById(id);
+$('code').value = localStorage.getItem('protomind.code') || DEFAULT_CODE;
+$('code').addEventListener('input', () => localStorage.setItem('protomind.code', $('code').value));
+$('code').addEventListener('keydown', (e) => {           // Tab inserts two spaces
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const t = e.target, s = t.selectionStart;
+    t.value = t.value.slice(0, s) + '  ' + t.value.slice(t.selectionEnd);
+    t.selectionStart = t.selectionEnd = s + 2;
+  }
+});
+
+// ---------- Component library ----------
+const NS = 'http://www.w3.org/2000/svg';
+const el = (name, attrs = {}, parent) => {
+  const n = document.createElementNS(NS, name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  parent && parent.appendChild(n);
+  return n;
+};
+
+const DEFS = {
+  uno: {
+    w: 240, h: 130, name: 'Arduino UNO',
+    pins: [
+      ...[13,12,11,10,9,8,7,6,5,4,3,2].map((n, i) => ({ id: 'D' + n, x: 22 + i * 17, y: 0, label: n })),
+      ...['5V','GND','A0','A1','A2','A3'].map((n, i) => ({ id: n, x: 40 + i * 28, y: 130, label: n })),
+    ],
+    draw(g) {
+      el('rect', { class: 'body', width: 240, height: 130, rx: 8, fill: '#00979d', stroke: '#006d72', 'stroke-width': 2 }, g);
+      el('rect', { x: 8, y: 50, width: 40, height: 40, fill: '#bbb', stroke: '#888' }, g);
+      el('text', { x: 120, y: 70, 'text-anchor': 'middle', fill: '#fff', 'font-size': 20, 'font-weight': 700 }, g).textContent = 'UNO';
+      el('text', { x: 120, y: 92, 'text-anchor': 'middle', fill: '#cff', 'font-size': 11 }, g).textContent = 'ARDUINO';
+    },
+  },
+  esp32: {
+    w: 200, h: 110, name: 'ESP32 DevKit',
+    pins: [
+      ...['3V3','GND','D2','D4','D5'].map((n, i) => ({ id: n, x: 16 + i * 22, y: 0, label: n.replace('D','') })),
+      ...['D12','D13','D14','D15','VP','VN'].map((n, i) => ({ id: n, x: 12 + i * 22, y: 110, label: n.replace('D','') })),
+    ],
+    draw(g) {
+      el('rect', { class: 'body', width: 200, height: 110, rx: 8, fill: '#2d2d2d', stroke: '#444', 'stroke-width': 2 }, g);
+      el('rect', { x: 70, y: 2, width: 60, height: 18, rx: 3, fill: '#888', stroke: '#666' }, g);
+      el('text', { x: 100, y: 55, 'text-anchor': 'middle', fill: '#4fc3f7', 'font-size': 16, 'font-weight': 700 }, g).textContent = 'ESP32';
+      el('text', { x: 100, y: 75, 'text-anchor': 'middle', fill: '#81d4fa', 'font-size': 10 }, g).textContent = 'DevKit V1';
+      el('circle', { cx: 170, cy: 55, r: 8, fill: '#222', stroke: '#555' }, g);
+      el('line', { x1: 170, y1: 47, x2: 170, y2: 35, stroke: '#4fc3f7', 'stroke-width': 2 }, g);
+    },
+  },
+  pico: {
+    w: 180, h: 100, name: 'Raspberry Pi Pico',
+    pins: [
+      ...['3V3','GND','GP0','GP1','GP2'].map((n, i) => ({ id: n, x: 14 + i * 22, y: 0, label: n.replace('GP','') })),
+      ...['GP14','GP15','GP16','GP25','ADC0'].map((n, i) => ({ id: n, x: 14 + i * 22, y: 100, label: n.replace('GP','') })),
+    ],
+    draw(g) {
+      el('rect', { class: 'body', width: 180, height: 100, rx: 8, fill: '#4a7c3f', stroke: '#2d5a1e', 'stroke-width': 2 }, g);
+      el('rect', { x: 60, y: 2, width: 60, height: 16, rx: 3, fill: '#aaa', stroke: '#888' }, g);
+      el('text', { x: 90, y: 48, 'text-anchor': 'middle', fill: '#fff', 'font-size': 11, 'font-weight': 700 }, g).textContent = 'Raspberry Pi';
+      el('text', { x: 90, y: 68, 'text-anchor': 'middle', fill: '#c5e1a5', 'font-size': 16, 'font-weight': 700 }, g).textContent = 'PICO';
+      el('circle', { cx: 155, cy: 50, r: 12, fill: '#2d5a1e', stroke: '#7cb342', 'stroke-width': 1.5 }, g);
+      el('text', { x: 155, y: 54, 'text-anchor': 'middle', fill: '#aed581', 'font-size': 7 }, g).textContent = 'BOOT';
+    },
+  },
+  led: {
+    w: 36, h: 60, name: 'LED',
+    pins: [{ id: 'anode', x: 9, y: 60, label: '+' }, { id: 'cathode', x: 27, y: 60, label: '−' }],
+    draw(g) {
+      el('rect', { class: 'body', width: 36, height: 60, rx: 8, fill: 'transparent', stroke: 'transparent' }, g);
+      el('circle', { cx: 18, cy: 20, r: 16, fill: '#ff5a5a', stroke: '#a11', 'stroke-width': 2, class: 'led-bulb' }, g);
+      el('line', { x1: 9, y1: 36, x2: 9, y2: 60, stroke: '#666', 'stroke-width': 2 }, g);
+      el('line', { x1: 27, y1: 36, x2: 27, y2: 60, stroke: '#666', 'stroke-width': 2 }, g);
+    },
+  },
+  res: {
+    w: 80, h: 24, name: 'Resistor 220Ω',
+    pins: [{ id: 'a', x: 0, y: 12, label: '' }, { id: 'b', x: 80, y: 12, label: '' }],
+    draw(g) {
+      el('line', { x1: 0, y1: 12, x2: 80, y2: 12, stroke: '#666', 'stroke-width': 2 }, g);
+      el('rect', { class: 'body', x: 14, y: 2, width: 52, height: 20, rx: 4, fill: '#e8c98a', stroke: '#8a6d2b', 'stroke-width': 1.5 }, g);
+      [24, 34, 44].forEach((x, i) => el('rect', { x, y: 2, width: 4, height: 20, fill: ['#c00','#c00','#6b3'][i] }, g));
+    },
+  },
+  btn: {
+    w: 56, h: 44, name: 'Button',
+    pins: [{ id: 'a', x: 0, y: 22, label: '' }, { id: 'b', x: 56, y: 22, label: '' }],
+    draw(g) {
+      el('line', { x1: 0, y1: 22, x2: 56, y2: 22, stroke: '#666', 'stroke-width': 2 }, g);
+      el('rect', { class: 'body', x: 10, y: 4, width: 36, height: 36, rx: 6, fill: '#444', stroke: '#111', 'stroke-width': 1.5 }, g);
+      el('circle', { cx: 28, cy: 22, r: 11, fill: '#ccc', stroke: '#888', class: 'btn-cap' }, g);
+    },
+  },
+  servo: {
+    w: 70, h: 50, name: 'Micro Servo',
+    pins: [
+      { id: 'PWM', x: 15, y: 50, label: 'PWM' },
+      { id: 'VCC', x: 35, y: 50, label: 'VCC' },
+      { id: 'GND', x: 55, y: 50, label: 'GND' },
+    ],
+    draw(g) {
+      el('rect', { class: 'body', width: 70, height: 35, rx: 4, fill: '#2196f3', stroke: '#1565c0', 'stroke-width': 1.5 }, g);
+      el('circle', { cx: 55, cy: 17, r: 10, fill: '#1565c0', stroke: '#0d47a1' }, g);
+      el('line', { x1: 55, y1: 17, x2: 55, y2: 5, stroke: '#fff', 'stroke-width': 3, 'stroke-linecap': 'round', class: 'servo-horn' }, g);
+      el('text', { x: 25, y: 22, 'text-anchor': 'middle', fill: '#fff', 'font-size': 10, 'font-weight': 600 }, g).textContent = 'SERVO';
+      el('line', { x1: 15, y1: 35, x2: 15, y2: 50, stroke: '#ff9800', 'stroke-width': 2 }, g);
+      el('line', { x1: 35, y1: 35, x2: 35, y2: 50, stroke: '#f44336', 'stroke-width': 2 }, g);
+      el('line', { x1: 55, y1: 35, x2: 55, y2: 50, stroke: '#333', 'stroke-width': 2 }, g);
+    },
+  },
+  ultrasonic: {
+    w: 90, h: 40, name: 'HC-SR04',
+    pins: [
+      { id: 'VCC', x: 12, y: 40, label: 'VCC' },
+      { id: 'TRIG', x: 32, y: 40, label: 'TRIG' },
+      { id: 'ECHO', x: 56, y: 40, label: 'ECHO' },
+      { id: 'GND', x: 78, y: 40, label: 'GND' },
+    ],
+    draw(g) {
+      el('rect', { class: 'body', width: 90, height: 30, rx: 4, fill: '#26a69a', stroke: '#00897b', 'stroke-width': 1.5 }, g);
+      el('circle', { cx: 25, cy: 14, r: 9, fill: '#e0e0e0', stroke: '#bdbdbd', 'stroke-width': 1.5 }, g);
+      el('circle', { cx: 65, cy: 14, r: 9, fill: '#e0e0e0', stroke: '#bdbdbd', 'stroke-width': 1.5 }, g);
+      el('text', { x: 45, y: 18, 'text-anchor': 'middle', fill: '#fff', 'font-size': 7, 'font-weight': 600 }, g).textContent = 'HC-SR04';
+      [12, 32, 56, 78].forEach(x => el('line', { x1: x, y1: 30, x2: x, y2: 40, stroke: '#666', 'stroke-width': 2 }, g));
+    },
+  },
+  buzzer: {
+    w: 40, h: 40, name: 'Buzzer',
+    pins: [
+      { id: '+', x: 12, y: 40, label: '+' },
+      { id: '-', x: 28, y: 40, label: '−' },
+    ],
+    draw(g) {
+      el('rect', { class: 'body', width: 40, height: 30, rx: 15, fill: '#212121', stroke: '#000', 'stroke-width': 1.5 }, g);
+      el('circle', { cx: 20, cy: 14, r: 8, fill: '#333', stroke: '#555' }, g);
+      el('text', { x: 20, y: 18, 'text-anchor': 'middle', fill: '#bbb', 'font-size': 7, 'font-weight': 700 }, g).textContent = '♪';
+      el('line', { x1: 12, y1: 30, x2: 12, y2: 40, stroke: '#c00', 'stroke-width': 2 }, g);
+      el('line', { x1: 28, y1: 30, x2: 28, y2: 40, stroke: '#333', 'stroke-width': 2 }, g);
+    },
+  },
+};
+
+// ---------- Canvas state ----------
+const svg = $('canvas');
+const wireLayer = el('g', {}, svg);
+const compLayer = el('g', {}, svg);
+let comps = [];          // {uid, type, x, y, g}
+let wires = [];          // {from:{uid,pin}, to:{uid,pin}, path}
+let pendingPin = null;   // {uid, pin, node}
+let selected = null;     // {kind:'comp'|'wire', ref}
+let uidCounter = 1;
+let simMode = false;
+let btnStates = {};      // uid -> boolean (pressed)
+
+function pinPos(uid, pinId) {
+  const c = comps.find((c) => c.uid === uid);
+  const p = DEFS[c.type].pins.find((p) => p.id === pinId);
+  return { x: c.x + p.x, y: c.y + p.y };
+}
+
+function redrawWires() {
+  for (const w of wires) {
+    const a = pinPos(w.from.uid, w.from.pin), b = pinPos(w.to.uid, w.to.pin);
+    const dy = Math.max(30, Math.abs(b.y - a.y) / 2);
+    w.path.setAttribute('d', `M${a.x},${a.y} C${a.x},${a.y + dy} ${b.x},${b.y + dy} ${b.x},${b.y}`);
+  }
+}
+
+function select(sel) {
+  document.querySelectorAll('.sel').forEach((n) => n.classList.remove('sel'));
+  selected = sel;
+  if (sel) (sel.kind === 'comp' ? sel.ref.g : sel.ref.path).classList.add('sel');
+}
+
+function svgPoint(evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function addComponent(type, x, y) {
+  const def = DEFS[type];
+  const comp = { uid: uidCounter++, type, x, y };
+  const g = el('g', { class: 'comp' }, compLayer);
+  comp.g = g;
+  def.draw(g);
+  for (const p of def.pins) {
+    const c = el('circle', { class: 'pin', cx: p.x, cy: p.y, r: 5 }, g);
+    c.addEventListener('pointerdown', (e) => { e.stopPropagation(); onPinClick(comp, p, c); });
+    if (p.label !== '') {
+      const below = p.y > 0 ? 1 : -1;
+      const isBoard = ['uno','esp32','pico'].includes(type);
+      el('text', { x: p.x, y: p.y + (below > 0 ? 18 : -9), 'text-anchor': 'middle', 'font-size': 9, fill: isBoard ? '#055' : '#333' }, g).textContent = p.label;
+    }
+  }
+  const place = () => g.setAttribute('transform', `translate(${comp.x},${comp.y})`);
+  place();
+  // drag by body
+  g.querySelector('.body').addEventListener('pointerdown', (e) => {
+    if (simMode && type === 'btn') {
+      e.stopPropagation();
+      btnStates[comp.uid] = !btnStates[comp.uid];
+      updateSimulation();
+      return;
+    }
+    e.preventDefault();
+    select({ kind: 'comp', ref: comp });
+    const start = svgPoint(e), ox = comp.x, oy = comp.y;
+    const move = (ev) => {
+      const p = svgPoint(ev);
+      comp.x = Math.round((ox + p.x - start.x) / 10) * 10;
+      comp.y = Math.round((oy + p.y - start.y) / 10) * 10;
+      place(); redrawWires();
+    };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); saveCircuit(); };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  });
+  comps.push(comp);
+  select({ kind: 'comp', ref: comp });
+  return comp;
+}
+
+function onPinClick(comp, pin, node) {
+  if (!pendingPin) {
+    pendingPin = { uid: comp.uid, pin: pin.id, node };
+    node.classList.add('sel');
+    return;
+  }
+  const same = pendingPin.uid === comp.uid && pendingPin.pin === pin.id;
+  pendingPin.node.classList.remove('sel');
+  if (!same) {
+    const path = el('path', { class: 'wire' }, wireLayer);
+    const wire = { from: { uid: pendingPin.uid, pin: pendingPin.pin }, to: { uid: comp.uid, pin: pin.id }, path };
+    path.addEventListener('pointerdown', (e) => { e.stopPropagation(); select({ kind: 'wire', ref: wire }); });
+    wires.push(wire);
+    redrawWires();
+    saveCircuit();
+  }
+  pendingPin = null;
+}
+
+function deleteSelected() {
+  if (!selected) return;
+  if (selected.kind === 'wire') {
+    selected.ref.path.remove();
+    wires = wires.filter((w) => w !== selected.ref);
+  } else {
+    const c = selected.ref;
+    wires = wires.filter((w) => {
+      const hit = w.from.uid === c.uid || w.to.uid === c.uid;
+      if (hit) w.path.remove();
+      return !hit;
+    });
+    c.g.remove();
+    comps = comps.filter((x) => x !== c);
+  }
+  selected = null;
+  saveCircuit();
+}
+
+function clearCanvas() {
+  wires.forEach(w => w.path.remove());
+  comps.forEach(c => c.g.remove());
+  wires = [];
+  comps = [];
+  uidCounter = 1;
+  selected = null;
+  pendingPin = null;
+  btnStates = {};
+  localStorage.removeItem('protomind.circuit');
+}
+
+svg.addEventListener('pointerdown', () => {
+  select(null);
+  if (pendingPin) { pendingPin.node.classList.remove('sel'); pendingPin = null; }
+});
+window.addEventListener('keydown', (e) => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && document.activeElement !== $('code') && document.activeElement !== $('aiPromptInput')) deleteSelected();
+});
+document.querySelectorAll('[data-add]').forEach((b) =>
+  b.addEventListener('click', () => {
+    const n = comps.length;
+    const isBoard = ['uno','esp32','pico'].includes(b.dataset.add);
+    addComponent(b.dataset.add, isBoard ? 60 : 340 + n * 10, isBoard ? 160 : 120 + n * 10);
+    saveCircuit();
+  }));
+$('btnClear').addEventListener('click', () => { clearCanvas(); });
+
+// ---------- Canvas Persistence ----------
+function saveCircuit() {
+  try {
+    const data = {
+      comps: comps.map(c => ({ uid: c.uid, type: c.type, x: c.x, y: c.y })),
+      wires: wires.map(w => ({ from: w.from, to: w.to })),
+      uidCounter
+    };
+    localStorage.setItem('protomind.circuit', JSON.stringify(data));
+  } catch(e) {}
+}
+
+function loadCircuit() {
+  try {
+    const raw = localStorage.getItem('protomind.circuit');
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    uidCounter = data.uidCounter || 1;
+    const uidMap = {};
+    for (const cd of data.comps) {
+      const comp = addComponent(cd.type, cd.x, cd.y);
+      uidMap[cd.uid] = comp.uid;
+    }
+    for (const wd of data.wires) {
+      const fromUid = uidMap[wd.from.uid] || wd.from.uid;
+      const toUid = uidMap[wd.to.uid] || wd.to.uid;
+      const fromComp = comps.find(c => c.uid === fromUid);
+      const toComp = comps.find(c => c.uid === toUid);
+      if (!fromComp || !toComp) continue;
+      const fromPin = DEFS[fromComp.type].pins.find(p => p.id === wd.from.pin);
+      const toPin = DEFS[toComp.type].pins.find(p => p.id === wd.to.pin);
+      if (!fromPin || !toPin) continue;
+      const fromNode = fromComp.g.querySelectorAll('.pin')[DEFS[fromComp.type].pins.indexOf(fromPin)];
+      const toNode = toComp.g.querySelectorAll('.pin')[DEFS[toComp.type].pins.indexOf(toPin)];
+      onPinClick(fromComp, fromPin, fromNode);
+      onPinClick(toComp, toPin, toNode);
+    }
+    select(null);
+    return true;
+  } catch(e) { return false; }
+}
+
+// Load saved or seed starter circuit
+if (!loadCircuit()) {
+  (function seed() {
+    const uno = addComponent('uno', 60, 180);
+    const r = addComponent('res', 360, 120);
+    const led = addComponent('led', 420, 250);
+    const mk = (a, ap, b, bp) => onPinClick(a, DEFS[a.type].pins.find((p) => p.id === ap), a.g.querySelectorAll('.pin')[DEFS[a.type].pins.findIndex((p) => p.id === ap)]) ||
+                                 onPinClick(b, DEFS[b.type].pins.find((p) => p.id === bp), b.g.querySelectorAll('.pin')[DEFS[b.type].pins.findIndex((p) => p.id === bp)]);
+    mk(uno, 'D13', r, 'a');
+    mk(r, 'b', led, 'anode');
+    mk(led, 'cathode', uno, 'GND');
+    select(null);
+    saveCircuit();
+  })();
+}
+
+// ---------- Simulation Mode ----------
+$('btnSim').addEventListener('click', () => {
+  simMode = !simMode;
+  $('btnSim').classList.toggle('sim-active', simMode);
+  $('btnSim').textContent = simMode ? '⚡ Simulating…' : '⚡ Simulate Circuit';
+  if (simMode) updateSimulation();
+  else clearSimulation();
+});
+
+function updateSimulation() {
+  if (!simMode) return;
+  clearSimulation();
+  
+  // Check button states
+  const pressedBtns = Object.entries(btnStates).filter(([,v]) => v);
+  pressedBtns.forEach(([uid]) => {
+    const c = comps.find(c => c.uid === parseInt(uid));
+    if (c) {
+      const cap = c.g.querySelector('.btn-cap');
+      if (cap) { cap.setAttribute('fill', '#4caf50'); cap.setAttribute('r', '9'); }
+    }
+  });
+
+  // LED glow
+  comps.filter(c => c.type === 'led').forEach(led => {
+    const anodeWires = wires.filter(w =>
+      (w.from.uid === led.uid && w.from.pin === 'anode') ||
+      (w.to.uid === led.uid && w.to.pin === 'anode')
+    );
+    const isConnected = anodeWires.some(w => {
+      const otherUid = w.from.uid === led.uid ? w.to.uid : w.from.uid;
+      const otherComp = comps.find(c => c.uid === otherUid);
+      if (!otherComp) return false;
+      if (['uno','esp32','pico'].includes(otherComp.type)) return true;
+      if (otherComp.type === 'res') return true;
+      if (otherComp.type === 'btn' && btnStates[otherComp.uid]) return true;
+      return false;
+    });
+    if (isConnected) {
+      const bulb = led.g.querySelector('.led-bulb');
+      if (bulb) bulb.classList.add('sim-glow');
+    }
+  });
+
+  // Buzzer activation
+  comps.filter(c => c.type === 'buzzer').forEach(buz => {
+    const plusWires = wires.filter(w =>
+      (w.from.uid === buz.uid && w.from.pin === '+') ||
+      (w.to.uid === buz.uid && w.to.pin === '+')
+    );
+    if (plusWires.length > 0) {
+      const txt = buz.g.querySelector('text');
+      if (txt) { txt.classList.add('sim-buzz-wave'); txt.setAttribute('fill', '#4caf50'); }
+    }
+  });
+
+  // Servo animation
+  comps.filter(c => c.type === 'servo').forEach(srv => {
+    const horn = srv.g.querySelector('.servo-horn');
+    if (horn) {
+      const angle = 45 + Math.random() * 90;
+      horn.setAttribute('transform', `rotate(${angle}, 55, 17)`);
+    }
+  });
+}
+
+function clearSimulation() {
+  comps.forEach(c => {
+    if (c.type === 'led') {
+      const bulb = c.g.querySelector('.led-bulb');
+      if (bulb) bulb.classList.remove('sim-glow');
+    }
+    if (c.type === 'btn') {
+      const cap = c.g.querySelector('.btn-cap');
+      if (cap && !btnStates[c.uid]) { cap.setAttribute('fill', '#ccc'); cap.setAttribute('r', '11'); }
+    }
+    if (c.type === 'buzzer') {
+      const txt = c.g.querySelector('text');
+      if (txt) { txt.classList.remove('sim-buzz-wave'); txt.setAttribute('fill', '#bbb'); }
+    }
+    if (c.type === 'servo') {
+      const horn = c.g.querySelector('.servo-horn');
+      if (horn) horn.removeAttribute('transform');
+    }
+  });
+}
+
+// ---------- Tab switching ----------
+let activeTab = 'code';
+function switchTab(tab) {
+  activeTab = tab;
+  $('tabCode').classList.toggle('active', tab === 'code');
+  $('tabLog').classList.toggle('active', tab === 'log');
+  $('tabSerial').classList.toggle('active', tab === 'serial');
+  $('tabAI').classList.toggle('active', tab === 'ai');
+  $('code').style.display = tab === 'code' ? '' : 'none';
+  $('consoleBox').style.display = (tab === 'log' || tab === 'serial') ? '' : 'none';
+  $('aiPanel').classList.toggle('active', tab === 'ai');
+  if (tab === 'log' || tab === 'serial') {
+    view = tab === 'log' ? 'log' : 'serial';
+    refreshOut();
+  }
+}
+$('tabCode').onclick = () => switchTab('code');
+$('tabLog').onclick = () => switchTab('log');
+$('tabSerial').onclick = () => switchTab('serial');
+$('tabAI').onclick = () => switchTab('ai');
+
+// ---------- Server link ----------
+let ws, busy = false, monitorOn = false, serialText = '', logText = '', view = 'log';
+function connect() {
+  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/protomind/ws`);
+  ws.onopen = () => { $('status').textContent = 'connected'; send({ type: 'listBoards' }); };
+  ws.onclose = () => { $('status').textContent = 'disconnected – retrying…'; setTimeout(connect, 1500); };
+  ws.onmessage = (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'boards') renderBoards(m.boards);
+    if (m.type === 'refreshBoards') send({ type: 'listBoards' });
+    if (m.type === 'setup') renderSetup(m);
+    if (m.type === 'log') { logText += m.text; refreshOut(); }
+    if (m.type === 'serial') { serialText += m.text; if (serialText.length > 20000) serialText = serialText.slice(-20000); refreshOut(); }
+    if (m.type === 'busy') { busy = m.busy; $('btnUpload').disabled = busy; $('btnUpload').textContent = busy ? 'Working…' : '▶ Upload'; }
+    if (m.type === 'monitorState') { monitorOn = m.running; $('btnMonitor').textContent = monitorOn ? 'Stop monitor' : 'Serial monitor'; }
+  };
+}
+const send = (o) => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+
+// ---------- Toolchain setup banner ----------
+let setupReady = false;
+function renderSetup({ status, installing }) {
+  const bar = $('setupBar'), msg = $('setupMsg'), btn = $('btnInstall');
+  if (installing) {
+    bar.hidden = false; bar.classList.remove('ok');
+    msg.textContent = 'Installing the Arduino toolchain… progress is in the Output panel.';
+    btn.disabled = true; btn.textContent = 'Installing…';
+    switchTab('log');
+    return;
+  }
+  if (!status) return;
+  setupReady = status.ready;
+  btn.disabled = false; btn.textContent = status.cliInstalled ? 'Install board support' : 'Install now';
+  if (status.ready) {
+    bar.hidden = false; bar.classList.add('ok');
+    msg.textContent = `Toolchain ready (arduino-cli ${status.version || ''} · ${status.platform}).`;
+    btn.hidden = true;
+    setTimeout(() => { if (setupReady) bar.hidden = true; }, 4000);
+  } else {
+    bar.hidden = false; bar.classList.remove('ok'); btn.hidden = !status.supported;
+    msg.textContent = !status.supported
+      ? `Your platform (${status.platform}) isn't supported for auto-install yet.`
+      : status.cliInstalled
+        ? 'Board support (Arduino AVR) is missing. One click installs it.'
+        : 'First run: ProtoMind needs the Arduino toolchain (~100 MB, no admin rights needed).';
+  }
+}
+$('btnInstall').onclick = () => { logText = ''; send({ type: 'setupInstall' }); };
+function refreshOut() {
+  const o = $('out');
+  o.textContent = view === 'log' ? logText : serialText;
+  o.scrollTop = o.scrollHeight;
+}
+
+let detected = [];
+function renderBoards(boards) {
+  detected = boards;
+  const sel = $('boardSel');
+  sel.innerHTML = '';
+  if (!boards.length) sel.innerHTML = '<option value="">— no board detected —</option>';
+  boards.forEach((b, i) => {
+    const o = document.createElement('option');
+    o.value = i;
+    o.textContent = `${b.address}${b.boardName ? ' · ' + b.boardName : ''}`;
+    sel.appendChild(o);
+  });
+  onBoardChange();
+}
+function onBoardChange() {
+  const b = detected[$('boardSel').value];
+  if (b && b.fqbn) {
+    const f = $('fqbnSel');
+    if (![...f.options].some((o) => o.value === b.fqbn)) f.add(new Option(b.boardName || b.fqbn, b.fqbn));
+    f.value = b.fqbn;
+  }
+}
+$('boardSel').onchange = onBoardChange;
+$('btnRefresh').onclick = () => send({ type: 'listBoards' });
+$('btnUpload').onclick = () => {
+  const b = detected[$('boardSel').value];
+  if (!b) { logText += 'No board selected. Plug in an Arduino and click "Detect boards".\n'; switchTab('log'); return; }
+  logText = ''; switchTab('log');
+  send({ type: 'upload', code: $('code').value, fqbn: $('fqbnSel').value, port: b.address });
+};
+$('btnMonitor').onclick = () => {
+  if (monitorOn) return send({ type: 'monitorStop' });
+  const b = detected[$('boardSel').value];
+  if (!b) return;
+  serialText = ''; switchTab('serial');
+  send({ type: 'monitorStart', port: b.address, baud: 9600 });
+};
+connect();
+
+// ---------- AI Circuit Guide ----------
+function loadSuggestedCircuit(circuit) {
+  if (!circuit || !circuit.comps) return;
+  clearCanvas();
+  const spawned = [];
+  for (const c of circuit.comps) {
+    const comp = addComponent(c.type, c.x, c.y);
+    spawned.push(comp);
+  }
+  if (circuit.wires) {
+    for (const w of circuit.wires) {
+      const fromComp = (w.from.compIndex !== undefined) ? spawned[w.from.compIndex] : comps.find(c => c.uid === w.from.uid);
+      const toComp = (w.to.compIndex !== undefined) ? spawned[w.to.compIndex] : comps.find(c => c.uid === w.to.uid);
+      if (!fromComp || !toComp) continue;
+      const fromPin = DEFS[fromComp.type].pins.find(p => p.id === w.from.pin);
+      const toPin = DEFS[toComp.type].pins.find(p => p.id === w.to.pin);
+      if (!fromPin || !toPin) continue;
+      const fromNode = fromComp.g.querySelectorAll('.pin')[DEFS[fromComp.type].pins.indexOf(fromPin)];
+      const toNode = toComp.g.querySelectorAll('.pin')[DEFS[toComp.type].pins.indexOf(toPin)];
+      onPinClick(fromComp, fromPin, fromNode);
+      onPinClick(toComp, toPin, toNode);
+    }
+  }
+  select(null);
+  saveCircuit();
+}
+
+function getCircuitData() {
+  return {
+    comps: comps.map(c => ({ uid: c.uid, type: c.type, name: DEFS[c.type].name })),
+    wires: wires.map(w => ({ from: w.from, to: w.to })),
+    code: $('code').value
+  };
+}
+
+async function sendAIPrompt(prompt, action) {
+  const msgs = $('aiMessages');
+  const userDiv = document.createElement('div');
+  userDiv.className = 'msg user';
+  userDiv.textContent = prompt;
+  msgs.appendChild(userDiv);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  const loadDiv = document.createElement('div');
+  loadDiv.className = 'msg ai';
+  loadDiv.innerHTML = '<em>🤖 Thinking...</em>';
+  msgs.appendChild(loadDiv);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  try {
+    const resp = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project: 'protomind',
+        action: action || 'general',
+        prompt,
+        context: getCircuitData()
+      })
+    });
+    const data = await resp.json();
+
+    loadDiv.innerHTML = '';
+    const replyText = data.reply || data.error || 'No response';
+    const formatted = replyText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+    loadDiv.innerHTML = formatted;
+
+    if (data.suggestedCode) {
+      const pre = document.createElement('pre');
+      pre.textContent = data.suggestedCode;
+      loadDiv.appendChild(pre);
+      const applyBtn = document.createElement('button');
+      applyBtn.className = 'primary';
+      applyBtn.textContent = '📋 Apply Suggested Code';
+      applyBtn.onclick = () => {
+        $('code').value = data.suggestedCode;
+        localStorage.setItem('protomind.code', data.suggestedCode);
+        switchTab('code');
+      };
+      loadDiv.appendChild(applyBtn);
+    }
+
+    if (data.suggestedCircuit) {
+      const circBtn = document.createElement('button');
+      circBtn.className = 'primary';
+      circBtn.style.marginTop = '6px';
+      circBtn.style.display = 'block';
+      circBtn.textContent = '⚡ Load Suggested Circuit';
+      circBtn.onclick = () => {
+        loadSuggestedCircuit(data.suggestedCircuit);
+      };
+      loadDiv.appendChild(circBtn);
+    }
+  } catch(e) {
+    loadDiv.innerHTML = `<span style="color:#ef4444">Error: ${e.message}</span>`;
+  }
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+$('aiSendBtn').addEventListener('click', () => {
+  const input = $('aiPromptInput');
+  const prompt = input.value.trim();
+  if (!prompt) return;
+  input.value = '';
+  sendAIPrompt(prompt);
+});
+$('aiPromptInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') $('aiSendBtn').click();
+});
+document.querySelectorAll('.ai-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    sendAIPrompt(chip.dataset.prompt, chip.dataset.action || null);
+  });
+});
+</script>
+</body>
+</html>
