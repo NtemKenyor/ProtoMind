@@ -1836,6 +1836,47 @@
       });
     });
 
+    // ---- Server AI bridge: POST /api/ai with project "protoweb" (see api_docs.md) ----
+    // Real LLM calls take many seconds. The server enforces its own upstream timeout (AI_TIMEOUT_MS,
+    // default 60s) and then answers with a fallback, so the client waits a bit longer than that.
+    const AI_CLIENT_TIMEOUT_MS = 90000;
+
+    async function callProtoWebAI(prompt, context, externalSignal) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), AI_CLIENT_TIMEOUT_MS);
+      if (externalSignal) {
+        if (externalSignal.aborted) controller.abort();
+        else externalSignal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
+      try {
+        const res = await fetch('/api/ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({ project: 'protoweb', action: 'general', prompt, context })
+        });
+        let data = null;
+        try { data = await res.json(); } catch (_) { /* body was not JSON */ }
+        if (!res.ok) throw new Error((data && data.error) || `server returned HTTP ${res.status}`);
+        return data || {};
+      } catch (err) {
+        if (err.name === 'AbortError') throw new Error(externalSignal && externalSignal.aborted ? 'cancelled' : 'request timed out');
+        throw err;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    // Turns the server's answer into { html, note }. Empty html means "use the built-in templates".
+    // note is a short line for the toast saying who produced the result.
+    function unpackAiAnswer(data) {
+      if (!data || data.provider === 'builtin-fallback') {
+        const why = (data && data.aiError ? String(data.aiError) : 'no reason given').slice(0, 90);
+        return { html: '', note: `AI unavailable (${why}), used built-in generator` };
+      }
+      return { html: String(data.html || '').trim(), note: data.modelUsed ? `via ${data.modelUsed}` : '' };
+    }
+
     // Mock section generator engine for reliable offline & simulated responses
     function generateMockSectionHtml(targetEl, prompt) {
       const tag = (targetEl.tagName || 'DIV').toLowerCase();
@@ -1953,6 +1994,7 @@
         return;
       }
 
+      if (btnEl && btnEl.disabled) return; // a request is already running (Ctrl+Enter bypasses the disabled button)
       const origText = btnEl ? btnEl.innerHTML : '';
       if (btnEl) {
         btnEl.disabled = true;
@@ -1962,36 +2004,22 @@
       try {
         saveHistory();
         let cleanHtml = '';
+        let note = '';
 
-        // Try /api/ai if server is reachable, with quick fallback to mock synthesis
+        // Ask the server (POST /api/ai, project "protoweb"); use the local templates if it can't answer.
         try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2000);
-          const res = await fetch('/api/ai', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            signal: controller.signal,
-            body: JSON.stringify({
-              project: 'protoweb',
-              action: 'edit-section',
-              prompt: promptText,
-              context: {
-                tagName: targetEl.tagName,
-                sectionHtml: targetEl.outerHTML
-              }
-            })
+          const data = await callProtoWebAI(promptText, {
+            tagName: targetEl.tagName,
+            sectionHtml: targetEl.outerHTML
           });
-          clearTimeout(timeoutId);
-          if (res.ok) {
-            const data = await res.json();
-            cleanHtml = (data.html || data.reply || '').trim();
-          }
-        } catch (_netErr) {
-          // Fallback to local mock generator
+          ({ html: cleanHtml, note } = unpackAiAnswer(data));
+        } catch (netErr) {
+          console.warn('ProtoWeb AI request failed:', netErr);
+          note = `AI unreachable (${netErr.message}), used built-in generator`;
         }
 
         if (!cleanHtml) {
-          // Realistic AI mock latency
+          // Built-in templates keep the editor usable offline or without an API key
           await new Promise(r => setTimeout(r, 650));
           cleanHtml = generateMockSectionHtml(targetEl, promptText);
         }
@@ -2002,8 +2030,13 @@
 
         const temp = document.createElement('div');
         temp.innerHTML = cleanHtml;
-        const newEl = temp.firstElementChild;
+        let newEl = temp.firstElementChild;
         if (!newEl) throw new Error('Could not parse returned HTML element');
+        if (temp.children.length > 1) {
+          // One node replaces one node: if the model returned siblings, keep them all inside a wrapper
+          newEl = document.createElement('div');
+          newEl.append(...temp.childNodes);
+        }
 
         const genId = () => 'pw-' + Math.random().toString(36).substring(2, 9);
         if (!newEl.getAttribute('data-pw-id')) newEl.setAttribute('data-pw-id', genId());
@@ -2018,7 +2051,7 @@
           saveHistory();
           if (state.mode === 'code') syncCanvasToCodeEditor();
           updateNodeCountAndTree();
-          showToast('✨ Selected element updated with AI');
+          showToast('✨ Selected element updated' + (note ? ' — ' + note : ' with AI'));
         }
         document.getElementById('ai-floating-popover')?.classList.add('hidden');
       } catch (err) {
@@ -2891,6 +2924,8 @@ ${bodyMarkup}
 </footer>`;
     }
 
+    let museAbort = null; // cancels the in-flight request when the dialog is closed
+
     function openMuseModal() {
       const modal = document.getElementById('muse-ai-modal');
       const promptInput = document.getElementById('muse-ai-prompt');
@@ -2904,6 +2939,7 @@ ${bodyMarkup}
     }
 
     function closeMuseModal() {
+      if (museAbort) museAbort.abort(); // closing the dialog cancels a running generation
       const modal = document.getElementById('muse-ai-modal');
       const statusEl = document.getElementById('muse-ai-status');
       const btn = document.getElementById('btn-generate-muse');
@@ -2924,19 +2960,34 @@ ${bodyMarkup}
       const statusEl = document.getElementById('muse-ai-status');
       const statusText = document.getElementById('muse-status-text');
 
+      if (btn && btn.disabled) return; // a request is already running (Ctrl+Enter bypasses the disabled button)
+      const myAbort = (museAbort = new AbortController());
+
       if (btn) btn.disabled = true;
       if (btnText) btnText.textContent = 'Synthesizing...';
       if (statusEl) statusEl.classList.remove('hidden');
 
       try {
-        if (statusText) statusText.textContent = 'Structuring responsive semantic HTML markup...';
-        await new Promise(r => setTimeout(r, 600));
+        let generatedHtml = '';
+        let note = '';
 
-        if (statusText) statusText.textContent = 'Synthesizing modern glassmorphic styles & gradients...';
-        await new Promise(r => setTimeout(r, 600));
+        // Full page: no sectionHtml in the context, so the server builds a complete layout
+        if (statusText) statusText.textContent = 'Asking the AI to build your page (this can take up to a minute)...';
+        try {
+          ({ html: generatedHtml, note } = unpackAiAnswer(await callProtoWebAI(promptText, {}, myAbort.signal)));
+        } catch (netErr) {
+          if (myAbort.signal.aborted) return; // dialog was closed: leave the canvas alone
+          console.warn('ProtoWeb AI request failed:', netErr);
+          note = `AI unreachable (${netErr.message}), used built-in generator`;
+        }
+        if (myAbort.signal.aborted) return;
 
-        // Generate full page markup
-        const generatedHtml = generateMockPageHtml(promptText);
+        if (!generatedHtml) {
+          // Built-in templates keep the editor usable offline or without an API key
+          if (statusText) statusText.textContent = 'Using the built-in page generator...';
+          await new Promise(r => setTimeout(r, 600));
+          generatedHtml = generateMockPageHtml(promptText);
+        }
 
         // Replace entire #canvas-root innerHTML with generated output
         canvasRoot.innerHTML = generatedHtml;
@@ -2948,7 +2999,7 @@ ${bodyMarkup}
         updateNodeCountAndTree();
 
         closeMuseModal();
-        showToast('✨ Page synthesized with Muse AI!');
+        showToast('✨ Page synthesized with Muse AI' + (note ? ' — ' + note : '!'));
       } catch (err) {
         console.error('Muse AI generation error:', err);
         showToast('Generation error: ' + err.message);
