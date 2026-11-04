@@ -553,6 +553,12 @@
     animation: motorSpin 0.45s linear infinite;
   }
   @keyframes motorSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  #aiControls { display:flex; gap:6px; padding:8px 12px; background:#1a1a24; border-bottom:1px solid #333; align-items:center; flex-wrap:wrap; }
+  #aiControls select, #aiControls button { background:#0e0e18; color:#e4e4e7; border:1px solid #333; border-radius:6px; padding:4px 8px; font-size:11px; }
+  #aiProviderBadge { margin-left:auto; font-size:10px; color:#94a3b8; }
+  #aiMessages .msg .meta { font-size:10px; color:#94a3b8; margin-top:6px; }
+  #aiMessages .msg .warn { color:#fbbf24; font-size:11px; margin-bottom:6px; }
 </style>
 </head>
 <body>
@@ -780,6 +786,25 @@
         <button class="ai-chip" data-prompt="Design an interactive switch controlling a DC motor and status LED" data-action="design-project">⚙️ Switch + DC Motor + LED</button>
         <button class="ai-chip" data-prompt="Check my wiring and component values and tell me if anything is wrong." data-action="check-wiring">🔍 Check My Wiring</button>
         <button class="ai-chip" data-prompt="How to wire ESP32 + Ultrasonic sensor + Servo?" data-action="design-project">📏 ESP32 Ultrasonic + Servo</button>
+      </div>
+      <div id="aiControls">
+        <select id="aiMode" title="What should the AI do?">
+          <option value="design-project">🛠 Design project</option>
+          <option value="check-wiring">🔍 Check wiring</option>
+          <option value="generate-code">💻 Generate code</option>
+          <option value="spice">📜 SPICE only (fast)</option>
+          <option value="chat">💬 Chat (remembers context)</option>
+          <option value="general">❓ General question</option>
+        </select>
+        <select id="aiProfile" title="Meta AI model profile">
+          <option value="smart">smart</option>
+          <option value="fast">fast</option>
+          <option value="architect">architect</option>
+          <option value="code">code</option>
+          <option value="vision">vision</option>
+        </select>
+        <button id="aiNewChat" title="Clear server-side chat memory">🧹 New chat</button>
+        <span id="aiProviderBadge">checking AI…</span>
       </div>
       <div id="aiMessages"></div>
       <div id="aiInput">
@@ -1815,17 +1840,43 @@ function renderSpiceNetlist(spiceText) {
     );
 
     // Map each SPICE node token to a pin on this component
+    // nodes.forEach((netName, nIdx) => {
+    //   if (!netName || netName.startsWith('NC_')) return;
+    //   let targetPin = def.pins.find(p => p.id.toUpperCase() === netName.toUpperCase());
+    //   if (!targetPin) {
+    //     if ((netName === '0' || netName.toUpperCase() === 'GND') && def.pins.some(p => p.id === 'GND' || p.id === '-' || p.id === 'cathode')) {
+    //       targetPin = def.pins.find(p => p.id === 'GND' || p.id === '-' || p.id === 'cathode');
+    //     } else {
+    //       targetPin = def.pins[nIdx] || def.pins[def.pins.length - 1];
+    //     }
+    //   }
+    //   if (!targetPin) return;
+    //   const normNet = netName === '0' ? 'GND' : netName;
+    //   if (!netEndpoints[normNet]) netEndpoints[normNet] = [];
+    //   netEndpoints[normNet].push({ uid: comp.uid, pin: targetPin.id });
+    // });
+
     nodes.forEach((netName, nIdx) => {
       if (!netName || netName.startsWith('NC_')) return;
+
       let targetPin = def.pins.find(p => p.id.toUpperCase() === netName.toUpperCase());
-      if (!targetPin) {
-        if ((netName === '0' || netName.toUpperCase() === 'GND') && def.pins.some(p => p.id === 'GND' || p.id === '-' || p.id === 'cathode')) {
-          targetPin = def.pins.find(p => p.id === 'GND' || p.id === '-' || p.id === 'cathode');
-        } else {
-          targetPin = def.pins[nIdx] || def.pins[def.pins.length - 1];
-        }
+
+      // Map GND-family node names to the component's actual ground pin
+      if (!targetPin && (netName === '0' || netName.toUpperCase() === 'GND')) {
+        targetPin = def.pins.find(p => p.id === 'GND' || p.id === '-' || p.id === 'cathode');
       }
-      if (!targetPin) return;
+
+      // Allow "N_XXX" net names to bind positionally to the component's pins
+      if (!targetPin && /^N_/i.test(netName)) {
+        targetPin = def.pins[nIdx];
+      }
+
+      // Refuse to wire if no confident match — prevents silent miswiring
+      if (!targetPin) {
+        console.warn(`SPICE render: no pin match for net "${netName}" on ${desig}; skipping.`);
+        return;
+      }
+
       const normNet = netName === '0' ? 'GND' : netName;
       if (!netEndpoints[normNet]) netEndpoints[normNet] = [];
       netEndpoints[normNet].push({ uid: comp.uid, pin: targetPin.id });
@@ -2297,16 +2348,63 @@ $('hudBlueprintImg').onclick = () => {
   if (w) w.document.write(`<body style="margin:0;background:#090d16;display:flex;align-items:center;justify-content:center;min-height:100vh;"><img src="${lastAiBlueprint.imageUrl}" style="max-width:96vw;height:auto;"/></body>`);
 };
 
-// ---------- Unified AI Workflow (Design + Code + SPICE + Blueprint Image) ----------
+// ---------- AI Integration (/api/ai, /api/ai/spice, /api/ai/chat, /api/ai/image, /api/ai/models) ----------
+const aiEsc = (t) => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const aiFmt = (t) => aiEsc(t).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+const AI_SESSION = (() => {
+  let id = localStorage.getItem('protomind.sessionId');
+  if (!id) { id = 'pm-' + Math.random().toString(36).slice(2, 10); localStorage.setItem('protomind.sessionId', id); }
+  return id;
+})();
+
+async function aiFetch(url, opts) {
+  const r = await fetch(url, opts);
+  let data = null;
+  try { data = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error((data && (data.error || data.aiError)) || `HTTP ${r.status}`);
+  return data || {};
+}
+const aiPost = (url, body) => aiFetch(url, {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+});
+
+// Provider / model status
+async function loadAiModels() {
+  const badge = $('aiProviderBadge');
+  try {
+    const d = await aiFetch('/api/ai/models');
+    const sel = $('aiProfile');
+    if (Array.isArray(d.profiles) && d.profiles.length) {
+      sel.innerHTML = '';
+      d.profiles.forEach(pf => {
+        const o = new Option(pf.id, pf.id);
+        o.title = `${pf.name} — ${pf.description}`;
+        sel.add(o);
+      });
+      sel.value = localStorage.getItem('protomind.profile') || d.defaultProfile || 'smart';
+    }
+    const live = d.providers && d.providers.meta;
+    badge.textContent = live ? '🟢 Meta AI live' : '🟡 built-in fallback';
+    badge.title = live ? 'External Meta AI key active' : 'No external key; deterministic built-in designer is used';
+  } catch (e) {
+    badge.textContent = '🔴 AI offline';
+    badge.title = e.message;
+  }
+}
+$('aiProfile').addEventListener('change', () => localStorage.setItem('protomind.profile', $('aiProfile').value));
+$('aiNewChat').onclick = async () => {
+  try { await fetch('/api/ai/chat/' + encodeURIComponent(AI_SESSION), { method: 'DELETE' }); } catch (e) {}
+  $('aiMessages').innerHTML = '';
+};
+loadAiModels();
+
 function getCircuitData() {
   return {
     comps: comps.map(c => ({
-      uid: c.uid,
-      type: c.type,
+      uid: c.uid, type: c.type,
       name: c.props.name || getDef(c.type).name,
       value: c.props.value,
-      startVolts: c.props.startVolts,
-      outVolts: c.props.outVolts,
+      startVolts: c.props.startVolts, outVolts: c.props.outVolts,
       passThroughVolts: c.props.passThroughVolts
     })),
     wires: wires.map(w => ({ from: w.from, to: w.to })),
@@ -2315,132 +2413,297 @@ function getCircuitData() {
   };
 }
 
-async function runFullAiDesignWorkflow(prompt, action = 'design-project') {
-  const btn = $('btnHudGenerate');
-  btn.disabled = true;
-  btn.textContent = '🤖 Designing Circuit, SPICE & Blueprint...';
+// Build a canvas circuit from API `suggestedCircuit` ({comps:[{type,x,y}], wires:[{from:{compIndex,pin},to:{compIndex,pin}}]})
+function applySuggestedCircuit(sc) {
+  if (!sc || !Array.isArray(sc.comps)) return;
+  clearCanvas();
+  const made = sc.comps.map(c => DEFS[c.type] ? addComponent(c.type, c.x ?? 60, c.y ?? 100) : null);
+  (sc.wires || []).forEach(w => {
+    const a = made[w.from.compIndex], b = made[w.to.compIndex];
+    if (!a || !b) return;
+    const pins = [w.from.pin, w.to.pin].map(x => String(x).toUpperCase());
+    const color = pins.some(x => x === 'GND' || x === '-' || x === 'CATHODE') ? '#1e293b'
+      : pins.some(x => ['5V', '3V3', 'VCC', 'VIN', '+'].includes(x)) ? '#e03131' : '#1f7ae0';
+    createWireObject({ uid: a.uid, pin: w.from.pin }, { uid: b.uid, pin: w.to.pin }, color);
+  });
+  select(null);
+  saveCircuit();
+}
 
-  // Also log in AI tab
+function aiBtn(label, cls, fn) {
+  const b = document.createElement('button');
+  b.className = cls; b.textContent = label; b.onclick = fn;
+  return b;
+}
+
+// async function runFullAiDesignWorkflow(prompt, mode = 'design-project') {
+//   const profile = $('aiProfile').value || 'smart';
+//   const wantsDesign = mode === 'design-project' || mode === 'spice';
+//   const hudBtn = $('btnHudGenerate'), sendBtn = $('aiSendBtn');
+//   hudBtn.disabled = sendBtn.disabled = true;
+//   hudBtn.textContent = '🤖 Working…';
+
+//   const msgs = $('aiMessages');
+//   const userDiv = document.createElement('div');
+//   userDiv.className = 'msg user';
+//   userDiv.textContent = prompt;
+//   msgs.appendChild(userDiv);
+//   const out = document.createElement('div');
+//   out.className = 'msg ai';
+//   out.innerHTML = '<em>🤖 Thinking…</em>';
+//   msgs.appendChild(out);
+//   msgs.scrollTop = msgs.scrollHeight;
+
+//   try {
+//     const context = getCircuitData();
+//     let data;
+//     if (mode === 'spice') {
+//       data = await aiPost('/api/ai/spice', { prompt, context });
+//     } else if (mode === 'chat') {
+//       data = await aiPost('/api/ai/chat', { sessionId: AI_SESSION, project: 'protomind', profile, prompt, context });
+//     } else {
+//       data = await aiPost('/api/ai', { project: 'protomind', action: mode, prompt, metaProfile: profile, context });
+//     }
+
+//     const title = data.title || 'AI Circuit Blueprint';
+//     const replyText = data.reply || 'Done.';
+//     const spiceNetlist = data.spiceNetlist || '';
+//     const code = data.suggestedCode || '';
+//     const sc = data.suggestedCircuit || null;
+
+//     // Visual blueprint only for design-style results; failure is non-fatal
+//     let imageUrl = '';
+//     if (wantsDesign && (spiceNetlist || code)) {
+//       try {
+//         const img = await aiPost('/api/ai/image', { title, description: replyText, code, spiceNetlist });
+//         imageUrl = img.imageUrl || '';
+//       } catch (e) { /* keep going without image */ }
+//     }
+
+//     if (wantsDesign) {
+//       lastAiBlueprint = { spiceNetlist, code, imageUrl };
+//       $('hudResult').hidden = false;
+//       $('hudResTitle').textContent = `⚡ ${title}`;
+//       $('hudBlueprintImg').src = imageUrl;
+//       $('hudBlueprintImg').parentElement.hidden = !imageUrl;
+//       $('hudResDesc').innerHTML = aiFmt(replyText);
+//       $('hudSpicePreview').textContent = spiceNetlist;
+//     }
+
+//     out.innerHTML = '';
+//     if (data.aiError) {
+//       const w = document.createElement('div');
+//       w.className = 'warn';
+//       w.textContent = `⚠ External AI unavailable, used built-in designer (${data.aiError})`;
+//       out.appendChild(w);
+//     }
+//     const text = document.createElement('div');
+//     text.innerHTML = aiFmt(replyText);
+//     out.appendChild(text);
+
+//     if (imageUrl) {
+//       const img = document.createElement('img');
+//       img.src = imageUrl;
+//       img.style.cssText = 'width:100%; border-radius:8px; margin-top:8px; border:1px solid #334155;';
+//       out.appendChild(img);
+//     }
+//     if (spiceNetlist && mode !== 'check-wiring' && mode !== 'general') {
+//       const pre = document.createElement('pre');
+//       pre.style.color = '#93c5fd';
+//       pre.textContent = spiceNetlist;
+//       out.appendChild(pre);
+//       out.appendChild(aiBtn('⚡ Render SPICE on Build Board', 'success', () => {
+//         renderSpiceNetlist(spiceNetlist);
+//         if (code) { $('code').value = code; localStorage.setItem('protomind.code', code); }
+//       }));
+//     }
+//     if (code && mode !== 'check-wiring' && mode !== 'general') {
+//       const pre = document.createElement('pre');
+//       pre.textContent = code;
+//       out.appendChild(pre);
+//       out.appendChild(aiBtn('📋 Apply C++ Code', 'primary', () => {
+//         $('code').value = code;
+//         localStorage.setItem('protomind.code', code);
+//         switchTab('code');
+//       }));
+//     }
+//     if (sc && Array.isArray(sc.comps) && sc.comps.length) {
+//       out.appendChild(aiBtn('🔌 Build Suggested Wiring', 'success', () => applySuggestedCircuit(sc)));
+//     }
+//     const metaBits = [data.provider, data.modelUsed || data.metaProfile, data.turnCount ? `turn ${data.turnCount}` : ''].filter(Boolean);
+//     if (metaBits.length) {
+//       const m = document.createElement('div');
+//       m.className = 'meta';
+//       m.textContent = metaBits.join(' · ');
+//       out.appendChild(m);
+//     }
+//   } catch (e) {
+//     out.innerHTML = `<span style="color:#ef4444">AI error: ${aiEsc(e.message)}</span>`;
+//   } finally {
+//     hudBtn.disabled = sendBtn.disabled = false;
+//     hudBtn.textContent = '🚀 Design Project + Code + Blueprint';
+//     msgs.scrollTop = msgs.scrollHeight;
+//   }
+// }
+
+let aiInFlight = false;
+
+async function runFullAiDesignWorkflow(prompt, mode = 'design-project') {
+  if (aiInFlight) return;
+  aiInFlight = true;
+  // const profile = $('aiProfile').value || 'smart';
+  // ... rest of existing body
+  const profile = $('aiProfile').value || 'smart';
+  const wantsDesign = mode === 'design-project' || mode === 'spice';
+  const hudBtn = $('btnHudGenerate'), sendBtn = $('aiSendBtn');
+  hudBtn.disabled = sendBtn.disabled = true;
+  hudBtn.textContent = '🤖 Working…';
+
   const msgs = $('aiMessages');
   const userDiv = document.createElement('div');
   userDiv.className = 'msg user';
   userDiv.textContent = prompt;
   msgs.appendChild(userDiv);
-
-  const loadDiv = document.createElement('div');
-  loadDiv.className = 'msg ai';
-  loadDiv.innerHTML = '<em>🤖 Synthesizing SPICE Netlist, C++ Firmware, and Visual Blueprint...</em>';
-  msgs.appendChild(loadDiv);
+  const out = document.createElement('div');
+  out.className = 'msg ai';
+  out.innerHTML = '<em>🤖 Thinking…</em>';
+  msgs.appendChild(out);
   msgs.scrollTop = msgs.scrollHeight;
 
   try {
-    // Step 1: Request Design Description + SPICE Netlist + C++ Code from /api/ai
-    const resp = await fetch('/api/ai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        project: 'protomind',
-        action: action || 'design-project',
-        prompt,
-        context: getCircuitData()
-      })
-    });
-    const data = await resp.json();
+    const context = getCircuitData();
+    let data;
+    if (mode === 'spice') {
+      data = await aiPost('/api/ai/spice', { prompt, context });
+    } else if (mode === 'chat') {
+      data = await aiPost('/api/ai/chat', { sessionId: AI_SESSION, project: 'protomind', profile, prompt, context });
+    } else {
+      data = await aiPost('/api/ai', { project: 'protomind', action: mode, prompt, metaProfile: profile, context });
+    }
+
     const title = data.title || 'AI Circuit Blueprint';
-    const replyText = data.reply || 'Design ready.';
-    const spiceNetlist = data.spiceNetlist || exportToSpice();
-    const code = data.suggestedCode || $('code').value;
+    const replyText = data.reply || 'Done.';
+    const spiceNetlist = data.spiceNetlist || '';
+    const code = data.suggestedCode || '';
+    const sc = data.suggestedCircuit || null;
 
-    // Step 2: Send Description + Code + SPICE Netlist to /api/ai/image to get the Visual Blueprint Image
-    const imgResp = await fetch('/api/ai/image', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, description: replyText, code, spiceNetlist })
-    });
-    const imgData = await imgResp.json();
-    const imageUrl = imgData.imageUrl || '';
+    // Visual blueprint only for design-style results; failure is non-fatal
+    let imageUrl = '';
+    if (wantsDesign && (spiceNetlist || code)) {
+      try {
+        const img = await aiPost('/api/ai/image', { title, description: replyText, code, spiceNetlist });
+        imageUrl = img.imageUrl || '';
+      } catch (e) { /* keep going without image */ }
+    }
 
-    lastAiBlueprint = { spiceNetlist, code, imageUrl };
+    if (wantsDesign) {
+      lastAiBlueprint = { spiceNetlist, code, imageUrl };
+      $('hudResult').hidden = false;
+      $('hudResTitle').textContent = `⚡ ${title}`;
+      $('hudBlueprintImg').src = imageUrl;
+      $('hudBlueprintImg').parentElement.hidden = !imageUrl;
+      $('hudResDesc').innerHTML = aiFmt(replyText);
+      $('hudSpicePreview').textContent = spiceNetlist;
+    }
 
-    // Update Floating AI HUD
-    $('hudResult').hidden = false;
-    $('hudResTitle').textContent = `⚡ ${title}`;
-    $('hudBlueprintImg').src = imageUrl;
-    $('hudResDesc').innerHTML = replyText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
-    $('hudSpicePreview').textContent = spiceNetlist;
-
-    // Update AI Tab Message with Image + SPICE + Code + Confirmation Button
-    loadDiv.innerHTML = '';
-    const formatted = replyText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
-    const textWrap = document.createElement('div');
-    textWrap.innerHTML = formatted;
-    loadDiv.appendChild(textWrap);
+    out.innerHTML = '';
+    if (data.aiError) {
+      const w = document.createElement('div');
+      w.className = 'warn';
+      w.textContent = `⚠ External AI unavailable, used built-in designer (${data.aiError})`;
+      out.appendChild(w);
+    }
+    const text = document.createElement('div');
+    text.innerHTML = aiFmt(replyText);
+    out.appendChild(text);
 
     if (imageUrl) {
       const img = document.createElement('img');
       img.src = imageUrl;
       img.style.cssText = 'width:100%; border-radius:8px; margin-top:8px; border:1px solid #334155;';
-      loadDiv.appendChild(img);
+      out.appendChild(img);
     }
+    // if (spiceNetlist && mode !== 'check-wiring' && mode !== 'general') {
+    //   const pre = document.createElement('pre');
+    //   pre.style.color = '#93c5fd';
+    //   pre.textContent = spiceNetlist;
+    //   out.appendChild(pre);
+    //   out.appendChild(aiBtn('⚡ Render SPICE on Build Board', 'success', () => {
+    //     renderSpiceNetlist(spiceNetlist);
+    //     if (code) { $('code').value = code; localStorage.setItem('protomind.code', code); }
+    //   }));
+    // }
 
-    if (spiceNetlist) {
-      const spicePre = document.createElement('pre');
-      spicePre.style.color = '#93c5fd';
-      spicePre.textContent = spiceNetlist;
-      loadDiv.appendChild(spicePre);
-    }
+    if (spiceNetlist && mode !== 'check-wiring' && mode !== 'general') {
+      const pre = document.createElement('pre');
+      pre.style.color = '#93c5fd';
+      pre.textContent = spiceNetlist;
+      out.appendChild(pre);
 
-    if (code) {
-      const codePre = document.createElement('pre');
-      codePre.textContent = code;
-      loadDiv.appendChild(codePre);
-    }
+      // NEW: only offer render if it's plausibly renderable (has .end and at least one recognizable component line)
+      const looksRenderable = /^\s*\.end/im.test(spiceNetlist)
+        && /^[A-Z]\w*\s+\S+/m.test(spiceNetlist);
 
-    const renderBtn = document.createElement('button');
-    renderBtn.className = 'success';
-    renderBtn.textContent = '⚡ Render SPICE on Build Board';
-    renderBtn.onclick = () => {
-      renderSpiceNetlist(spiceNetlist);
-      if (code) {
-        $('code').value = code;
-        localStorage.setItem('protomind.code', code);
+      if (looksRenderable) {
+        out.appendChild(aiBtn('⚡ Render SPICE on Build Board', 'success', () => {
+          renderSpiceNetlist(spiceNetlist);
+          if (code) { $('code').value = code; localStorage.setItem('protomind.code', code); }
+        }));
+      } else {
+        const warn = document.createElement('div');
+        warn.style.cssText = 'font-size:11px;color:#fbbf24;margin-top:6px;';
+        warn.textContent = '⚠ SPICE netlist is not in a renderable form (needs .end and SPICE-style component lines).';
+        out.appendChild(warn);
       }
-    };
-    loadDiv.appendChild(renderBtn);
-
-    if (code) {
-      const applyBtn = document.createElement('button');
-      applyBtn.className = 'primary';
-      applyBtn.textContent = '📋 Apply C++ Code';
-      applyBtn.onclick = () => {
+    }
+    if (code && mode !== 'check-wiring' && mode !== 'general') {
+      const pre = document.createElement('pre');
+      pre.textContent = code;
+      out.appendChild(pre);
+      out.appendChild(aiBtn('📋 Apply C++ Code', 'primary', () => {
         $('code').value = code;
         localStorage.setItem('protomind.code', code);
         switchTab('code');
-      };
-      loadDiv.appendChild(applyBtn);
+      }));
+    }
+    if (sc && Array.isArray(sc.comps) && sc.comps.length) {
+      out.appendChild(aiBtn('🔌 Build Suggested Wiring', 'success', () => applySuggestedCircuit(sc)));
+    }
+    
+    const metaBits = [data.provider, data.modelUsed || data.metaProfile, data.turnCount ? `turn ${data.turnCount}` : ''].filter(Boolean);
+    if (metaBits.length) {
+      const m = document.createElement('div');
+      m.className = 'meta';
+      m.textContent = metaBits.join(' · ');
+      out.appendChild(m);
     }
   } catch (e) {
-    loadDiv.innerHTML = `<span style="color:#ef4444">Error: ${e.message}</span>`;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '🚀 Design Project + Code + Blueprint';
+    out.innerHTML = `<span style="color:#ef4444">AI error: ${aiEsc(e.message)}</span>`;
+  }
+  finally {
+    aiInFlight = false;
+    hudBtn.disabled = sendBtn.disabled = false;
+    hudBtn.textContent = '🚀 Design Project + Code + Blueprint';
     msgs.scrollTop = msgs.scrollHeight;
   }
 }
+
 
 $('aiSendBtn').addEventListener('click', () => {
   const input = $('aiPromptInput');
   const prompt = input.value.trim();
   if (!prompt) return;
   input.value = '';
-  runFullAiDesignWorkflow(prompt, 'design-project');
+  runFullAiDesignWorkflow(prompt, $('aiMode').value);
 });
 $('aiPromptInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') $('aiSendBtn').click();
 });
 document.querySelectorAll('.ai-chip').forEach(chip => {
   chip.addEventListener('click', () => {
-    runFullAiDesignWorkflow(chip.dataset.prompt, chip.dataset.action || 'design-project');
+    const mode = chip.dataset.action || 'design-project';
+    $('aiMode').value = mode;
+    runFullAiDesignWorkflow(chip.dataset.prompt, mode);
   });
 });
 

@@ -65,44 +65,45 @@ function getEnvConfig() {
   const placeholder = 'THE_META_API_KEY';
   const valid = (v) => (v && v !== placeholder && v !== 'your_meta_llama_api_key_here' ? v : null);
   return {
-    metaKey: valid(process.env.META_API_KEY),
-    metaBaseUrl: (process.env.META_BASE_URL || process.env.AI_BASE_URL || 'https://api.llama-api.com').replace(/\/$/, ''),
+    // Meta Model API (Muse) configuration
+    metaKey: valid(process.env.MODEL_API_KEY) || valid(process.env.META_API_KEY),
+    metaBaseUrl: (process.env.META_BASE_URL || 'https://api.meta.ai/v1').replace(/\/$/, ''),
     openaiKey: valid(process.env.OPENAI_API_KEY),
     geminiKey: valid(process.env.GEMINI_API_KEY),
     anthropicKey: valid(process.env.ANTHROPIC_API_KEY)
   };
 }
 
-// ── Meta AI Profiles (All powered by your single META_API_KEY & META_BASE_URL)
+// ── Meta AI Profiles (Powered by the Muse Model API) ────────────────────────
 const META_AI_PROFILES = {
   fast: {
     id: 'fast',
-    name: 'Meta Llama 3.1 8B (Fast / Low-Latency)',
-    model: process.env.META_MODEL_FAST || 'llama3.1-8b',
+    name: 'Muse Spark 1.3 (Fast / Low-Latency)',
+    model: process.env.META_MODEL_FAST || 'muse-spark-1.3',
     description: 'Rapid responses for UI tweaks, quick circuit checks, and game dialogue.'
   },
   smart: {
     id: 'smart',
-    name: 'Meta Llama 3.3 / 3.1 70B (Balanced Generalist)',
-    model: process.env.META_MODEL_SMART || process.env.AI_MODEL || 'llama3.1-70b',
+    name: 'Muse Spark 1.3 (Balanced Generalist)',
+    model: process.env.META_MODEL_SMART || 'muse-spark-1.3',
     description: 'Default high-accuracy model for ProtoMind4004, ProtoWeb, and ProtoGame.'
   },
   architect: {
     id: 'architect',
-    name: 'Meta Llama 3.1 405B (Deep Hardware & System Architect)',
-    model: process.env.META_MODEL_ARCHITECT || 'llama3.1-405b',
+    name: 'Muse Wonder 1.0 (Deep Hardware & System Architect)',
+    model: process.env.META_MODEL_ARCHITECT || 'muse-wonder-1.0',
     description: 'Flagship reasoning model for full SPICE netlists, custom ICs, and complex levels.'
   },
   code: {
     id: 'code',
-    name: 'Meta CodeLlama / Llama Instruct (Firmware & Code)',
-    model: process.env.META_MODEL_CODE || 'codellama-70b-instruct',
+    name: 'Muse Spark 1.3 (Firmware & Code)',
+    model: process.env.META_MODEL_CODE || 'muse-spark-1.3',
     description: 'Specialized for Arduino/ESP32/Pico C++, HTML/CSS, and game physics.'
   },
   vision: {
     id: 'vision',
-    name: 'Meta Llama 3.2 90B Vision (Multimodal)',
-    model: process.env.META_MODEL_VISION || 'llama3.2-90b-vision',
+    name: 'Muse Vision (Multimodal)',
+    model: process.env.META_MODEL_VISION || 'muse-spark-1.3', // Muse Spark is multimodal
     description: 'Multimodal model for schematic diagrams and visual layout inspection.'
   }
 };
@@ -282,7 +283,7 @@ async function handleMetaEndpoint(req, res) {
   let backendError = null;
 
   if (!cfg.metaKey && !cfg.openaiKey && !cfg.geminiKey && !cfg.anthropicKey) {
-    backendError = 'META_API_KEY is missing or still set to placeholder in .env';
+    backendError = 'MODEL_API_KEY (or META_API_KEY) is missing or still set to placeholder in .env';
     logError('META-GATEWAY', `${backendError}. Using structured local design engine.`);
   } else {
     try {
@@ -399,6 +400,33 @@ app.post('/api/ai/image', async (req, res) => {
     logWarn('IMAGE', 'Blueprint requested without code or spiceNetlist; generating default structural diagram.');
   }
 
+  const cfg = getEnvConfig();
+  // Prefer Muse Image if available (using the same Meta key)
+  if (cfg.metaKey && process.env.ENABLE_MUSE_IMAGE !== 'false') {
+    try {
+      const imgPrompt = `Clean educational electronics schematic and breadboard diagram for: ${title || 'Microcontroller Project'}. ${String(description || '').slice(0, 300)}. Clear labels, white background, high contrast vector style.`;
+      const resp = await fetch(`${cfg.metaBaseUrl}/images/generations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cfg.metaKey}` },
+        body: JSON.stringify({ model: 'muse-image-1.0', prompt: imgPrompt, n: 1, size: '1024x1024' })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        const url = data.data?.[0]?.url;
+        if (url) {
+          logInfo('IMAGE', 'Successfully generated image via Muse Image API');
+          return res.json({ imageUrl: url, source: 'muse-image' });
+        }
+      } else {
+        const errBody = await resp.text();
+        logWarn('IMAGE', `Muse Image API returned HTTP ${resp.status}`, errBody.slice(0, 200));
+      }
+    } catch (e) {
+      logError('IMAGE', 'Muse Image API call failed, using built-in SVG blueprint generator', e.message);
+    }
+  }
+
+  // Fallback: OpenAI image API (if configured)
   const { openaiKey } = getEnvConfig();
   if (process.env.ENABLE_EXTERNAL_IMAGE_API === 'true' && openaiKey) {
     try {
@@ -451,7 +479,7 @@ app.post('/api/ai', async (req, res) => {
   let backendError = null;
 
   if (!hasExternalKey) {
-    backendError = 'No valid API key found in .env (check META_API_KEY)';
+    backendError = 'No valid API key found in .env (check MODEL_API_KEY)';
     logError('AI-BRIDGE', `${backendError}. Falling back to structured built-in engine.`);
   } else {
     try {
@@ -496,7 +524,7 @@ app.post('/api/ai', async (req, res) => {
   }
 });
 
-// ── External LLM caller (With Detailed Error Body & Status Logging) ─────────
+// ── External LLM caller (Now supports Meta Model API / Muse) ────────────────
 async function callExternalLLM({
   metaKey,
   metaBaseUrl,
@@ -519,39 +547,50 @@ async function callExternalLLM({
     ? [{ role: 'system', content: system }, ...customMessages]
     : [{ role: 'system', content: system }, { role: 'user', content: userMsg }];
 
-  async function callMetaLlama() {
-    const rawBase = metaBaseUrl || process.env.META_BASE_URL || process.env.AI_BASE_URL || 'https://api.llama-api.com';
-    const baseUrl = rawBase.replace(/\/$/, '');
+  // ── Meta Model API (Muse) — OpenAI-compatible ─────────────────────────────
+  async function callMetaMuse() {
+    const baseUrl = (metaBaseUrl || process.env.META_BASE_URL || 'https://api.meta.ai/v1').replace(/\/$/, '');
+    // The Muse API is OpenAI-compatible; endpoint is /chat/completions
     const url = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`;
-    const model = metaModel || process.env.AI_MODEL || 'llama3.1-70b';
+    const model = metaModel || process.env.META_MODEL_SMART || 'muse-spark-1.3';
 
-    logInfo('META-LLM', `Calling POST ${url} (model="${model}")`);
+    logInfo('MUSE-LLM', `Calling POST ${url} (model="${model}")`);
     const resp = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${metaKey}` },
-      body: JSON.stringify({ model, messages, temperature })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${metaKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature,
+        // Muse supports standard OpenAI-like parameters
+        max_tokens: 4096
+      })
     });
 
     if (!resp.ok) {
       const errBody = await resp.text().catch(() => '(could not read response body)');
-      logError('META-LLM', `HTTP ${resp.status} ${resp.statusText} from ${url}`, errBody);
-      throw new Error(`Meta API HTTP ${resp.status}: ${errBody.slice(0, 300)}`);
+      logError('MUSE-LLM', `HTTP ${resp.status} ${resp.statusText} from ${url}`, errBody);
+      throw new Error(`Meta Model API HTTP ${resp.status}: ${errBody.slice(0, 300)}`);
     }
 
     const data = await resp.json();
-    const text = data.choices?.[0]?.message?.content || data.completion_message?.content?.text || '';
+    // Muse returns OpenAI-compatible response: choices[0].message.content
+    const text = data.choices?.[0]?.message?.content || data.output?.[0]?.content?.[0]?.text || '';
     if (!text) {
-      logError('META-LLM', 'Meta API returned HTTP 200 but empty message content', JSON.stringify(data).slice(0, 300));
-      throw new Error('Meta API returned an empty completion');
+      logError('MUSE-LLM', 'Meta Model API returned HTTP 200 but empty message content', JSON.stringify(data).slice(0, 300));
+      throw new Error('Meta Model API returned an empty completion');
     }
-    return parseAIResponse(text, 'META-LLM');
+    return parseAIResponse(text, 'MUSE-LLM');
   }
 
   if (preferMeta && metaKey) {
-    return await callMetaLlama();
+    return await callMetaMuse();
   }
 
-  // OpenAI-compatible
+  // OpenAI-compatible (fallback to OpenAI if configured)
   if (openaiKey) {
     const baseUrl = (process.env.AI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
     const url = `${baseUrl}/chat/completions`;
@@ -592,9 +631,9 @@ async function callExternalLLM({
     return parseAIResponse(text, 'GEMINI-LLM');
   }
 
-  // Meta (Llama via OpenAI-compatible endpoint)
+  // Meta (Muse) — fallback if preferMeta wasn't set
   if (metaKey) {
-    return await callMetaLlama();
+    return await callMetaMuse();
   }
 
   // Anthropic

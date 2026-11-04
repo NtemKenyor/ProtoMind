@@ -1,92 +1,1131 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-<meta charset="utf-8">
-<title>ProtoMind</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- CSS and JS are embedded for fast testing. Later: move <style> to hub.css and <script> to hub.js. -->
-<style>
-  :root { --bg:#f4f6f8; --panel:#fff; --line:#d9dee3; --accent:#1f7ae0; --ink:#1c2630; --muted:#7a8794;
-          --ok:#2a8f3c; --off:#c9cfd6; }
-  * { box-sizing: border-box; }
-  body { margin:0; font:14px system-ui, sans-serif; color:var(--ink); background:var(--bg); min-height:100vh;
-         display:flex; flex-direction:column; }
-  header { padding:28px 24px 8px; max-width:960px; width:100%; margin:0 auto; }
-  header h1 { margin:0; font-size:26px; letter-spacing:-.02em; }
-  header p { margin:6px 0 0; color:var(--muted); }
-  main { flex:1; max-width:960px; width:100%; margin:0 auto; padding:16px 24px 40px; }
-  #grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); }
-  .card { display:flex; flex-direction:column; gap:10px; padding:18px; background:var(--panel);
-          border:1px solid var(--line); border-radius:10px; text-decoration:none; color:inherit;
-          transition:border-color .15s, box-shadow .15s, transform .15s; }
-  .card:hover, .card:focus-visible { border-color:var(--accent); box-shadow:0 4px 14px rgba(31,122,224,.12);
-          transform:translateY(-2px); outline:0; }
-  .card .top { display:flex; align-items:center; gap:8px; }
-  .card .icon { font-size:22px; }
-  .card h2 { margin:0; font-size:17px; }
-  .card .path { margin-left:auto; font:12px ui-monospace, Menlo, Consolas, monospace; color:var(--muted); }
-  .card p { margin:0; color:#47525e; line-height:1.45; flex:1; }
-  .card .foot { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); }
-  .dot { width:8px; height:8px; border-radius:50%; background:var(--off); }
-  .dot.on { background:var(--ok); }
-  .tag { margin-left:auto; padding:2px 8px; border:1px solid var(--line); border-radius:99px; }
-  footer { padding:14px 24px; text-align:center; color:var(--muted); font-size:12px; border-top:1px solid var(--line); background:var(--panel); }
-  kbd { font:11px ui-monospace, Menlo, Consolas, monospace; padding:1px 5px; border:1px solid var(--line); border-radius:4px; background:var(--bg); }
-</style>
+  <meta charset="utf-8">
+  <title>⚡ ProtoMind — build the future</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    /* ============================================================
+       THEME TOKENS
+       ============================================================ */
+    [data-theme="dark"] {
+      --bg-base: #070b14;
+      --bg-layer: #0c1220;
+      --panel: rgba(18, 26, 42, 0.72);
+      --panel-hover: rgba(24, 34, 54, 0.85);
+      --panel-solid: #121a2a;
+      --line: rgba(120, 150, 200, 0.16);
+      --line-strong: rgba(120, 150, 200, 0.3);
+      --accent: #4c9aff;
+      --accent-2: #7b6cff;
+      --accent-glow: rgba(76, 154, 255, 0.35);
+      --ink: #eaf1fb;
+      --ink-soft: #b6c4d8;
+      --muted: #7e8ea6;
+      --ok: #3ddc84;
+      --ok-glow: rgba(61, 220, 132, 0.25);
+      --off: #4a5568;
+      --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      --card-shadow-hover: 0 24px 56px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(76, 154, 255, 0.15);
+      --kbd-bg: rgba(255, 255, 255, 0.06);
+      --header-gradient: linear-gradient(135deg, #eaf1fb 0%, #4c9aff 55%, #7b6cff 100%);
+      --shimmer: rgba(255, 255, 255, 0.08);
+      --tag-bg: rgba(255, 255, 255, 0.04);
+      --soon-bg: rgba(18, 26, 42, 0.45);
+    }
+
+    [data-theme="light"] {
+      --bg-base: #eef2f8;
+      --bg-layer: #f6f9fd;
+      --panel: rgba(255, 255, 255, 0.72);
+      --panel-hover: rgba(255, 255, 255, 0.92);
+      --panel-solid: #ffffff;
+      --line: rgba(30, 60, 100, 0.12);
+      --line-strong: rgba(30, 60, 100, 0.22);
+      --accent: #1f6fe0;
+      --accent-2: #6a4dff;
+      --accent-glow: rgba(31, 111, 224, 0.28);
+      --ink: #0f1a28;
+      --ink-soft: #3a4a5e;
+      --muted: #6b7a8e;
+      --ok: #1f9d55;
+      --ok-glow: rgba(31, 157, 85, 0.2);
+      --off: #b9c4d2;
+      --card-shadow: 0 8px 28px rgba(20, 40, 80, 0.07);
+      --card-shadow-hover: 0 24px 56px rgba(20, 40, 80, 0.14), 0 0 0 1px rgba(31, 111, 224, 0.12);
+      --kbd-bg: rgba(255, 255, 255, 0.7);
+      --header-gradient: linear-gradient(135deg, #0f1a28 0%, #1f6fe0 55%, #6a4dff 100%);
+      --shimmer: rgba(255, 255, 255, 0.6);
+      --tag-bg: rgba(255, 255, 255, 0.6);
+      --soon-bg: rgba(240, 244, 250, 0.55);
+    }
+
+    /* ============================================================
+       RESET & BASE
+       ============================================================ */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font: 14px/1.55 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--ink);
+      background-color: var(--bg-base);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow-x: hidden;
+      transition: background-color 0.6s ease, color 0.4s ease;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ============================================================
+       ANIMATED BACKGROUND — CANVAS-BASED (stars / liquid)
+       ============================================================ */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 0.7s ease;
+    }
+
+    /* subtle vignette overlay for depth */
+    .vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      transition: background 0.7s ease;
+    }
+
+    [data-theme="dark"] .vignette {
+      background: radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(4, 7, 14, 0.75) 100%);
+    }
+
+    [data-theme="light"] .vignette {
+      background: radial-gradient(ellipse at 50% 40%, transparent 35%, rgba(220, 230, 245, 0.6) 100%);
+    }
+
+    /* ============================================================
+       LAYOUT
+       ============================================================ */
+    header, main, footer {
+      position: relative;
+      z-index: 2;
+    }
+
+    header {
+      padding: 44px 24px 10px;
+      max-width: 1040px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      animation: fadeSlideDown 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    header h1 {
+      font-size: 34px;
+      font-weight: 750;
+      letter-spacing: -0.035em;
+      line-height: 1.1;
+      background: var(--header-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    header .bolt {
+      font-size: 30px;
+      -webkit-text-fill-color: initial;
+      filter: drop-shadow(0 0 12px var(--accent-glow));
+      animation: boltPulse 3s ease-in-out infinite;
+    }
+
+    @keyframes boltPulse {
+      0%, 100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 12px var(--accent-glow)); }
+      50% { transform: scale(1.1) rotate(-4deg); filter: drop-shadow(0 0 22px var(--accent-glow)); }
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 15.5px;
+      margin-left: 2px;
+      font-weight: 400;
+      transition: color 0.4s ease;
+    }
+
+    @keyframes fadeSlideDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ---- theme toggle ---- */
+    .theme-toggle {
+      flex-shrink: 0;
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      color: var(--ink);
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: var(--card-shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .theme-toggle:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: 0 10px 28px var(--accent-glow);
+    }
+
+    .theme-toggle:active {
+      transform: translateY(0) scale(0.96);
+    }
+
+    .theme-toggle .icon-wrap {
+      display: grid;
+      place-items: center;
+      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s ease;
+    }
+
+    [data-theme="dark"] .theme-toggle .sun { display: none; }
+    [data-theme="light"] .theme-toggle .moon { display: none; }
+
+    .theme-toggle:hover .icon-wrap {
+      transform: rotate(20deg) scale(1.1);
+    }
+
+    /* ============================================================
+       GRID & CARDS
+       ============================================================ */
+    main {
+      flex: 1;
+      max-width: 1040px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 22px 24px 64px;
+    }
+
+    #grid {
+      display: grid;
+      gap: 22px;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+      padding: 24px 22px;
+      background: var(--panel);
+      backdrop-filter: blur(18px) saturate(1.3);
+      -webkit-backdrop-filter: blur(18px) saturate(1.3);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      text-decoration: none;
+      color: inherit;
+      box-shadow: var(--card-shadow);
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+                  box-shadow 0.35s ease,
+                  border-color 0.35s ease,
+                  background 0.35s ease;
+      position: relative;
+      overflow: hidden;
+      animation: cardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+      will-change: transform, box-shadow;
+      isolation: isolate;
+    }
+
+    /* staggered entrance */
+    .card:nth-child(1) { animation-delay: 0.06s; }
+    .card:nth-child(2) { animation-delay: 0.14s; }
+    .card:nth-child(3) { animation-delay: 0.22s; }
+    .card:nth-child(4) { animation-delay: 0.30s; }
+    .card:nth-child(5) { animation-delay: 0.38s; }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(32px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* animated gradient border on hover */
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1.5px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2), var(--accent));
+      background-size: 200% 200%;
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      animation: borderFlow 4s linear infinite;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    @keyframes borderFlow {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 200% 50%; }
+    }
+
+    .card:hover::before,
+    .card:focus-visible::before {
+      opacity: 1;
+    }
+
+    .card:hover,
+    .card:focus-visible {
+      border-color: transparent;
+      box-shadow: var(--card-shadow-hover);
+      transform: translateY(-8px) scale(1.015);
+      outline: 0;
+      background: var(--panel-hover);
+    }
+
+    /* shimmer sweep */
+    .card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(105deg, transparent 42%, var(--shimmer) 50%, transparent 58%);
+      transform: translateX(-120%);
+      pointer-events: none;
+      z-index: 2;
+      opacity: 0;
+    }
+
+    .card:hover::after {
+      opacity: 1;
+      animation: shimmerSweep 1s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    @keyframes shimmerSweep {
+      from { transform: translateX(-120%); }
+      to { transform: translateX(120%); }
+    }
+
+    /* card content */
+    .card .top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      z-index: 3;
+    }
+
+    .card .icon-wrap {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      font-size: 24px;
+      background: var(--tag-bg);
+      border: 1px solid var(--line);
+      flex-shrink: 0;
+      transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  background 0.35s ease,
+                  border-color 0.35s ease;
+    }
+
+    .card:hover .icon-wrap {
+      transform: scale(1.12) rotate(-6deg);
+      background: linear-gradient(135deg, rgba(76, 154, 255, 0.15), rgba(123, 108, 255, 0.15));
+      border-color: var(--accent);
+    }
+
+    .card .icon { line-height: 1; }
+
+    .card h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 680;
+      letter-spacing: -0.015em;
+      color: var(--ink);
+      transition: color 0.3s ease;
+    }
+
+    .card .path {
+      margin-left: auto;
+      font: 10.5px ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      color: var(--muted);
+      background: var(--tag-bg);
+      border: 1px solid var(--line);
+      padding: 3px 9px;
+      border-radius: 7px;
+      white-space: nowrap;
+      transition: all 0.3s ease;
+    }
+
+    .card:hover .path {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--ink-soft);
+      line-height: 1.6;
+      font-size: 13.5px;
+      flex: 1;
+      transition: color 0.3s ease;
+      position: relative;
+      z-index: 3;
+    }
+
+    .card .foot {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      position: relative;
+      z-index: 3;
+      transition: border-color 0.3s ease;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--off);
+      transition: background 0.4s, box-shadow 0.4s;
+      flex-shrink: 0;
+    }
+
+    .dot.on {
+      background: var(--ok);
+      box-shadow: 0 0 0 3px var(--ok-glow), 0 0 12px var(--ok-glow);
+      animation: dotPulse 2.4s ease-in-out infinite;
+    }
+
+    @keyframes dotPulse {
+      0%, 100% { box-shadow: 0 0 0 3px var(--ok-glow), 0 0 12px var(--ok-glow); }
+      50% { box-shadow: 0 0 0 5px transparent, 0 0 20px var(--ok-glow); }
+    }
+
+    .state {
+      font-weight: 500;
+    }
+
+    .tag {
+      margin-left: auto;
+      padding: 3px 12px;
+      border: 1px solid var(--line);
+      border-radius: 99px;
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: var(--tag-bg);
+      transition: all 0.3s ease;
+    }
+
+    .card:not(.soon):hover .tag {
+      border-color: var(--ok);
+      color: var(--ok);
+      background: var(--ok-glow);
+    }
+
+    .card.soon .tag {
+      border-color: rgba(255, 180, 60, 0.35);
+      color: #e8a33d;
+    }
+
+    [data-theme="light"] .card.soon .tag {
+      border-color: rgba(200, 130, 20, 0.3);
+      color: #b87816;
+    }
+
+    /* coming soon card */
+    .card.soon {
+      cursor: pointer;
+      background: var(--soon-bg);
+      opacity: 0.9;
+    }
+
+    .card.soon::before {
+      background: linear-gradient(135deg, #e8a33d, #ff7b6c, #e8a33d);
+    }
+
+    .card.soon:hover {
+      opacity: 1;
+      transform: translateY(-6px) scale(1.01);
+    }
+
+    .card.soon .dot {
+      background: #e8a33d;
+    }
+
+    .card.soon .icon-wrap {
+      animation: floaty 4s ease-in-out infinite;
+    }
+
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px); }
+    }
+
+    /* ============================================================
+       FOOTER
+       ============================================================ */
+    footer {
+      padding: 20px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12.5px;
+      border-top: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      letter-spacing: 0.01em;
+      transition: background 0.5s ease, border-color 0.5s ease, color 0.4s ease;
+    }
+
+    kbd {
+      font: 11px ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      padding: 2px 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--kbd-bg);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      transition: all 0.25s ease;
+      color: var(--ink-soft);
+      margin: 0 1px;
+    }
+
+    kbd:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 2px 10px var(--accent-glow);
+    }
+
+    /* ============================================================
+       POPUP — "COMING SOON"
+       ============================================================ */
+    .popup-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 8, 16, 0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      padding: 20px;
+    }
+
+    [data-theme="light"] .popup-overlay {
+      background: rgba(30, 45, 70, 0.3);
+    }
+
+    .popup-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .popup {
+      background: var(--panel-solid);
+      border: 1px solid var(--line-strong);
+      border-radius: 28px;
+      padding: 40px 44px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 40px 100px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--line);
+      transform: translateY(24px) scale(0.92);
+      transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .popup::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #e8a33d, #ff7b6c, #e8a33d);
+      background-size: 200% 100%;
+      animation: borderFlow 3s linear infinite;
+    }
+
+    .popup-overlay.active .popup {
+      transform: translateY(0) scale(1);
+    }
+
+    .popup .emoji {
+      font-size: 56px;
+      display: block;
+      margin-bottom: 14px;
+      animation: bounce 1.2s infinite alternate ease-in-out;
+    }
+
+    @keyframes bounce {
+      from { transform: translateY(0) scale(1); }
+      to { transform: translateY(-10px) scale(1.05); }
+    }
+
+    .popup h3 {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      color: var(--ink);
+      letter-spacing: -0.025em;
+    }
+
+    .popup p {
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.65;
+      margin-bottom: 26px;
+    }
+
+    .popup p strong {
+      color: var(--ink-soft);
+    }
+
+    .popup .close-btn {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      background-size: 160% 160%;
+      color: #fff;
+      border: none;
+      padding: 13px 36px;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 650;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 6px 20px var(--accent-glow);
+      font-family: inherit;
+      letter-spacing: 0.01em;
+    }
+
+    .popup .close-btn:hover {
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 10px 32px var(--accent-glow);
+      background-position: 100% 50%;
+    }
+
+    .popup .close-btn:active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    /* ============================================================
+       RESPONSIVE
+       ============================================================ */
+    @media (max-width: 640px) {
+      header {
+        padding: 30px 18px 6px;
+      }
+      header h1 {
+        font-size: 26px;
+      }
+      header .bolt {
+        font-size: 24px;
+      }
+      header p {
+        font-size: 13.5px;
+      }
+      main {
+        padding: 14px 18px 44px;
+      }
+      #grid {
+        gap: 16px;
+        grid-template-columns: 1fr;
+      }
+      .card {
+        padding: 20px 18px;
+      }
+      .card .path {
+        display: none;
+      }
+      .theme-toggle {
+        width: 46px;
+        height: 46px;
+        font-size: 20px;
+      }
+      .popup {
+        padding: 32px 26px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
 </head>
 <body>
-<header>
-  <h1>⚡ ProtoMind</h1>
-  <p>Pick a project. Everything runs from this one local server.</p>
-</header>
-<main>
-  <div id="grid"></div>
-</main>
-<footer>Press <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> to open a project</footer>
+  <!-- animated background canvas -->
+  <canvas id="bg-canvas"></canvas>
+  <div class="vignette"></div>
 
-<script>
-// Add or reorder projects here. `check` is the URL pinged to show the green/grey status dot.
-const PROJECTS = [
-  { name: 'ProtoMind4004', icon: '🔌', href: '/protomind', check: '/protomind/health',
-    desc: 'Interactive schematic canvas (Arduino, ESP32, Pi Pico), circuit simulator, C++ uploader & AI hardware tutor.', tag: 'Ready' },
-  { name: 'ProtoWeb', icon: '🌐', href: '/protoweb', check: '/protoweb',
-    desc: 'Visual drag-and-drop website builder with section-scoped AI prompting, Code & View modes.', tag: 'Ready' },
-  { name: 'ProtoGame', icon: '🎮', href: '/protogame/', check: '/protogame/',
-    desc: 'Story-driven 2D platformer game builder with visual level editor, playable physics engine & AI co-pilot.', tag: 'Ready' },
-];
+  <header>
+    <div class="brand">
+      <h1><span class="bolt">⚡</span> ProtoMind</h1>
+      <p>Pick a project. Everything runs from this one local server.</p>
+    </div>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+      <span class="icon-wrap sun">☀️</span>
+      <span class="icon-wrap moon">🌙</span>
+    </button>
+  </header>
 
-const grid = document.getElementById('grid');
+  <main>
+    <div id="grid"></div>
+  </main>
 
-PROJECTS.forEach((p, i) => {
-  const a = document.createElement('a');
-  a.className = 'card';
-  a.href = p.href;
-  a.innerHTML =
-    '<div class="top"><span class="icon"></span><h2></h2><span class="path"></span></div>' +
-    '<p></p>' +
-    '<div class="foot"><span class="dot"></span><span class="state">checking…</span><span class="tag"></span></div>';
-  a.querySelector('.icon').textContent = p.icon;
-  a.querySelector('h2').textContent = p.name;
-  a.querySelector('.path').textContent = p.href.replace(/\/$/, '');
-  a.querySelector('p').textContent = p.desc;
-  a.querySelector('.tag').textContent = p.tag;
-  grid.appendChild(a);
+  <footer>
+    Press <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> to open a project
+  </footer>
 
-  fetch(p.check, { cache: 'no-store' })
-    .then((r) => setState(a, r.ok))
-    .catch(() => setState(a, false));
-});
+  <!-- coming soon popup -->
+  <div class="popup-overlay" id="popupOverlay">
+    <div class="popup" role="dialog" aria-modal="true" aria-labelledby="popupTitle">
+      <span class="emoji" id="popupEmoji">🚧</span>
+      <h3 id="popupTitle">Coming Soon</h3>
+      <p id="popupMessage">This project is under construction.<br>Stay tuned for something amazing!</p>
+      <button class="close-btn" id="popupClose">Got it</button>
+    </div>
+  </div>
 
-function setState(card, up) {
-  card.querySelector('.dot').classList.toggle('on', up);
-  card.querySelector('.state').textContent = up ? 'online' : 'unreachable';
-}
+  <script>
+    /* ============================================================
+       1. PROJECT DATA
+       ============================================================ */
+    const PROJECTS = [
+      {
+        name: 'ProtoMind4004',
+        icon: '🔌',
+        href: '/protomind',
+        check: '/protomind/health',
+        desc: 'Interactive schematic canvas (Arduino, ESP32, Pi Pico), circuit simulator, C++ uploader & AI hardware tutor.',
+        tag: 'Ready',
+        soon: false
+      },
+      {
+        name: 'ProtoWeb',
+        icon: '🌐',
+        href: '/protoweb',
+        check: '/protoweb',
+        desc: 'Visual drag-and-drop website builder with section-scoped AI prompting, Code & View modes.',
+        tag: 'Ready',
+        soon: false
+      },
+      {
+        name: 'ProtoGame',
+        icon: '🎮',
+        href: '/protogame/',
+        check: '/protogame/',
+        desc: 'Story-driven 2D platformer game builder with visual level editor, playable physics engine & AI co-pilot.',
+        tag: 'Ready',
+        soon: false
+      },
+      {
+        name: 'ProtoStudios',
+        icon: '🎬',
+        href: '#',
+        check: null,
+        desc: 'AI-powered video & animation studio — storyboards, motion design, and smart editing.',
+        tag: 'Coming Soon',
+        soon: true,
+        emoji: '🎬'
+      },
+      {
+        name: 'ProtoAutomate',
+        icon: '⚙️',
+        href: '#',
+        check: null,
+        desc: 'Visual workflow automation for makers — connect APIs, triggers, and hardware with zero code.',
+        tag: 'Coming Soon',
+        soon: true,
+        emoji: '⚙️'
+      }
+    ];
 
-window.addEventListener('keydown', (e) => {
-  if (e.ctrlKey || e.metaKey || e.altKey) return;
-  const p = PROJECTS[Number(e.key) - 1];
-  if (p) location.href = p.href;
-});
-</script>
+    /* ============================================================
+       2. CARD BUILDER
+       ============================================================ */
+    const grid = document.getElementById('grid');
+    const popupOverlay = document.getElementById('popupOverlay');
+    const popupMessage = document.getElementById('popupMessage');
+    const popupTitle = document.getElementById('popupTitle');
+    const popupEmoji = document.getElementById('popupEmoji');
+    const popupClose = document.getElementById('popupClose');
+
+    PROJECTS.forEach((p) => {
+      const card = document.createElement('a');
+      card.className = 'card' + (p.soon ? ' soon' : '');
+      card.href = p.href;
+
+      if (p.soon) {
+        card.addEventListener('click', (e) => {
+          e.preventDefault();
+          showPopup(p);
+        });
+      }
+
+      card.innerHTML = `
+        <div class="top">
+          <span class="icon-wrap"><span class="icon"></span></span>
+          <h2></h2>
+          <span class="path"></span>
+        </div>
+        <p class="desc"></p>
+        <div class="foot">
+          <span class="dot"></span>
+          <span class="state">${p.soon ? 'coming soon' : 'checking…'}</span>
+          <span class="tag"></span>
+        </div>
+      `;
+
+      card.querySelector('.icon').textContent = p.icon;
+      card.querySelector('h2').textContent = p.name;
+      card.querySelector('.path').textContent = p.soon ? '' : p.href.replace(/\/$/, '');
+      card.querySelector('.desc').textContent = p.desc;
+      card.querySelector('.tag').textContent = p.tag;
+
+      const dot = card.querySelector('.dot');
+      const state = card.querySelector('.state');
+
+      if (p.soon) {
+        dot.style.background = '#e8a33d';
+      } else if (p.check) {
+        fetch(p.check, { cache: 'no-store' })
+          .then((r) => setState(dot, state, r.ok))
+          .catch(() => setState(dot, state, false));
+      } else {
+        setState(dot, state, false);
+      }
+
+      grid.appendChild(card);
+    });
+
+    function setState(dot, stateEl, up) {
+      dot.classList.toggle('on', up);
+      stateEl.textContent = up ? 'online' : 'unreachable';
+    }
+
+    /* ============================================================
+       3. POPUP LOGIC
+       ============================================================ */
+    function showPopup(project) {
+      popupEmoji.textContent = project.emoji || '🚧';
+      popupTitle.textContent = project.name + ' — Coming Soon';
+      popupMessage.innerHTML = `<strong>${project.name}</strong> is under construction.<br>We're working hard to bring it to you!`;
+      popupOverlay.classList.add('active');
+    }
+
+    popupClose.addEventListener('click', () => popupOverlay.classList.remove('active'));
+
+    popupOverlay.addEventListener('click', (e) => {
+      if (e.target === popupOverlay) popupOverlay.classList.remove('active');
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && popupOverlay.classList.contains('active')) {
+        popupOverlay.classList.remove('active');
+      }
+    });
+
+    /* ============================================================
+       4. KEYBOARD SHORTCUTS
+       ============================================================ */
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (popupOverlay.classList.contains('active')) return;
+      const idx = Number(e.key) - 1;
+      const p = PROJECTS[idx];
+      if (p && !p.soon) location.href = p.href;
+    });
+
+    /* ============================================================
+       5. THEME TOGGLE
+       ============================================================ */
+    const themeToggle = document.getElementById('themeToggle');
+    const root = document.documentElement;
+
+    // default = dark (already set via data-theme="dark")
+    // restore saved preference
+    const savedTheme = localStorage.getItem('protomind-theme');
+    if (savedTheme) root.setAttribute('data-theme', savedTheme);
+
+    themeToggle.addEventListener('click', () => {
+      const current = root.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', next);
+      localStorage.setItem('protomind-theme', next);
+      // restart background with new theme
+      BgAnimator.setTheme(next);
+    });
+
+    /* ============================================================
+       6. ANIMATED BACKGROUND
+          • dark  → galaxy with twinkling stars + slow drift
+          • light → liquid blobs with soft dark spots (metaball feel)
+       ============================================================ */
+    const BgAnimator = (() => {
+      const canvas = document.getElementById('bg-canvas');
+      const ctx = canvas.getContext('2d');
+      let theme = root.getAttribute('data-theme');
+      let W, H, dpr;
+      let stars = [];
+      let blobs = [];
+      let raf = null;
+      let t = 0;
+
+      function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width = W + 'px';
+        canvas.style.height = H + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        initScene();
+      }
+
+      function initScene() {
+        if (theme === 'dark') {
+          // ── GALAXY: stars ──
+          const count = Math.floor((W * H) / 4200);
+          stars = [];
+          for (let i = 0; i < count; i++) {
+            stars.push({
+              x: Math.random() * W,
+              y: Math.random() * H,
+              r: Math.random() * 1.5 + 0.3,
+              baseA: Math.random() * 0.6 + 0.2,
+              phase: Math.random() * Math.PI * 2,
+              speed: Math.random() * 0.9 + 0.3,
+              driftX: (Math.random() - 0.5) * 0.06,
+              driftY: (Math.random() - 0.5) * 0.06,
+              hue: Math.random() > 0.7 ? 210 : 200
+            });
+          }
+        } else {
+          // ── LIGHT: liquid blobs ──
+          blobs = [];
+          const blobCount = 7;
+          for (let i = 0; i < blobCount; i++) {
+            blobs.push({
+              x: Math.random() * W,
+              y: Math.random() * H,
+              vx: (Math.random() - 0.5) * 0.25,
+              vy: (Math.random() - 0.5) * 0.25,
+              r: Math.random() * (Math.min(W, H) * 0.22) + Math.min(W, H) * 0.12,
+              phase: Math.random() * Math.PI * 2,
+              hue: 210 + Math.random() * 40,   // blue→violet
+              sat: 55 + Math.random() * 25,
+              light: 55 + Math.random() * 12
+            });
+          }
+        }
+      }
+
+      function drawDark() {
+        // deep space gradient
+        const g = ctx.createRadialGradient(W * 0.5, H * 0.35, 0, W * 0.5, H * 0.35, Math.max(W, H) * 0.9);
+        g.addColorStop(0, '#0c1424');
+        g.addColorStop(0.55, '#070b14');
+        g.addColorStop(1, '#04060c');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+
+        // nebula glow — very subtle
+        const nebula = ctx.createRadialGradient(W * 0.68, H * 0.28, 0, W * 0.68, H * 0.28, Math.max(W, H) * 0.55);
+        nebula.addColorStop(0, 'rgba(70, 110, 200, 0.07)');
+        nebula.addColorStop(0.5, 'rgba(50, 80, 160, 0.035)');
+        nebula.addColorStop(1, 'transparent');
+        ctx.fillStyle = nebula;
+        ctx.fillRect(0, 0, W, H);
+
+        // stars
+        for (const s of stars) {
+          const twinkle = Math.sin(t * s.speed + s.phase) * 0.4 + 0.6;
+          const alpha = s.baseA * twinkle;
+
+          // drift
+          s.x += s.driftX;
+          s.y += s.driftY;
+          if (s.x < -5) s.x = W + 5;
+          if (s.x > W + 5) s.x = -5;
+          if (s.y < -5) s.y = H + 5;
+          if (s.y > H + 5) s.y = -5;
+
+          // glow for bigger stars
+          if (s.r > 1.0) {
+            const glow = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 6);
+            glow.addColorStop(0, `hsla(${s.hue}, 80%, 75%, ${alpha * 0.35})`);
+            glow.addColorStop(1, 'transparent');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r * 6, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          ctx.fillStyle = `hsla(${s.hue}, 70%, ${85 + twinkle * 10}%, ${alpha})`;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // occasional shooting star
+        if (Math.random() < 0.0025 && stars.length) {
+          const sx = Math.random() * W * 0.7;
+          const sy = Math.random() * H * 0.4;
+          ctx.strokeStyle = 'rgba(180, 210, 255, 0.5)';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(sx + 80, sy + 30);
+          ctx.stroke();
+        }
+      }
+
+      function drawLight() {
+        // soft liquid base
+        const base = ctx.createLinearGradient(0, 0, W, H);
+        base.addColorStop(0, '#eef3fa');
+        base.addColorStop(0.5, '#e6eef8');
+        base.addColorStop(1, '#edf2fa');
+        ctx.fillStyle = base;
+        ctx.fillRect(0, 0, W, H);
+
+        // dark spots — little shadow blobs for depth
+        for (let i = 0; i < 4; i++) {
+          const angle = t * 0.12 + i * 1.7;
+          const cx = W * 0.5 + Math.cos(angle) * W * 0.28;
+          const cy = H * 0.5 + Math.sin(angle * 1.2) * H * 0.25;
+          const r = Math.min(W, H) * 0.18 + Math.sin(t * 0.4 + i) * Math.min(W, H) * 0.04;
+          const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+          g.addColorStop(0, 'rgba(30, 55, 100, 0.10)');
+          g.addColorStop(0.6, 'rgba(30, 55, 100, 0.035)');
+          g.addColorStop(1, 'transparent');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // liquid colored blobs
+        for (const b of blobs) {
+          // move
+          b.x += b.vx;
+          b.y += b.vy;
+          // gentle bobbing
+          b.x += Math.sin(t * 0.3 + b.phase) * 0.15;
+          b.y += Math.cos(t * 0.25 + b.phase) * 0.15;
+
+          // wrap
+          if (b.x < -b.r) b.x = W + b.r;
+          if (b.x > W + b.r) b.x = -b.r;
+          if (b.y < -b.r) b.y = H + b.r;
+          if (b.y > H + b.r) b.y = -b.r;
+
+          const wobble = 1 + Math.sin(t * 0.6 + b.phase) * 0.08;
+          const r = b.r * wobble;
+
+          const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
+          g.addColorStop(0, `hsla(${b.hue}, ${b.sat}%, ${b.light}%, 0.28)`);
+          g.addColorStop(0.45, `hsla(${b.hue}, ${b.sat}%, ${b.light}%, 0.14)`);
+          g.addColorStop(1, `hsla(${b.hue}, ${b.sat}%, ${b.light}%, 0)`);
+
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // soft top gloss
+        const gloss = ctx.createLinearGradient(0, 0, 0, H * 0.5);
+        gloss.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+        gloss.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = gloss;
+        ctx.fillRect(0, 0, W, H * 0.5);
+      }
+
+      function loop() {
+        t += 0.016;
+        if (theme === 'dark') drawDark();
+        else drawLight();
+        raf = requestAnimationFrame(loop);
+      }
+
+      function start() {
+        if (raf) cancelAnimationFrame(raf);
+        raf = null;
+        initScene();
+        loop();
+      }
+
+      function setTheme(newTheme) {
+        theme = newTheme;
+        start();
+      }
+
+      // init
+      window.addEventListener('resize', () => {
+        clearTimeout(window.__bgResizeTimer);
+        window.__bgResizeTimer = setTimeout(resize, 150);
+      });
+
+      resize();
+      start();
+
+      return { setTheme };
+    })();
+  </script>
 </body>
 </html>
