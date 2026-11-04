@@ -128,9 +128,16 @@ Given a schematic (components, wires, spiceNetlist, code) or project request, yo
   (If a component does not exist yet, define it with an X or U designator and Pins=... so the build board automatically creates and wires it!)
 4. Generate working Arduino/ESP32/Pico C++ firmware code ("suggestedCode").
 Respond strictly in JSON: { "title": "Project Title", "reply": "explanation text", "spiceNetlist": "* Title\\n...\\n.end", "suggestedCode": "// Full C++ code", "suggestedCircuit": null }`,
-  protoweb: `You are ProtoWeb AI Co-Pilot. You edit ONLY the given HTML section/element.
-Given the selected element's HTML and a user prompt, return JSON: { "html": "the modified HTML for just this element", "explanation": "what you changed and why" }
-Keep inline styles. Do NOT wrap in extra body/html tags. Only return the single element requested.`,
+//   protoweb: `You are ProtoWeb AI Co-Pilot. You edit ONLY the given HTML section/element.
+// Given the selected element's HTML and a user prompt, return JSON: { "html": "the modified HTML for just this element", "explanation": "what you changed and why" }
+// Keep inline styles. Do NOT wrap in extra body/html tags. Only return the single element requested.`,
+  protoweb: `You are ProtoWeb AI Co-Pilot.
+- If context.sectionHtml is provided: return the COMPLETE outer HTML of the modified element (including its opening and closing tag, same tagName as the input) in the "html" field. Do NOT return inner content alone.
+- If context is empty: generate a complete page body starting with <nav> or <section>. No <html>/<head>/<body>.
+Keep all styles inline. include CSS, JS in same output/page. 
+
+CRITICAL OUTPUT FORMAT: Your entire response MUST be a single valid JSON object with exactly two string fields, "html" and "explanation". Do NOT wrap the JSON in markdown code fences. Do NOT include any text before or after the JSON. Escape every double quote inside the HTML with \\" and escape every backslash with \\\\. If you cannot comply, return {"html": "", "explanation": "failed"} rather than raw HTML.`,
+
   protogame: `You are ProtoGame AI Level Designer. Given a story/script prompt and optional existing level data, generate a complete 2D platformer level.
 Return JSON: { "level": { "title":"string", "storyIntro":"string", "theme":{"bg":"#hex","platform":"#hex","accent":"#hex"}, "gravity":1800, "jumpForce":-600, "speed":320, "playerSpawn":{"x":80,"y":500}, "platforms":[{"x":0,"y":580,"w":800,"h":20}], "coins":[{"x":200,"y":500}], "enemies":[{"x":400,"y":560,"patrol":100,"speed":60}], "hazards":[{"x":300,"y":570,"w":40,"h":10}], "npcs":[{"x":600,"y":540,"name":"NPC","dialogue":["Hello!","Good luck!"]}], "portal":{"x":750,"y":540} }, "reply":"what you created" }`
 };
@@ -180,13 +187,23 @@ function ensureDesignStructure(project, result, action, prompt, context, sourceL
   }
 
   if (project === 'protoweb') {
-    if (!result.html || !result.explanation) {
-      logWarn('VALIDATOR', `Response from [${sourceLabel}] for "protoweb" missing html or explanation. Repairing structure.`);
-      const fb = protowebEngine(action, prompt, ctx);
-      result.html = result.html || fb.html;
-      result.explanation = result.explanation || fb.explanation;
+    // NO FALLBACK. If the LLM didn't produce usable html, that's a hard error.
+    // We only normalize whitespace; we never substitute generated content.
+    const html = result.html == null ? '' : String(result.html).trim();
+    const explanation = result.explanation == null ? '' : String(result.explanation).trim();
+
+    if (!html) {
+      logError('VALIDATOR', `Response from [${sourceLabel}] for "protoweb" has no html field (or it's empty). Rejecting.`);
+      const err = new Error('The AI returned no usable HTML. Try a different prompt or retry.');
+      err.code = 'EMPTY_LLM_OUTPUT';
+      err.source = sourceLabel;
+      throw err;
     }
-    return result;
+
+    return {
+      html,
+      explanation: explanation || '(no explanation provided)'
+    };
   }
 
   if (project === 'protogame') {
@@ -253,6 +270,92 @@ app.get('/api/ai/models', (_req, res) => {
 });
 
 // ── POST /api/ai/meta & /api/ai/meta/:profile — Direct Meta AI Gateway ──────
+// async function handleMetaEndpoint(req, res) {
+//   const profileId = (req.params.profile || req.body?.profile || req.body?.metaProfile || 'smart').toLowerCase();
+//   const profile = META_AI_PROFILES[profileId] || META_AI_PROFILES.smart;
+//   const {
+//     project = 'protomind',
+//     action = 'general',
+//     prompt = '',
+//     system: customSystem,
+//     messages: customMessages,
+//     context = {},
+//     model: modelOverride,
+//     temperature = 0.7
+//   } = req.body || {};
+
+//   const targetModel = modelOverride || profile.model;
+//   logInfo('META-GATEWAY', `Request -> project="${project}" action="${action}" profile="${profile.id}" model="${targetModel}" prompt="${String(prompt).slice(0, 70)}"`);
+
+//   if (!prompt && !action && (!customMessages || !customMessages.length)) {
+//     logError('META-GATEWAY', 'Rejected request: missing prompt, action, and messages.');
+//     return res.status(400).json({ error: 'prompt, action, or messages required' });
+//   }
+
+//   const cfg = getEnvConfig();
+//   const systemPrompts = customSystem
+//     ? { ...SYSTEM_PROMPTS, [project]: customSystem }
+//     : SYSTEM_PROMPTS;
+
+//   let backendError = null;
+
+//   if (!cfg.metaKey && !cfg.openaiKey && !cfg.geminiKey && !cfg.anthropicKey) {
+//     backendError = 'MODEL_API_KEY (or META_API_KEY) is missing or still set to placeholder in .env';
+//     logError('META-GATEWAY', `${backendError}. Using structured local design engine.`);
+//   } else {
+//     try {
+//       const rawResult = await callExternalLLM({
+//         metaKey: cfg.metaKey,
+//         metaBaseUrl: cfg.metaBaseUrl,
+//         metaModel: targetModel,
+//         preferMeta: !!cfg.metaKey,
+//         openaiKey: cfg.openaiKey,
+//         geminiKey: cfg.geminiKey,
+//         anthropicKey: cfg.anthropicKey,
+//         project,
+//         action,
+//         prompt,
+//         context,
+//         customMessages,
+//         temperature,
+//         systemPrompts
+//       });
+
+//       if (rawResult) {
+//         const validated = ensureDesignStructure(project, rawResult, action, prompt, context, `Meta-AI:${targetModel}`);
+//         logInfo('META-GATEWAY', `Success -> model="${targetModel}" returned valid "${project}" design structure.`);
+//         return res.json({
+//           ...validated,
+//           metaProfile: profile.id,
+//           modelUsed: targetModel,
+//           provider: cfg.metaKey ? 'meta' : 'external-llm',
+//           aiError: null
+//         });
+//       }
+//     } catch (e) {
+//       backendError = e.message;
+//       logError('META-GATEWAY', `External LLM call failed for model "${targetModel}" at "${cfg.metaBaseUrl}"`, e.stack || e.message);
+//     }
+//   }
+
+//   // Fallback to structured built-in engine (while reporting the exact backendError in logs & response metadata)
+//   try {
+//     logWarn('FALLBACK', `Executing structured built-in design engine for project="${project}" (Reason: ${backendError})`);
+//     const rawFallback = builtInEngine(project, action, prompt, context);
+//     const validatedFallback = ensureDesignStructure(project, rawFallback, action, prompt, context, 'builtin-engine');
+//     return res.json({
+//       ...validatedFallback,
+//       metaProfile: profile.id,
+//       modelUsed: `${targetModel} (structured-fallback)`,
+//       provider: 'builtin-structured',
+//       aiError: backendError
+//     });
+//   } catch (e) {
+//     logError('FALLBACK', `Critical failure in built-in engine for project="${project}"`, e.stack || e.message);
+//     return res.status(500).json({ error: 'Meta AI and structured fallback failed', detail: e.message, aiError: backendError });
+//   }
+// }
+
 async function handleMetaEndpoint(req, res) {
   const profileId = (req.params.profile || req.body?.profile || req.body?.metaProfile || 'smart').toLowerCase();
   const profile = META_AI_PROFILES[profileId] || META_AI_PROFILES.smart;
@@ -272,7 +375,7 @@ async function handleMetaEndpoint(req, res) {
 
   if (!prompt && !action && (!customMessages || !customMessages.length)) {
     logError('META-GATEWAY', 'Rejected request: missing prompt, action, and messages.');
-    return res.status(400).json({ error: 'prompt, action, or messages required' });
+    return res.status(400).json({ ok: false, error: 'prompt, action, or messages required', code: 'BAD_REQUEST' });
   }
 
   const cfg = getEnvConfig();
@@ -280,62 +383,113 @@ async function handleMetaEndpoint(req, res) {
     ? { ...SYSTEM_PROMPTS, [project]: customSystem }
     : SYSTEM_PROMPTS;
 
-  let backendError = null;
-
+  // ── No API key at all ─────────────────────────────────────────────────────
   if (!cfg.metaKey && !cfg.openaiKey && !cfg.geminiKey && !cfg.anthropicKey) {
-    backendError = 'MODEL_API_KEY (or META_API_KEY) is missing or still set to placeholder in .env';
-    logError('META-GATEWAY', `${backendError}. Using structured local design engine.`);
-  } else {
-    try {
-      const rawResult = await callExternalLLM({
-        metaKey: cfg.metaKey,
-        metaBaseUrl: cfg.metaBaseUrl,
-        metaModel: targetModel,
-        preferMeta: !!cfg.metaKey,
-        openaiKey: cfg.openaiKey,
-        geminiKey: cfg.geminiKey,
-        anthropicKey: cfg.anthropicKey,
-        project,
-        action,
-        prompt,
-        context,
-        customMessages,
-        temperature,
-        systemPrompts
-      });
+    const msg = 'No AI API key configured. Add MODEL_API_KEY (or META_API_KEY) to .env.';
+    logError('META-GATEWAY', msg);
 
-      if (rawResult) {
-        const validated = ensureDesignStructure(project, rawResult, action, prompt, context, `Meta-AI:${targetModel}`);
-        logInfo('META-GATEWAY', `Success -> model="${targetModel}" returned valid "${project}" design structure.`);
+    // protomind still has a genuinely useful deterministic engine (real SPICE + firmware)
+    if (project === 'protomind') {
+      try {
+        logWarn('META-GATEWAY', `Using deterministic engine for "${project}" (no key).`);
+        const rawFallback = builtInEngine(project, action, prompt, context);
+        const validatedFallback = ensureDesignStructure(project, rawFallback, action, prompt, context, 'builtin-engine');
         return res.json({
-          ...validated,
+          ...validatedFallback,
           metaProfile: profile.id,
-          modelUsed: targetModel,
-          provider: cfg.metaKey ? 'meta' : 'external-llm',
-          aiError: null
+          modelUsed: `${targetModel} (deterministic-fallback)`,
+          provider: 'builtin-structured',
+          aiError: msg
         });
+      } catch (e) {
+        logError('META-GATEWAY', 'Deterministic engine failed.', e.stack || e.message);
+        return res.status(500).json({ ok: false, error: 'AI engine failed', detail: e.message, code: 'ENGINE_FAILED' });
       }
-    } catch (e) {
-      backendError = e.message;
-      logError('META-GATEWAY', `External LLM call failed for model "${targetModel}" at "${cfg.metaBaseUrl}"`, e.stack || e.message);
     }
+
+    // protoweb / protogame: hard error. No fake pages.
+    return res.status(503).json({
+      ok: false,
+      error: msg,
+      code: 'NO_API_KEY',
+      project,
+      action
+    });
   }
 
-  // Fallback to structured built-in engine (while reporting the exact backendError in logs & response metadata)
+  // ── Try the real LLM ─────────────────────────────────────────────────────
+  let backendError = null;
   try {
-    logWarn('FALLBACK', `Executing structured built-in design engine for project="${project}" (Reason: ${backendError})`);
+    const rawResult = await callExternalLLM({
+      metaKey: cfg.metaKey,
+      metaBaseUrl: cfg.metaBaseUrl,
+      metaModel: targetModel,
+      preferMeta: !!cfg.metaKey,
+      openaiKey: cfg.openaiKey,
+      geminiKey: cfg.geminiKey,
+      anthropicKey: cfg.anthropicKey,
+      project,
+      action,
+      prompt,
+      context,
+      customMessages,
+      temperature,
+      systemPrompts
+    });
+
+    if (rawResult) {
+      const validated = ensureDesignStructure(project, rawResult, action, prompt, context, `Meta-AI:${targetModel}`);
+      logInfo('META-GATEWAY', `Success -> model="${targetModel}" returned valid "${project}" design structure.`);
+      return res.json({
+        ...validated,
+        metaProfile: profile.id,
+        modelUsed: targetModel,
+        provider: cfg.metaKey ? 'meta' : 'external-llm',
+        aiError: null
+      });
+    }
+
+    backendError = 'The AI provider returned no result.';
+    logError('META-GATEWAY', `External LLM returned null for model "${targetModel}" at "${cfg.metaBaseUrl}".`);
+  } catch (e) {
+    backendError = e.message || 'External LLM call failed';
+    logError('META-GATEWAY', `External LLM call failed for model "${targetModel}" at "${cfg.metaBaseUrl}"`, {
+      message: e.message,
+      code: e.code,
+      finishReason: e.finishReason,
+      stack: (e.stack || '').split('\n').slice(0, 3).join(' | ')
+    });
+  }
+
+  // ── protoweb / protogame: no fallback, return a real error ───────────────
+  if (project === 'protoweb' || project === 'protogame') {
+    logError('META-GATEWAY', `No usable LLM result for "${project}". Returning error to client.`);
+    return res.status(502).json({
+      ok: false,
+      error: backendError,
+      code: 'LLM_FAILED',
+      project,
+      action,
+      modelUsed: targetModel,
+      provider: cfg.metaKey ? 'meta' : 'external-llm'
+    });
+  }
+
+  // ── protomind: deterministic engine is allowed (real SPICE + firmware) ───
+  try {
+    logWarn('META-GATEWAY', `Running deterministic engine for "${project}" (Reason: ${backendError})`);
     const rawFallback = builtInEngine(project, action, prompt, context);
     const validatedFallback = ensureDesignStructure(project, rawFallback, action, prompt, context, 'builtin-engine');
     return res.json({
       ...validatedFallback,
       metaProfile: profile.id,
-      modelUsed: `${targetModel} (structured-fallback)`,
+      modelUsed: `${targetModel} (deterministic-fallback)`,
       provider: 'builtin-structured',
       aiError: backendError
     });
   } catch (e) {
-    logError('FALLBACK', `Critical failure in built-in engine for project="${project}"`, e.stack || e.message);
-    return res.status(500).json({ error: 'Meta AI and structured fallback failed', detail: e.message, aiError: backendError });
+    logError('META-GATEWAY', `Critical failure in deterministic engine for "${project}"`, e.stack || e.message);
+    return res.status(500).json({ ok: false, error: 'AI engine failed', detail: e.message, code: 'ENGINE_FAILED' });
   }
 }
 
@@ -548,6 +702,44 @@ async function callExternalLLM({
     : [{ role: 'system', content: system }, { role: 'user', content: userMsg }];
 
   // ── Meta Model API (Muse) — OpenAI-compatible ─────────────────────────────
+  // async function callMetaMuse() {
+  //   const baseUrl = (metaBaseUrl || process.env.META_BASE_URL || 'https://api.meta.ai/v1').replace(/\/$/, '');
+  //   // The Muse API is OpenAI-compatible; endpoint is /chat/completions
+  //   const url = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`;
+  //   const model = metaModel || process.env.META_MODEL_SMART || 'muse-spark-1.3';
+
+  //   logInfo('MUSE-LLM', `Calling POST ${url} (model="${model}")`);
+  //   const resp = await fetch(url, {
+  //     method: 'POST',
+  //     headers: {
+  //       'Content-Type': 'application/json',
+  //       'Authorization': `Bearer ${metaKey}`
+  //     },
+  //     body: JSON.stringify({
+  //       model,
+  //       messages,
+  //       temperature,
+  //       // Muse supports standard OpenAI-like parameters
+  //       max_tokens: 4096
+  //     })
+  //   });
+
+  //   if (!resp.ok) {
+  //     const errBody = await resp.text().catch(() => '(could not read response body)');
+  //     logError('MUSE-LLM', `HTTP ${resp.status} ${resp.statusText} from ${url}`, errBody);
+  //     throw new Error(`Meta Model API HTTP ${resp.status}: ${errBody.slice(0, 300)}`);
+  //   }
+
+  //   const data = await resp.json();
+  //   // Muse returns OpenAI-compatible response: choices[0].message.content
+  //   const text = data.choices?.[0]?.message?.content || data.output?.[0]?.content?.[0]?.text || '';
+  //   if (!text) {
+  //     logError('MUSE-LLM', 'Meta Model API returned HTTP 200 but empty message content', JSON.stringify(data).slice(0, 300));
+  //     throw new Error('Meta Model API returned an empty completion');
+  //   }
+  //   return parseAIResponse(text, 'MUSE-LLM');
+  // }
+
   async function callMetaMuse() {
     const baseUrl = (metaBaseUrl || process.env.META_BASE_URL || 'https://api.meta.ai/v1').replace(/\/$/, '');
     // The Muse API is OpenAI-compatible; endpoint is /chat/completions
@@ -555,20 +747,37 @@ async function callExternalLLM({
     const model = metaModel || process.env.META_MODEL_SMART || 'muse-spark-1.3';
 
     logInfo('MUSE-LLM', `Calling POST ${url} (model="${model}")`);
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${metaKey}`
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature,
-        // Muse supports standard OpenAI-like parameters
-        max_tokens: 4096
-      })
-    });
+
+    let resp;
+    try {
+      resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${metaKey}`
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature,
+          max_tokens: 8192
+        })
+      });
+    } catch (e) {
+      // Network-level failure: DNS, TCP, TLS, proxy, or timeout.
+      // `e.message` is always the generic "fetch failed"; the useful detail is in e.cause.
+      const c = e.cause || {};
+      logError('MUSE-LLM', `Network error reaching ${url}`, {
+        message: e.message,
+        code: c.code,             // ENOTFOUND | ECONNREFUSED | ETIMEDOUT | CERT_HAS_EXPIRED | UND_ERR_CONNECT_TIMEOUT ...
+        errno: c.errno,
+        syscall: c.syscall,       // getaddrinfo | connect | read
+        hostname: c.hostname,
+        address: c.address,
+        port: c.port
+      });
+      throw new Error(`Network error reaching ${url}: ${c.code || e.message}`);
+    }
 
     if (!resp.ok) {
       const errBody = await resp.text().catch(() => '(could not read response body)');
@@ -576,12 +785,27 @@ async function callExternalLLM({
       throw new Error(`Meta Model API HTTP ${resp.status}: ${errBody.slice(0, 300)}`);
     }
 
-    const data = await resp.json();
+        const data = await resp.json();
     // Muse returns OpenAI-compatible response: choices[0].message.content
     const text = data.choices?.[0]?.message?.content || data.output?.[0]?.content?.[0]?.text || '';
+
+    // Log everything useful about an empty completion — the finish_reason
+    // tells us WHY it was empty (length = hit max_tokens, content_filter = blocked,
+    // stop = empty stop, etc). This matters for diagnosis.
     if (!text) {
-      logError('MUSE-LLM', 'Meta Model API returned HTTP 200 but empty message content', JSON.stringify(data).slice(0, 300));
-      throw new Error('Meta Model API returned an empty completion');
+      const choice = data.choices?.[0];
+      logError('MUSE-LLM', 'Meta Model API returned HTTP 200 but empty message content', {
+        finish_reason: choice?.finish_reason,
+        stop_reason: data.stop_reason,
+        usage: data.usage,
+        first_400_chars_of_raw: JSON.stringify(data).slice(0, 400)
+      });
+      // Most common cause with Muse: the model spent its whole token budget on
+      // reasoning and returned no content. Bump max_tokens to fix it.
+      const err = new Error('Muse returned an empty response. Increase max_tokens or retry.');
+      err.code = 'EMPTY_COMPLETION';
+      err.finishReason = choice?.finish_reason;
+      throw err;
     }
     return parseAIResponse(text, 'MUSE-LLM');
   }
@@ -658,19 +882,147 @@ async function callExternalLLM({
   return null;
 }
 
+// function parseAIResponse(text, providerTag = 'LLM') {
+//   const jsonMatch = text.match(/\{[\s\S]*\}/);
+//   if (jsonMatch) {
+//     try {
+//       return JSON.parse(jsonMatch[0]);
+//     } catch (e) {
+//       logError(providerTag, 'Failed to JSON.parse extracted braces from AI output; returning raw text in reply field.', e.message);
+//     }
+//   } else {
+//     logWarn(providerTag, 'AI response did not contain a JSON object block; wrapping plain text reply.');
+//   }
+//   return { reply: text };
+// }
+
+
+// function parseAIResponse(text, providerTag = 'LLM') {
+//   const raw = String(text || '').trim();
+
+//   // 1. Strip a single markdown fence if the whole response is wrapped
+//   const stripFence = (s) => s.replace(/^```[a-zA-Z]*\s*\n?/, '').replace(/\n?```\s*$/, '').trim();
+
+//   // 2. Direct JSON object somewhere in the text
+//   const jsonMatch = raw.match(/\{[\s\S]*\}/);
+//   if (jsonMatch) {
+//     try {
+//       const parsed = JSON.parse(jsonMatch[0]);
+//       if (parsed && typeof parsed === 'object') return parsed;
+//     } catch (e) {
+//       logWarn(providerTag, `First JSON parse failed, attempting fence-stripped retry: ${e.message}`);
+//       try {
+//         const parsed2 = JSON.parse(stripFence(jsonMatch[0]));
+//         if (parsed2 && typeof parsed2 === 'object') return parsed2;
+//       } catch (e2) {
+//         logError(providerTag, 'JSON.parse failed after fence strip', e2.message);
+//       }
+//     }
+//   }
+
+//   // 3. Markdown-fenced HTML block → wrap as { html, explanation }
+//   const htmlFence = raw.match(/```(?:html|HTML)?\s*\n([\s\S]*?)\n```/);
+//   if (htmlFence) {
+//     const inner = htmlFence[1].trim();
+//     if (inner && /<\w+[\s>]/.test(inner)) {
+//       logInfo(providerTag, 'Extracted HTML from markdown fence; wrapping as { html, explanation }.');
+//       return {
+//         html: inner,
+//         explanation: 'Model returned a markdown-fenced HTML block; extracted and wrapped it.'
+//       };
+//     }
+//   }
+
+//   // 4. Raw text that looks like HTML (starts with a tag, no fence)
+//   const stripped = stripFence(raw);
+//   if (/^\s*<(nav|header|section|main|div|body|html)\b/i.test(stripped)) {
+//     logInfo(providerTag, 'Response looks like raw HTML; wrapping as { html, explanation }.');
+//     return {
+//       html: stripped,
+//       explanation: 'Model returned raw HTML; wrapped as an HTML page.'
+//     };
+//   }
+
+//   // 5. Nothing usable — let the validator's repair path take over
+//   logWarn(providerTag, 'AI response did not contain JSON or HTML; wrapping plain text reply.');
+//   return { reply: raw };
+// }
+
 function parseAIResponse(text, providerTag = 'LLM') {
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  const raw = String(text || '').trim();
+  if (!raw) {
+    logWarn(providerTag, 'AI returned empty text');
+    return { reply: '' };
+  }
+
+  // ── 1. Direct JSON object ─────────────────────────────────────────────
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     try {
-      return JSON.parse(jsonMatch[0]);
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed;
+      }
     } catch (e) {
-      logError(providerTag, 'Failed to JSON.parse extracted braces from AI output; returning raw text in reply field.', e.message);
+      logWarn(providerTag, `JSON parse of top-level object failed: ${e.message}`);
+      // Try fence-stripped variant before falling through
+      try {
+        const stripped = jsonMatch[0].replace(/^```[a-zA-Z]*\s*\n?/, '').replace(/\n?```\s*$/, '').trim();
+        const parsed = JSON.parse(stripped);
+        if (parsed && typeof parsed === 'object') return parsed;
+      } catch (_) { /* fall through */ }
     }
-  } else {
-    logWarn(providerTag, 'AI response did not contain a JSON object block; wrapping plain text reply.');
   }
-  return { reply: text };
+
+  // ── 2. Markdown-fenced JSON anywhere in the text ──────────────────────
+  const jsonFence = raw.match(/```(?:json|JSON)\s*\n([\s\S]*?)\n```/);
+  if (jsonFence) {
+    try {
+      const parsed = JSON.parse(jsonFence[1].trim());
+      if (parsed && typeof parsed === 'object') {
+        logInfo(providerTag, 'Extracted JSON from ```json fence');
+        return parsed;
+      }
+    } catch (_) { /* fall through */ }
+  }
+
+  // ── 3. Markdown-fenced HTML block ─────────────────────────────────────
+  const htmlFence = raw.match(/```(?:html|HTML)?\s*\n?([\s\S]*?)\n?```/);
+  if (htmlFence) {
+    const inner = htmlFence[1].trim();
+    if (inner && /<[a-zA-Z]/.test(inner)) {
+      logInfo(providerTag, 'Extracted HTML from markdown fence');
+      return {
+        html: inner,
+        explanation: 'Model returned a markdown-fenced HTML block; extracted and wrapped it.'
+      };
+    }
+  }
+
+  // ── 4. Find the FIRST HTML tag ANYWHERE in the text (not just at start)
+  //    This is the critical fix: Muse prepends prose, so we must search
+  //    for the first <nav|section|div|header|main|body|html|!DOCTYPE> and
+  //    take everything from there onward.
+  const firstTagIdx = raw.search(/<(!doctype\s+html|html|head|body|nav|header|main|section|div|article|footer)\b/i);
+  if (firstTagIdx !== -1) {
+    let candidate = raw.slice(firstTagIdx).trim();
+    // Trim trailing fences/prose after the closing tag
+    candidate = candidate.replace(/\n?```[\s\S]*$/, '').trim();
+    // If it starts with <!DOCTYPE or <html>, that's a full doc — keep as-is
+    if (candidate && /<[a-zA-Z]/.test(candidate)) {
+      logInfo(providerTag, `Extracted HTML starting at index ${firstTagIdx} (preceded by ${firstTagIdx} chars of prose)`);
+      return {
+        html: candidate,
+        explanation: 'Model returned HTML mixed with prose; extracted the HTML portion.'
+      };
+    }
+  }
+
+  // ── 5. Nothing usable ─────────────────────────────────────────────────
+  logWarn(providerTag, `Could not extract JSON or HTML. First 200 chars: ${raw.slice(0, 200)}`);
+  return { reply: raw };
 }
+
 
 // ── Built-in deterministic AI synthesis engine ──────────────────────────────
 function builtInEngine(project, action, prompt, context) {
@@ -1251,9 +1603,17 @@ function howToWirePicoServo() {
 
 // ── ProtoWeb built-in engine ────────────────────────────────────────────────
 function protowebEngine(action, prompt, ctx) {
-  const html = ctx.sectionHtml || ctx.html || '<div>Empty</div>';
+  const isFullPage = !ctx.sectionHtml && !ctx.html;
+  if (isFullPage) {
+    return {
+      html: generateFullPageFallback(prompt),
+      explanation: 'Generated a complete landing page layout.'
+    };
+  }
+  const outerHtml = ctx.sectionHtml || ctx.html;
   const tagName = (ctx.tagName || 'SECTION').toLowerCase();
   const lp = (prompt || '').toLowerCase();
+  const wrap = (inner) => `<${tagName}>${inner}</${tagName}>`;
 
   if (lp.includes('dark') || lp.includes('glassmorphism')) {
     const modified = html
@@ -1266,42 +1626,70 @@ function protowebEngine(action, prompt, ctx) {
       new RegExp(`<${tagName}`, 'i'),
       `<${tagName} style="backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);"`
     );
+    // return {
+    //   html: withGlass.includes('backdrop-filter') ? withGlass : modified,
+    //   explanation: '🌙 Applied dark glassmorphism theme: dark slate background with blur effect, light text, subtle borders, and rounded corners.'
+    // };
     return {
-      html: withGlass.includes('backdrop-filter') ? withGlass : modified,
-      explanation: '🌙 Applied dark glassmorphism theme: dark slate background with blur effect, light text, subtle borders, and rounded corners.'
+      html: `<${tagName} style="padding: 48px 32px; background: linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.9)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.12); border-radius: 18px; box-shadow: 0 20px 40px rgba(0,0,0,0.35); color: #e2e8f0;"><h2 style="font-size: 28px; font-weight: 800; margin: 0 0 12px 0; color: #fff;">Dark Glassmorphic Section</h2><p style="color: #94a3b8; font-size: 15px; line-height: 1.6; margin: 0;">Frosted translucent panel with deep ambient shadows.</p></${tagName}>`,
+      explanation: '🌙 Applied dark glassmorphism: frosted panel with blur, subtle borders, rounded corners.'
     };
   }
 
-  if (lp.includes('card') || lp.includes('feature') || lp.includes('3-column') || lp.includes('three column')) {
+//   if (lp.includes('card') || lp.includes('feature') || lp.includes('3-column') || lp.includes('three column')) {
+//     return {
+//       html: wrap(`<section style="padding: 64px 32px; background-color: #f8fafc;">
+//   <h2 style="text-align: center; font-size: 28px; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">Features</h2>
+//   <p style="text-align: center; font-size: 16px; color: #64748b; margin: 0 0 40px 0;">Everything you need to build amazing things</p>
+//   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; max-width: 960px; margin: 0 auto;">
+//     <div style="padding: 28px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(15,23,42,0.06);">
+//       <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;">⚡</div>
+//       <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">Lightning Fast</h3>
+//       <p style="font-size: 14px; color: #64748b; margin: 0; line-height: 1.6;">Optimized performance that loads in milliseconds. Your users won't wait.</p>
+//     </div>
+//     <div style="padding: 28px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(15,23,42,0.06);">
+//       <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #06b6d4, #0ea5e9); display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;">🎨</div>
+//       <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">Beautiful Design</h3>
+//       <p style="font-size: 14px; color: #64748b; margin: 0; line-height: 1.6;">Crafted with attention to every pixel. Modern, clean, and professional.</p>
+//     </div>
+//     <div style="padding: 28px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(15,23,42,0.06);">
+//       <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #f59e0b, #ef4444); display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;">🔒</div>
+//       <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">Secure & Reliable</h3>
+//       <p style="font-size: 14px; color: #64748b; margin: 0; line-height: 1.6;">Enterprise-grade security and 99.9% uptime. Built to scale.</p>
+//     </div>
+//   </div>
+// </section>`),
+//       explanation: '🃏 Created a 3-column feature cards section with gradient icons, clean typography, and subtle shadows.'
+//     };
+//   }
+
+
+  if (lp.includes('card') || lp.includes('feature') || lp.includes('3-column')) {
     return {
-      html: `<section style="padding: 64px 32px; background-color: #f8fafc;">
-  <h2 style="text-align: center; font-size: 28px; font-weight: 800; color: #0f172a; margin: 0 0 12px 0;">Features</h2>
-  <p style="text-align: center; font-size: 16px; color: #64748b; margin: 0 0 40px 0;">Everything you need to build amazing things</p>
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; max-width: 960px; margin: 0 auto;">
-    <div style="padding: 28px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(15,23,42,0.06);">
-      <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;">⚡</div>
-      <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">Lightning Fast</h3>
-      <p style="font-size: 14px; color: #64748b; margin: 0; line-height: 1.6;">Optimized performance that loads in milliseconds. Your users won't wait.</p>
-    </div>
-    <div style="padding: 28px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(15,23,42,0.06);">
-      <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #06b6d4, #0ea5e9); display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;">🎨</div>
-      <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">Beautiful Design</h3>
-      <p style="font-size: 14px; color: #64748b; margin: 0; line-height: 1.6;">Crafted with attention to every pixel. Modern, clean, and professional.</p>
-    </div>
-    <div style="padding: 28px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(15,23,42,0.06);">
-      <div style="width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #f59e0b, #ef4444); display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 16px;">🔒</div>
-      <h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">Secure & Reliable</h3>
-      <p style="font-size: 14px; color: #64748b; margin: 0; line-height: 1.6;">Enterprise-grade security and 99.9% uptime. Built to scale.</p>
-    </div>
-  </div>
-</section>`,
-      explanation: '🃏 Created a 3-column feature cards section with gradient icons, clean typography, and subtle shadows.'
+      html: wrap(`<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; padding: 32px; background: #0f172a; color: #fff;">
+        <div style="padding: 24px; background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;"><h3 style="margin: 0 0 8px; color: #fff;">Lightning Fast</h3><p style="color: #94a3b8; margin: 0;">Optimized performance.</p></div>
+        <div style="padding: 24px; background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;"><h3 style="margin: 0 0 8px; color: #fff;">Beautiful Design</h3><p style="color: #94a3b8; margin: 0;">Crafted with care.</p></div>
+        <div style="padding: 24px; background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;"><h3 style="margin: 0 0 8px; color: #fff;">Secure & Reliable</h3><p style="color: #94a3b8; margin: 0;">99.9% uptime.</p></div>
+      </div>`),
+      explanation: '🃏 Created a 3-column feature cards section.'
     };
   }
+
+
+  // if (lp.includes('card') || lp.includes('feature') || lp.includes('3-column')) {
+  //   return {
+  //     html: wrap(`<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; padding: 32px; background: #0f172a; color: #fff;">
+  //       <div style="padding: 24px; background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;"><h3 style="margin: 0 0 8px; color: #fff;">Lightning Fast</h3><p style="color: #94a3b8; margin: 0;">Optimized performance.</p></div>
+  //       <div style="padding: 24px; background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;"><h3 style="margin: 0 0 8px; color: #fff;">Beautiful Design</h3><p style="color: #94a3b8; margin: 0;">Crafted with care.</p></div>
+  //       <div style="padding: 24px; background: rgba(30,41,59,0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;"><h3 style="margin: 0 0 8px; color: #fff;">Secure & Reliable</h3><p style="color: #94a3b8; margin: 0;">99.9% uptime.</p></div>
+  //     </div>`),
+  //     explanation: '🃏 Created a 3-column feature cards section.'
+  //   };
+  // }
 
   if (lp.includes('pricing')) {
     return {
-      html: `<section style="padding: 64px 32px; background: linear-gradient(180deg, #f8fafc, #eef2ff);">
+      html: wrap(`<section style="padding: 64px 32px; background: linear-gradient(180deg, #f8fafc, #eef2ff);">
   <h2 style="text-align: center; font-size: 32px; font-weight: 800; color: #0f172a; margin: 0 0 8px 0;">Simple Pricing</h2>
   <p style="text-align: center; color: #64748b; margin: 0 0 40px 0;">No hidden fees. Cancel anytime.</p>
   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; max-width: 800px; margin: 0 auto;">
@@ -1319,7 +1707,7 @@ function protowebEngine(action, prompt, ctx) {
       <button style="width: 100%; padding: 12px; background: white; color: #4f46e5; border: none; border-radius: 10px; font-weight: 600; cursor: pointer;">Get Started</button>
     </div>
   </div>
-</section>`,
+</section>`),
       explanation: '💰 Created a pricing section with Starter and Pro tiers, highlighted popular plan, and call-to-action buttons.'
     };
   }
@@ -1329,7 +1717,7 @@ function protowebEngine(action, prompt, ctx) {
       .replace(/display:\s*(block|inline-block|grid)/gi, 'display: flex')
       .replace(/(style=")/i, '$1display: flex; flex-wrap: wrap; gap: 16px; ');
     return {
-      html: modified,
+      html: wrap(modified),
       explanation: '📱 Converted layout to flex with wrap for mobile-friendly responsiveness. Elements will stack on smaller screens.'
     };
   }
@@ -1345,7 +1733,7 @@ function protowebEngine(action, prompt, ctx) {
         return `font-weight: ${Math.min(w + 100, 900)}`;
       });
     return {
-      html: modified,
+      html: wrap(modified),
       explanation: '✨ Polished typography: increased font sizes by 10% and bumped font weights for stronger visual hierarchy.'
     };
   }
@@ -1507,6 +1895,32 @@ function protogameEngine(action, prompt, ctx) {
     reply: `🎮 Generated "${title}"!\n\n${storyIntro}\n\n📊 Level stats: ${platforms.length} platforms, ${coins.length} coins, ${enemies.length} enemies, ${hazards.length} hazards, ${npcs.length} NPCs.\nSwitch to Play Mode to try it out!`
   };
 }
+
+function generateFullPageFallback(prompt) {
+  const lp = (prompt || '').toLowerCase();
+
+  if (lp.includes('cyberpunk') || lp.includes('developer') || lp.includes('terminal')) {
+    return `<nav style="display:flex;align-items:center;justify-content:space-between;padding:20px 40px;background:rgba(10,15,30,0.92);border-bottom:1px solid rgba(99,102,241,0.2);"><div style="display:flex;align-items:center;gap:12px;"><div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#06b6d4,#6366f1);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;">⚡</div><span style="font-size:20px;font-weight:800;color:#fff;">Synapse.ai</span></div><button style="padding:10px 20px;background:linear-gradient(135deg,#06b6d4,#6366f1);color:#fff;font-weight:700;border:none;border-radius:8px;">Launch Console</button></nav>
+<section style="padding:80px 32px;background:radial-gradient(circle at top,#1e1b4b 0%,#050816 70%);text-align:center;color:#fff;"><div style="max-width:820px;margin:0 auto;"><h1 style="font-size:52px;font-weight:800;line-height:1.1;margin:0 0 20px;color:#fff;">Autonomous AI Infrastructure for Modern Developers</h1><p style="font-size:18px;color:#94a3b8;line-height:1.6;margin:0 0 32px;">Deploy distributed reasoning clusters and stream tokens at zero latency.</p><button style="padding:14px 28px;background:linear-gradient(135deg,#06b6d4,#6366f1);color:#fff;font-weight:700;border:none;border-radius:12px;">Get API Keys Free</button></div></section>`;
+  }
+
+  if (lp.includes('portfolio') || lp.includes('creator') || lp.includes('design')) {
+    return `<nav style="display:flex;align-items:center;justify-content:space-between;padding:24px 48px;background:#fff;border-bottom:1px solid #f1f5f9;"><span style="font-size:18px;font-weight:800;color:#0f172a;">AURA STUDIO</span><div style="display:flex;gap:32px;font-size:14px;color:#64748b;"><a href="#" style="color:#0f172a;text-decoration:none;">Work</a><a href="#" style="color:#64748b;text-decoration:none;">About</a><a href="#" style="color:#64748b;text-decoration:none;">Contact</a></div></nav>
+<section style="padding:96px 48px;background:#fafafa;"><div style="max-width:900px;margin:0 auto;"><span style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#6366f1;">Independent Creative Direction</span><h1 style="font-size:56px;font-weight:800;color:#0f172a;line-height:1.1;margin:16px 0 24px;">Sculpting iconic digital identities.</h1><p style="font-size:20px;color:#64748b;line-height:1.6;max-width:680px;">Partnering with ambitious brands to craft unforgettable digital experiences.</p><button style="padding:14px 28px;background:#0f172a;color:#fff;font-weight:600;border:none;border-radius:999px;margin-top:24px;">Start a Project</button></div></section>`;
+  }
+
+  if (lp.includes('fintech') || lp.includes('finance') || lp.includes('banking') || lp.includes('app')) {
+    return `<nav style="display:flex;align-items:center;justify-content:space-between;padding:20px 48px;background:rgba(15,23,42,0.9);border-bottom:1px solid rgba(255,255,255,0.08);"><span style="font-size:20px;font-weight:800;color:#fff;">VaultPay</span><button style="padding:10px 22px;background:linear-gradient(135deg,#10b981,#06b6d4);color:#fff;font-weight:600;border:none;border-radius:10px;">Download App</button></nav>
+<section style="padding:84px 32px;background:radial-gradient(circle at 50% 0%,#064e3b 0%,#022c22 40%,#0f172a 80%);text-align:center;color:#fff;"><div style="max-width:840px;margin:0 auto;"><h1 style="font-size:52px;font-weight:800;line-height:1.15;margin:0 0 20px;color:#fff;">Smarter borders. Instant global settlement.</h1><p style="font-size:18px;color:#94a3b8;line-height:1.6;margin:0 0 36px;">Spend in 40+ currencies at real-time interbank rates.</p><button style="padding:14px 28px;background:linear-gradient(135deg,#10b981,#06b6d4);color:#fff;font-weight:700;border:none;border-radius:12px;">Open Free Account →</button></div></section>`;
+  }
+
+  // Default: modern SaaS landing page
+  return `<nav style="display:flex;align-items:center;justify-content:space-between;padding:20px 48px;background:rgba(15,23,42,0.85);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.08);"><div style="display:flex;align-items:center;gap:12px;"><div style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#a855f7);display:flex;align-items:center;justify-content:center;color:#fff;">✨</div><span style="font-size:20px;font-weight:800;color:#fff;">ProtoSphere</span></div><button style="padding:10px 22px;background:linear-gradient(135deg,#6366f1,#ec4899);color:#fff;font-weight:600;border:none;border-radius:10px;">Start Free Trial</button></nav>
+<section style="padding:88px 32px 72px;background:radial-gradient(circle at 50% 0%,#1e1b4b 0%,#0f172a 75%);text-align:center;color:#fff;"><div style="max-width:820px;margin:0 auto;"><h1 style="font-size:52px;font-weight:800;line-height:1.15;margin:0 0 22px;color:#fff;">Build and scale web products with autonomous AI agility</h1><p style="font-size:18px;color:#94a3b8;line-height:1.6;max-width:660px;margin:0 auto 36px;">Drag components visually, leverage section-level AI co-pilots, and deploy production-ready semantic HTML.</p><div style="display:flex;justify-content:center;gap:14px;flex-wrap:wrap;"><input type="email" placeholder="Enter your work email" style="padding:14px 20px;font-size:15px;border:1px solid rgba(255,255,255,0.15);border-radius:12px;width:300px;background:rgba(15,23,42,0.8);color:#fff;" /><button style="padding:14px 30px;font-size:15px;font-weight:700;background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;border:none;border-radius:12px;">Get Instant Access →</button></div></div></section>
+<section style="padding:64px 32px;background:#0f172a;color:#fff;"><div style="max-width:980px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;"><div style="padding:32px;background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:18px;"><div style="font-size:24px;margin-bottom:16px;">⚡</div><h3 style="font-size:19px;font-weight:700;margin:0 0 10px;">Visual Drag & Drop</h3><p style="font-size:14px;color:#94a3b8;line-height:1.6;margin:0;">Drop nested containers and typography directly onto the canvas.</p></div><div style="padding:32px;background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:18px;"><div style="font-size:24px;margin-bottom:16px;">🤖</div><h3 style="font-size:19px;font-weight:700;margin:0 0 10px;">Section Co-Pilot</h3><p style="font-size:14px;color:#94a3b8;line-height:1.6;margin:0;">Select any element and describe your change.</p></div><div style="padding:32px;background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:18px;"><div style="font-size:24px;margin-bottom:16px;">✨</div><h3 style="font-size:19px;font-weight:700;margin:0 0 10px;">Two-Way Code Sync</h3><p style="font-size:14px;color:#94a3b8;line-height:1.6;margin:0;">Edit raw HTML anytime or export clean markup.</p></div></div></section>
+<footer style="padding:40px 32px;background:#0b1120;border-top:1px solid rgba(255,255,255,0.06);text-align:center;color:#64748b;font-size:13px;">© 2026 ProtoSphere Studio. Generated with Muse AI.</footer>`;
+}
+
 
 app.use(express.static(path.join(__dirname, 'public'))); // hub, last so it never shadows a project
 

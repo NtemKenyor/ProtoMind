@@ -1753,39 +1753,63 @@
     /*************************************************************************
      * 7b. SECTION-TARGETED AI CO-PILOT ACTIONS & LOCALIZED POPOVER
      *************************************************************************/
+    // function positionAiPopoverNearSelected() {
+    //   const popover = document.getElementById('ai-floating-popover');
+    //   const target = state.selectedEl;
+    //   if (!popover || !target || !canvasRoot.contains(target)) return;
+
+    //   const mainEl = popover.offsetParent || document.querySelector('main');
+    //   const mainRect = mainEl.getBoundingClientRect();
+    //   const targetRect = target.getBoundingClientRect();
+
+    //   // Desired width of the floating popover
+    //   const popWidth = Math.min(384, mainRect.width - 24);
+
+    //   // Center horizontally relative to target element, clamped within main workspace
+    //   let left = (targetRect.left - mainRect.left) + (targetRect.width / 2) - (popWidth / 2);
+    //   left = Math.max(12, Math.min(left, mainRect.width - popWidth - 12));
+
+    //   // Calculate vertical placement
+    //   const popHeight = popover.offsetHeight || 290;
+    //   let top = (targetRect.bottom - mainRect.top) + 10;
+
+    //   // If overflowing bottom edge of main workspace, place above target element
+    //   if (top + popHeight > mainRect.height - 12) {
+    //     const aboveTop = (targetRect.top - mainRect.top) - popHeight - 10;
+    //     if (aboveTop >= 12) {
+    //       top = aboveTop;
+    //     } else {
+    //       top = Math.max(12, mainRect.height - popHeight - 12);
+    //     }
+    //   }
+
+    //   popover.style.left = `${Math.round(left)}px`;
+    //   popover.style.top = `${Math.round(top)}px`;
+    //   popover.style.transform = 'none';
+    // }
+
     function positionAiPopoverNearSelected() {
       const popover = document.getElementById('ai-floating-popover');
       const target = state.selectedEl;
       if (!popover || !target || !canvasRoot.contains(target)) return;
 
-      const mainEl = popover.offsetParent || document.querySelector('main');
-      const mainRect = mainEl.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-
-      // Desired width of the floating popover
-      const popWidth = Math.min(384, mainRect.width - 24);
-
-      // Center horizontally relative to target element, clamped within main workspace
-      let left = (targetRect.left - mainRect.left) + (targetRect.width / 2) - (popWidth / 2);
-      left = Math.max(12, Math.min(left, mainRect.width - popWidth - 12));
-
-      // Calculate vertical placement
-      const popHeight = popover.offsetHeight || 290;
-      let top = (targetRect.bottom - mainRect.top) + 10;
-
-      // If overflowing bottom edge of main workspace, place above target element
-      if (top + popHeight > mainRect.height - 12) {
-        const aboveTop = (targetRect.top - mainRect.top) - popHeight - 10;
-        if (aboveTop >= 12) {
-          top = aboveTop;
-        } else {
-          top = Math.max(12, mainRect.height - popHeight - 12);
+      requestAnimationFrame(() => {
+        const mainEl = popover.offsetParent || document.querySelector('main');
+        const mainRect = mainEl.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        const popWidth = Math.min(384, mainRect.width - 24);
+        let left = (targetRect.left - mainRect.left) + (targetRect.width / 2) - (popWidth / 2);
+        left = Math.max(12, Math.min(left, mainRect.width - popWidth - 12));
+        const popHeight = popover.offsetHeight || 290;
+        let top = (targetRect.bottom - mainRect.top) + 10;
+        if (top + popHeight > mainRect.height - 12) {
+          const aboveTop = (targetRect.top - mainRect.top) - popHeight - 10;
+          top = aboveTop >= 12 ? aboveTop : Math.max(12, mainRect.height - popHeight - 12);
         }
-      }
-
-      popover.style.left = `${Math.round(left)}px`;
-      popover.style.top = `${Math.round(top)}px`;
-      popover.style.transform = 'none';
+        popover.style.left = `${Math.round(left)}px`;
+        popover.style.top = `${Math.round(top)}px`;
+        popover.style.transform = 'none';
+      });
     }
 
     document.getElementById('act-ai-prompt')?.addEventListener('click', (e) => {
@@ -1839,7 +1863,20 @@
     // ---- Server AI bridge: POST /api/ai with project "protoweb" (see api_docs.md) ----
     // Real LLM calls take many seconds. The server enforces its own upstream timeout (AI_TIMEOUT_MS,
     // default 60s) and then answers with a fallback, so the client waits a bit longer than that.
-    const AI_CLIENT_TIMEOUT_MS = 90000;
+
+
+    const AI_CLIENT_TIMEOUT_MS = 120000; // 2 min: Muse can take 60-90s on complex pages
+
+    class ProtoWebAIError extends Error {
+      constructor(message, { code, status, project, modelUsed } = {}) {
+        super(message);
+        this.name = 'ProtoWebAIError';
+        this.code = code || 'UNKNOWN';
+        this.status = status || 0;
+        this.project = project;
+        this.modelUsed = modelUsed;
+      }
+    }
 
     async function callProtoWebAI(prompt, context, externalSignal) {
       const controller = new AbortController();
@@ -1848,136 +1885,204 @@
         if (externalSignal.aborted) controller.abort();
         else externalSignal.addEventListener('abort', () => controller.abort(), { once: true });
       }
+
       try {
+        const isFullPage = !context || Object.keys(context).length === 0;
         const res = await fetch('/api/ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: controller.signal,
-          body: JSON.stringify({ project: 'protoweb', action: 'general', prompt, context })
+          body: JSON.stringify({
+            project: 'protoweb',
+            action: isFullPage ? 'generate-page' : 'edit-section',
+            prompt,
+            metaProfile: 'smart',
+            context: context || {}
+          })
         });
+
         let data = null;
-        try { data = await res.json(); } catch (_) { /* body was not JSON */ }
-        if (!res.ok) throw new Error((data && data.error) || `server returned HTTP ${res.status}`);
-        return data || {};
+        try { data = await res.json(); } catch (_) { /* body not JSON */ }
+
+        if (!res.ok) {
+          const msg = (data && (data.error || data.detail)) || `Server returned HTTP ${res.status}`;
+          throw new ProtoWebAIError(msg, {
+            code: (data && data.code) || 'HTTP_ERROR',
+            status: res.status,
+            project: 'protoweb',
+            modelUsed: data && data.modelUsed
+          });
+        }
+
+        if (!data || typeof data !== 'object') {
+          throw new ProtoWebAIError('Server returned no data', { code: 'NO_DATA', status: res.status });
+        }
+
+        if (!data.html || !String(data.html).trim()) {
+          throw new ProtoWebAIError(
+            (data.aiError ? String(data.aiError) : 'The AI returned an empty page. Try again or reword your prompt.'),
+            { code: 'EMPTY_HTML', status: res.status, modelUsed: data.modelUsed }
+          );
+        }
+
+        return data;
       } catch (err) {
-        if (err.name === 'AbortError') throw new Error(externalSignal && externalSignal.aborted ? 'cancelled' : 'request timed out');
-        throw err;
+        if (err.name === 'AbortError') {
+          if (externalSignal && externalSignal.aborted) {
+            throw new ProtoWebAIError('Request cancelled.', { code: 'CANCELLED' });
+          }
+          throw new ProtoWebAIError(
+            'Timed out waiting for the AI (2 min). Try a simpler prompt.',
+            { code: 'TIMEOUT' }
+          );
+        }
+        if (err instanceof ProtoWebAIError) throw err;
+        throw new ProtoWebAIError(err.message || 'Network error', { code: 'NETWORK' });
       } finally {
         clearTimeout(timer);
       }
     }
 
-    // Turns the server's answer into { html, note }. Empty html means "use the built-in templates".
-    // note is a short line for the toast saying who produced the result.
     function unpackAiAnswer(data) {
-      if (!data || data.provider === 'builtin-fallback') {
-        const why = (data && data.aiError ? String(data.aiError) : 'no reason given').slice(0, 90);
-        return { html: '', note: `AI unavailable (${why}), used built-in generator` };
-      }
-      return { html: String(data.html || '').trim(), note: data.modelUsed ? `via ${data.modelUsed}` : '' };
+      // Strict version: the caller must check `data.html` itself.
+      return {
+        html: String((data && data.html) || '').trim(),
+        note: data && data.modelUsed ? `via ${data.modelUsed}` : ''
+      };
     }
 
-    // Mock section generator engine for reliable offline & simulated responses
+    function unpackAiAnswer(data) {
+      if (!data) return { html: '', note: 'empty response from server' };
+      const usedFallback = data.provider === 'builtin-structured' || data.provider === 'builtin-fallback';
+      const why = data.aiError ? String(data.aiError).slice(0, 90) : 'no external AI';
+      const note = usedFallback ? `built-in generator (${why})` : (data.modelUsed ? `via ${data.modelUsed}` : '');
+      return { html: String(data.html || '').trim(), note };
+    }
+
+    function cleanElementOuterHtml(el) {
+      const clone = el.cloneNode(true);
+      const strip = (node) => {
+        node.removeAttribute('data-builder-selected');
+        node.removeAttribute('data-builder-hover');
+        node.removeAttribute('data-drop-position');
+        node.removeAttribute('draggable');
+      };
+      strip(clone);
+      clone.querySelectorAll('*').forEach(strip);
+      return clone.outerHTML;
+    }
+
     function generateMockSectionHtml(targetEl, prompt) {
       const tag = (targetEl.tagName || 'DIV').toLowerCase();
       const lp = (prompt || '').toLowerCase();
-      const currentInner = targetEl.innerHTML;
+      const inner = targetEl.innerHTML || '<p style="color:#cbd5e1;">Rebuilt section.</p>';
 
       if (lp.includes('glass') || lp.includes('dark')) {
-        return `<${tag} style="padding: 48px 32px; background: linear-gradient(135deg, rgba(15,23,42,0.92), rgba(30,41,59,0.85)); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.15); color: #f8fafc; text-align: center;">
-  <span style="display: inline-block; padding: 6px 14px; background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4); border-radius: 9999px; font-size: 11px; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px;">✨ Glassmorphic Edition</span>
-  <h2 style="font-size: 32px; font-weight: 800; color: #ffffff; margin: 0 0 14px 0; letter-spacing: -0.02em;">Crafted with Modern Dark Aesthetics</h2>
-  <p style="font-size: 15px; color: #94a3b8; max-width: 600px; margin: 0 auto 28px auto; line-height: 1.6;">Semi-transparent frosted glass layers with deep ambient shadows and luminous highlights provide an ultra-premium visual hierarchy.</p>
-  <div style="display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;">
-    <button type="button" style="padding: 12px 24px; background: linear-gradient(135deg, #6366f1, #a855f7); color: #ffffff; font-weight: 600; font-size: 13px; border: none; border-radius: 10px; box-shadow: 0 8px 20px rgba(99,102,241,0.35); cursor: pointer;">Explore Feature</button>
-    <button type="button" style="padding: 12px 24px; background: rgba(255,255,255,0.08); color: #e2e8f0; font-weight: 600; font-size: 13px; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; cursor: pointer;">View Docs</button>
-  </div>
-</${tag}>`;
+        return `<${tag} style="padding:48px 32px;background:linear-gradient(135deg,rgba(15,23,42,0.92),rgba(30,41,59,0.85));backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.12);border-radius:20px;box-shadow:0 20px 40px rgba(0,0,0,0.4);color:#f8fafc;text-align:center;"><span style="display:inline-block;padding:6px 14px;background:rgba(99,102,241,0.2);border:1px solid rgba(99,102,241,0.4);border-radius:9999px;font-size:11px;font-weight:700;color:#a5b4fc;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:16px;">✨ Glassmorphic</span><h2 style="font-size:32px;font-weight:800;color:#fff;margin:0 0 14px;">Crafted with Dark Aesthetics</h2><p style="font-size:15px;color:#94a3b8;max-width:600px;margin:0 auto 28px;line-height:1.6;">Semi-transparent frosted glass layers with deep ambient shadows.</p><button style="padding:12px 24px;background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;font-weight:600;border:none;border-radius:10px;">Explore</button></${tag}>`;
       }
-
       if (lp.includes('card') || lp.includes('column') || lp.includes('feature')) {
-        return `<${tag} style="padding: 48px 24px; background: #0f172a; border-radius: 20px; color: #f8fafc;">
-  <div style="text-align: center; max-width: 650px; margin: 0 auto 36px auto;">
-    <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #818cf8;">✨ Dynamic Capabilities</span>
-    <h2 style="font-size: 30px; font-weight: 800; color: #ffffff; margin: 8px 0 12px 0;">Next-Gen Modular System</h2>
-    <p style="font-size: 14px; color: #94a3b8; margin: 0;">Everything is designed for precision, responsive performance, and rapid deployment.</p>
-  </div>
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
-    <div style="padding: 24px; background: rgba(30,41,59,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;">
-      <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4); display: flex; align-items: center; justify-content: center; color: #818cf8; font-size: 18px; margin-bottom: 16px;">⚡</div>
-      <h3 style="font-size: 17px; font-weight: 700; color: #ffffff; margin: 0 0 8px 0;">Ultra-Fast Execution</h3>
-      <p style="font-size: 13px; color: #94a3b8; line-height: 1.5; margin: 0;">Engineered for sub-millisecond response and instantaneous state synchronization.</p>
-    </div>
-    <div style="padding: 24px; background: rgba(30,41,59,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;">
-      <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(168,85,247,0.2); border: 1px solid rgba(168,85,247,0.4); display: flex; align-items: center; justify-content: center; color: #c084fc; font-size: 18px; margin-bottom: 16px;">💎</div>
-      <h3 style="font-size: 17px; font-weight: 700; color: #ffffff; margin: 0 0 8px 0;">State-of-the-Art Design</h3>
-      <p style="font-size: 13px; color: #94a3b8; line-height: 1.5; margin: 0;">Curated typography, glassmorphism shadows, and fluid CSS transitions out of the box.</p>
-    </div>
-    <div style="padding: 24px; background: rgba(30,41,59,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;">
-      <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(236,72,153,0.2); border: 1px solid rgba(236,72,153,0.4); display: flex; align-items: center; justify-content: center; color: #f472b6; font-size: 18px; margin-bottom: 16px;">🛡️</div>
-      <h3 style="font-size: 17px; font-weight: 700; color: #ffffff; margin: 0 0 8px 0;">Zero Runtime Lock-In</h3>
-      <p style="font-size: 13px; color: #94a3b8; line-height: 1.5; margin: 0;">Exports standard HTML5 and inline CSS completely free of proprietary runtime scripts.</p>
-    </div>
-  </div>
-</${tag}>`;
+        return `<${tag} style="padding:48px 24px;background:#0f172a;border-radius:20px;color:#f8fafc;"><div style="text-align:center;max-width:650px;margin:0 auto 36px;"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#818cf8;">Capabilities</span><h2 style="font-size:30px;font-weight:800;color:#fff;margin:8px 0 12px;">Next-Gen System</h2></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;"><div style="padding:24px;background:rgba(30,41,59,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:16px;"><h3 style="font-size:17px;font-weight:700;color:#fff;margin:0 0 8px;">Ultra-Fast Execution</h3><p style="font-size:13px;color:#94a3b8;margin:0;">Sub-millisecond response.</p></div><div style="padding:24px;background:rgba(30,41,59,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:16px;"><h3 style="font-size:17px;font-weight:700;color:#fff;margin:0 0 8px;">Modern Design</h3><p style="font-size:13px;color:#94a3b8;margin:0;">Curated typography and shadows.</p></div><div style="padding:24px;background:rgba(30,41,59,0.7);border:1px solid rgba(255,255,255,0.08);border-radius:16px;"><h3 style="font-size:17px;font-weight:700;color:#fff;margin:0 0 8px;">Zero Lock-In</h3><p style="font-size:13px;color:#94a3b8;margin:0;">Exports standard HTML5.</p></div></div></${tag}>`;
       }
-
       if (lp.includes('pricing')) {
-        return `<${tag} style="padding: 48px 24px; background: #0b1120; border-radius: 20px; color: #ffffff; text-align: center;">
-  <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #a855f7;">Pricing Plans</span>
-  <h2 style="font-size: 30px; font-weight: 800; margin: 8px 0 28px 0;">Simple, Transparent Tiers</h2>
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; text-align: left; max-width: 860px; margin: 0 auto;">
-    <div style="padding: 28px; background: rgba(30,41,59,0.5); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; backdrop-filter: blur(10px);">
-      <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 6px 0;">Starter</h3>
-      <div style="font-size: 32px; font-weight: 800; margin-bottom: 16px;">$0 <span style="font-size: 13px; color: #94a3b8; font-weight: 400;">/forever</span></div>
-      <p style="font-size: 13px; color: #94a3b8; margin-bottom: 20px;">Essential tools for personal prototyping and learning.</p>
-      <button type="button" style="width: 100%; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-weight: 600; border-radius: 8px; font-size: 13px; cursor: pointer;">Get Started Free</button>
-    </div>
-    <div style="padding: 28px; background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.15)); border: 2px solid #818cf8; border-radius: 16px; backdrop-filter: blur(12px); position: relative;">
-      <span style="position: absolute; top: -12px; right: 20px; background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 999px; text-transform: uppercase;">Most Popular</span>
-      <h3 style="font-size: 18px; font-weight: 700; margin: 0 0 6px 0;">Pro Studio</h3>
-      <div style="font-size: 32px; font-weight: 800; margin-bottom: 16px;">$29 <span style="font-size: 13px; color: #94a3b8; font-weight: 400;">/month</span></div>
-      <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 20px;">Unlimited AI generation, live sync, and clean HTML exports.</p>
-      <button type="button" style="width: 100%; padding: 10px; background: linear-gradient(135deg, #6366f1, #a855f7); border: none; color: #fff; font-weight: 600; border-radius: 8px; font-size: 13px; box-shadow: 0 8px 16px rgba(99,102,241,0.3); cursor: pointer;">Upgrade to Pro</button>
-    </div>
-  </div>
-</${tag}>`;
+        return `<${tag} style="padding:48px 24px;background:#0b1120;border-radius:20px;color:#fff;text-align:center;"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#a855f7;">Pricing</span><h2 style="font-size:30px;font-weight:800;margin:8px 0 28px;">Simple Tiers</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;text-align:left;max-width:860px;margin:0 auto;"><div style="padding:28px;background:rgba(30,41,59,0.5);border:1px solid rgba(255,255,255,0.08);border-radius:16px;"><h3 style="font-size:18px;font-weight:700;margin:0 0 6px;">Starter</h3><div style="font-size:32px;font-weight:800;margin-bottom:16px;">$0</div><button style="width:100%;padding:10px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#fff;font-weight:600;border-radius:8px;">Get Started</button></div><div style="padding:28px;background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(168,85,247,0.15));border:2px solid #818cf8;border-radius:16px;"><h3 style="font-size:18px;font-weight:700;margin:0 0 6px;">Pro</h3><div style="font-size:32px;font-weight:800;margin-bottom:16px;">$29</div><button style="width:100%;padding:10px;background:linear-gradient(135deg,#6366f1,#a855f7);border:none;color:#fff;font-weight:600;border-radius:8px;">Upgrade</button></div></div></${tag}>`;
       }
-
       if (lp.includes('cta') || lp.includes('action')) {
-        return `<${tag} style="padding: 56px 32px; background: linear-gradient(135deg, #1e1b4b, #311042); border: 1px solid rgba(168,85,247,0.3); border-radius: 20px; text-align: center; color: #ffffff; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
-  <h2 style="font-size: 34px; font-weight: 800; margin: 0 0 14px 0; letter-spacing: -0.02em;">Ready to Transform Your Workflow?</h2>
-  <p style="font-size: 16px; color: #cbd5e1; max-width: 580px; margin: 0 auto 28px auto; line-height: 1.6;">Join thousands of creators building high-converting landing pages visually with AI superpowers.</p>
-  <div style="display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap;">
-    <input type="email" placeholder="Enter your work email..." style="padding: 12px 18px; font-size: 14px; background: rgba(15,23,42,0.8); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; color: #fff; width: 280px; outline: none;" />
-    <button type="button" style="padding: 12px 26px; font-size: 14px; font-weight: 600; background: linear-gradient(135deg, #6366f1, #ec4899); border: none; border-radius: 10px; color: #fff; box-shadow: 0 10px 25px rgba(236,72,153,0.35); cursor: pointer;">Get Started Now →</button>
-  </div>
-</${tag}>`;
+        return `<${tag} style="padding:56px 32px;background:linear-gradient(135deg,#1e1b4b,#311042);border:1px solid rgba(168,85,247,0.3);border-radius:20px;text-align:center;color:#fff;"><h2 style="font-size:34px;font-weight:800;margin:0 0 14px;">Ready to Transform Your Workflow?</h2><p style="font-size:16px;color:#cbd5e1;max-width:580px;margin:0 auto 28px;line-height:1.6;">Join thousands of creators building high-converting pages.</p><button style="padding:12px 26px;font-size:14px;font-weight:600;background:linear-gradient(135deg,#6366f1,#ec4899);border:none;border-radius:10px;color:#fff;">Get Started →</button></${tag}>`;
       }
-
-      if (lp.includes('flex') || lp.includes('row') || lp.includes('layout')) {
-        return `<${tag} style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 24px; padding: 32px; background: rgba(30,41,59,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; color: #ffffff;">
-  <div style="flex: 1; min-width: 240px;">
-    <span style="font-size: 11px; font-weight: 700; color: #818cf8; text-transform: uppercase;">Responsive Flexbox</span>
-    <h3 style="font-size: 22px; font-weight: 700; margin: 6px 0 8px 0;">Fluid Adaptive Container</h3>
-    <p style="font-size: 14px; color: #94a3b8; margin: 0;">Automatically rearranges child elements across desktop, tablet, and mobile breakpoints.</p>
-  </div>
-  <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-    <button type="button" style="padding: 10px 20px; background: #4f46e5; color: #fff; font-weight: 600; font-size: 13px; border: none; border-radius: 8px; cursor: pointer;">Action One</button>
-    <button type="button" style="padding: 10px 20px; background: rgba(255,255,255,0.08); color: #cbd5e1; font-weight: 600; font-size: 13px; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; cursor: pointer;">Action Two</button>
-  </div>
-</${tag}>`;
-      }
-
-      // Default: Enhanced styling preserving content
-      return `<${tag} style="padding: 36px 28px; background: linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.85)); backdrop-filter: blur(14px); border: 1px solid rgba(99,102,241,0.25); border-radius: 18px; box-shadow: 0 16px 32px rgba(0,0,0,0.25); color: #f1f5f9;">
-  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-    <span style="font-size: 18px;">✨</span>
-    <span style="font-size: 12px; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.05em;">AI Enhanced Block (${prompt})</span>
-  </div>
-  ${currentInner || '<p style="color: #cbd5e1; font-size: 15px; line-height: 1.6;">Rebuilt and styled with modern responsive attributes.</p>'}
-</${tag}>`;
+      return `<${tag} style="padding:36px 28px;background:linear-gradient(135deg,rgba(15,23,42,0.9),rgba(30,41,59,0.85));backdrop-filter:blur(14px);border:1px solid rgba(99,102,241,0.25);border-radius:18px;box-shadow:0 16px 32px rgba(0,0,0,0.25);color:#f1f5f9;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-size:18px;">✨</span><span style="font-size:12px;font-weight:700;color:#a5b4fc;text-transform:uppercase;">AI Enhanced</span></div>${inner}</${tag}>`;
     }
+
+    // async function applyAiToSection(btnEl, inputEl) {
+    //   const targetEl = state.selectedEl;
+    //   if (!targetEl || !canvasRoot.contains(targetEl)) {
+    //     showToast('Please select a section or element first');
+    //     return;
+    //   }
+    //   const promptText = (inputEl ? inputEl.value : '').trim()
+    //     || (document.getElementById('ai-pop-prompt')?.value || '').trim()
+    //     || (document.getElementById('ai-section-prompt')?.value || '').trim();
+
+    //   if (!promptText) { showToast('Please enter a prompt or pick a chip'); return; }
+    //   if (btnEl && btnEl.disabled) return;
+
+    //   const origText = btnEl ? btnEl.innerHTML : '';
+    //   if (btnEl) {
+    //     btnEl.disabled = true;
+    //     btnEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Synthesizing...</span>';
+    //   }
+
+    //   try {
+    //     let cleanHtml = '';
+    //     let note = '';
+    //     try {
+    //       const data = await callProtoWebAI(promptText, {
+    //         tagName: targetEl.tagName,
+    //         sectionHtml: cleanElementOuterHtml(targetEl)
+    //       });
+    //       ({ html: cleanHtml, note } = unpackAiAnswer(data));
+    //     } catch (netErr) {
+    //       console.warn('ProtoWeb AI request failed:', netErr);
+    //       note = `AI unreachable (${netErr.message})`;
+    //     }
+
+    //     if (!cleanHtml) {
+    //       await new Promise(r => setTimeout(r, 500));
+    //       cleanHtml = generateMockSectionHtml(targetEl, promptText);
+    //     }
+
+    //     if (cleanHtml.startsWith('```')) {
+    //       cleanHtml = cleanHtml.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
+    //     }
+
+    //     const temp = document.createElement('div');
+    //     temp.innerHTML = cleanHtml.trim();
+    //     const firstEl = temp.firstElementChild;
+    //     if (!firstEl) throw new Error('AI returned empty or unparseable HTML');
+
+    //     // Determine the replacement node. If the AI returned a single element with the
+    //     // same tag as the target, use it directly. Otherwise wrap everything the AI
+    //     // returned inside a fresh element carrying the target's tag and attributes.
+    //     let replacement;
+    //     const sameTagSingle = temp.children.length === 1
+    //       && firstEl.tagName.toUpperCase() === targetEl.tagName.toUpperCase();
+
+    //     if (sameTagSingle) {
+    //       replacement = firstEl;
+    //     } else {
+    //       replacement = document.createElement(targetEl.tagName.toLowerCase());
+    //       for (const attr of targetEl.attributes) {
+    //         if (!attr.name.startsWith('data-builder-') && attr.name !== 'draggable') {
+    //           replacement.setAttribute(attr.name, attr.value);
+    //         }
+    //       }
+    //       replacement.innerHTML = cleanHtml;
+    //     }
+
+    //     if (!replacement.getAttribute('data-pw-id')) {
+    //       replacement.setAttribute('data-pw-id', 'pw-' + Math.random().toString(36).slice(2, 9));
+    //     }
+    //     replacement.querySelectorAll('*').forEach(c => {
+    //       if (!c.getAttribute('data-pw-id')) c.setAttribute('data-pw-id', 'pw-' + Math.random().toString(36).slice(2, 9));
+    //     });
+
+    //     const wasStillSelected = state.selectedEl === targetEl;
+    //     if (!targetEl.parentNode) throw new Error('Target element has no parent');
+
+    //     targetEl.parentNode.replaceChild(replacement, targetEl);
+    //     if (wasStillSelected || !state.selectedEl) selectElement(replacement);
+    //     saveHistory();
+    //     if (state.mode === 'code') syncCanvasToCodeEditor();
+    //     updateNodeCountAndTree();
+    //     showToast('✨ Section updated' + (note ? ' — ' + note : ''));
+    //     document.getElementById('ai-floating-popover')?.classList.add('hidden');
+    //   } catch (err) {
+    //     console.error('AI section update error:', err);
+    //     showToast('AI error: ' + err.message);
+    //   } finally {
+    //     if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = origText; }
+    //   }
+    // }
+    
 
     async function applyAiToSection(btnEl, inputEl) {
       const targetEl = state.selectedEl;
@@ -1985,16 +2090,13 @@
         showToast('Please select a section or element first');
         return;
       }
-      const promptText = (inputEl ? inputEl.value : '').trim() ||
-        (document.getElementById('ai-pop-prompt')?.value || '').trim() ||
-        (document.getElementById('ai-section-prompt')?.value || '').trim();
+      const promptText = (inputEl ? inputEl.value : '').trim()
+        || (document.getElementById('ai-pop-prompt')?.value || '').trim()
+        || (document.getElementById('ai-section-prompt')?.value || '').trim();
 
-      if (!promptText) {
-        showToast('Please enter a prompt or pick a chip');
-        return;
-      }
+      if (!promptText) { showToast('Please enter a prompt or pick a chip'); return; }
+      if (btnEl && btnEl.disabled) return;
 
-      if (btnEl && btnEl.disabled) return; // a request is already running (Ctrl+Enter bypasses the disabled button)
       const origText = btnEl ? btnEl.innerHTML : '';
       if (btnEl) {
         btnEl.disabled = true;
@@ -2002,66 +2104,80 @@
       }
 
       try {
-        saveHistory();
-        let cleanHtml = '';
-        let note = '';
-
-        // Ask the server (POST /api/ai, project "protoweb"); use the local templates if it can't answer.
+        let data;
         try {
-          const data = await callProtoWebAI(promptText, {
+          data = await callProtoWebAI(promptText, {
             tagName: targetEl.tagName,
-            sectionHtml: targetEl.outerHTML
+            sectionHtml: cleanElementOuterHtml(targetEl)
           });
-          ({ html: cleanHtml, note } = unpackAiAnswer(data));
-        } catch (netErr) {
-          console.warn('ProtoWeb AI request failed:', netErr);
-          note = `AI unreachable (${netErr.message}), used built-in generator`;
+        } catch (err) {
+          // No silent fallback. Show the error popup with a Retry option.
+          showToast('AI error: ' + (err.message || 'unknown'), 'error');
+          openAiErrorModal(err, () => {
+            // Retry handler
+            const popBtn = document.getElementById('btn-apply-ai-pop');
+            const sectBtn = document.getElementById('btn-apply-ai-section');
+            applyAiToSection(popBtn || sectBtn, inputEl);
+          });
+          return;
         }
+
+        let cleanHtml = String(data.html || '').trim();
+        let note = data.modelUsed ? `via ${data.modelUsed}` : '';
 
         if (!cleanHtml) {
-          // Built-in templates keep the editor usable offline or without an API key
-          await new Promise(r => setTimeout(r, 650));
-          cleanHtml = generateMockSectionHtml(targetEl, promptText);
+          showToast('AI returned empty HTML — no change applied', 'error');
+          return;
         }
 
+        // Strip stray fences the model might still emit
         if (cleanHtml.startsWith('```')) {
           cleanHtml = cleanHtml.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
         }
 
         const temp = document.createElement('div');
         temp.innerHTML = cleanHtml;
-        let newEl = temp.firstElementChild;
-        if (!newEl) throw new Error('Could not parse returned HTML element');
-        if (temp.children.length > 1) {
-          // One node replaces one node: if the model returned siblings, keep them all inside a wrapper
-          newEl = document.createElement('div');
-          newEl.append(...temp.childNodes);
+        const firstEl = temp.firstElementChild;
+        if (!firstEl) {
+          showToast('Could not parse the AI output into an element', 'error');
+          return;
         }
 
-        const genId = () => 'pw-' + Math.random().toString(36).substring(2, 9);
-        if (!newEl.getAttribute('data-pw-id')) newEl.setAttribute('data-pw-id', genId());
-        newEl.querySelectorAll('*').forEach(c => {
-          if (!c.getAttribute('data-pw-id')) c.setAttribute('data-pw-id', genId());
-        });
+        let replacement;
+        const sameTagSingle = temp.children.length === 1
+          && firstEl.tagName.toUpperCase() === targetEl.tagName.toUpperCase();
 
-        // Ensure logic specifically targets state.selectedEl: replaces only that specific DOM node and its children
-        if (targetEl.parentNode) {
-          targetEl.parentNode.replaceChild(newEl, targetEl);
-          selectElement(newEl);
-          saveHistory();
-          if (state.mode === 'code') syncCanvasToCodeEditor();
-          updateNodeCountAndTree();
-          showToast('✨ Selected element updated' + (note ? ' — ' + note : ' with AI'));
+        if (sameTagSingle) {
+          replacement = firstEl;
+        } else {
+          replacement = document.createElement(targetEl.tagName.toLowerCase());
+          for (const attr of targetEl.attributes) {
+            if (!attr.name.startsWith('data-builder-') && attr.name !== 'draggable') {
+              replacement.setAttribute(attr.name, attr.value);
+            }
+          }
+          replacement.innerHTML = cleanHtml;
         }
+
+        if (!replacement.getAttribute('data-pw-id')) {
+          replacement.setAttribute('data-pw-id', 'pw-' + Math.random().toString(36).slice(2, 9));
+        }
+
+        const wasStillSelected = state.selectedEl === targetEl;
+        if (!targetEl.parentNode) throw new Error('Target element has no parent');
+
+        targetEl.parentNode.replaceChild(replacement, targetEl);
+        if (wasStillSelected || !state.selectedEl) selectElement(replacement);
+        saveHistory();
+        if (state.mode === 'code') syncCanvasToCodeEditor();
+        updateNodeCountAndTree();
+        showToast('✨ Section updated' + (note ? ' — ' + note : ''));
         document.getElementById('ai-floating-popover')?.classList.add('hidden');
       } catch (err) {
         console.error('AI section update error:', err);
-        showToast('AI error: ' + err.message);
+        showToast('AI error: ' + err.message, 'error');
       } finally {
-        if (btnEl) {
-          btnEl.disabled = false;
-          btnEl.innerHTML = origText;
-        }
+        if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = origText; }
       }
     }
 
@@ -2707,18 +2823,69 @@ ${bodyMarkup}
     });
 
     // Toast Notification Helper
-    function showToast(message) {
+    function showToast(message, type = 'success') {
       const container = document.getElementById('toast-container');
+      if (!container) { console.log('[toast]', message); return; }
+
+      const palette = type === 'error'
+        ? { border: 'border-rose-500/50', icon: 'fa-circle-exclamation text-rose-400' }
+        : { border: 'border-indigo-500/40', icon: 'fa-circle-check text-indigo-400' };
+
       const toast = document.createElement('div');
-      toast.className = 'bg-slate-900 border border-indigo-500/40 text-slate-100 text-xs px-3.5 py-2 rounded-xl shadow-xl flex items-center gap-2 transition-all duration-300';
-      toast.innerHTML = `<i class="fa-solid fa-circle-check text-indigo-400"></i><span>${message}</span>`;
+      toast.className = `bg-slate-900 border ${palette.border} text-slate-100 text-xs px-3.5 py-2 rounded-xl shadow-xl flex items-center gap-2 transition-all duration-300 max-w-sm`;
+      toast.innerHTML = `<i class="fa-solid ${palette.icon}"></i><span class="flex-1">${escapeHtml(message)}</span>`;
       container.appendChild(toast);
       setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transform = 'translateY(6px)';
         setTimeout(() => toast.remove(), 250);
-      }, 2400);
+      }, type === 'error' ? 5000 : 2600);
     }
+
+
+    /** Error modal — replaces the failure silently going to fallback */
+    function openAiErrorModal(err, onRetry) {
+      const code = err.code || 'ERROR';
+      const msg = err.message || 'Something went wrong.';
+      const detail = err.modelUsed ? `Model: ${err.modelUsed}` : '';
+
+      const overlay = document.createElement('div');
+      overlay.className = 'fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4';
+      overlay.innerHTML = `
+        <div class="bg-slate-900 border border-rose-500/40 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white">Muse AI could not complete</h3>
+              <p class="text-[11px] text-rose-300 font-mono">${code}</p>
+            </div>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed mb-2">${escapeHtml(msg)}</p>
+          ${detail ? `<p class="text-[11px] text-slate-500 font-mono mb-4">${escapeHtml(detail)}</p>` : '<div class="mb-4"></div>'}
+          <div class="flex justify-end gap-2">
+            <button data-act="close" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">Close</button>
+            <button data-act="retry" class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-rose-600 hover:bg-rose-500 text-white transition">Retry</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+      const close = () => overlay.remove();
+      overlay.querySelector('[data-act="close"]').addEventListener('click', close);
+      overlay.querySelector('[data-act="retry"]').addEventListener('click', () => {
+        close();
+        if (typeof onRetry === 'function') onRetry();
+      });
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    }
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
 
     /*************************************************************************
      * 12b. GLOBAL AI GENERATOR (MUSE AI)
@@ -2952,6 +3119,65 @@ ${bodyMarkup}
       }
     }
 
+    // async function submitMuseGenerator() {
+    //   const promptInput = document.getElementById('muse-ai-prompt');
+    //   const promptText = (promptInput ? promptInput.value : '').trim() || 'Modern dark glassmorphic SaaS landing page';
+    //   const btn = document.getElementById('btn-generate-muse');
+    //   const btnText = document.getElementById('muse-btn-text');
+    //   const statusEl = document.getElementById('muse-ai-status');
+    //   const statusText = document.getElementById('muse-status-text');
+
+    //   if (btn && btn.disabled) return; // a request is already running (Ctrl+Enter bypasses the disabled button)
+    //   const myAbort = (museAbort = new AbortController());
+
+    //   if (btn) btn.disabled = true;
+    //   if (btnText) btnText.textContent = 'Synthesizing...';
+    //   if (statusEl) statusEl.classList.remove('hidden');
+
+    //   try {
+    //     let generatedHtml = '';
+    //     let note = '';
+
+    //     // Full page: no sectionHtml in the context, so the server builds a complete layout
+    //     if (statusText) statusText.textContent = 'Asking the AI to build your page (this can take up to a minute)...';
+    //     try {
+    //       ({ html: generatedHtml, note } = unpackAiAnswer(await callProtoWebAI(promptText, {}, myAbort.signal)));
+    //     } catch (netErr) {
+    //       if (myAbort.signal.aborted) return; // dialog was closed: leave the canvas alone
+    //       console.warn('ProtoWeb AI request failed:', netErr);
+    //       note = `AI unreachable (${netErr.message}), used built-in generator`;
+    //     }
+    //     if (myAbort.signal.aborted) return;
+
+    //     if (!generatedHtml) {
+    //       // Built-in templates keep the editor usable offline or without an API key
+    //       if (statusText) statusText.textContent = 'Using the built-in page generator...';
+    //       await new Promise(r => setTimeout(r, 600));
+    //       generatedHtml = generateMockPageHtml(promptText);
+    //     }
+
+    //     // Replace entire #canvas-root innerHTML with generated output
+    //     canvasRoot.innerHTML = generatedHtml;
+
+    //     // Reset selection, commit history, sync code editor, and update DOM tree
+    //     selectElement(null);
+    //     saveHistory();
+    //     if (state.mode === 'code') syncCanvasToCodeEditor();
+    //     updateNodeCountAndTree();
+
+    //     closeMuseModal();
+    //     showToast('✨ Page synthesized with Muse AI' + (note ? ' — ' + note : '!'));
+    //   } catch (err) {
+    //     console.error('Muse AI generation error:', err);
+    //     showToast('Generation error: ' + err.message);
+    //   } finally {
+    //     if (btn) btn.disabled = false;
+    //     if (btnText) btnText.textContent = 'Generate Page ✨';
+    //     if (statusEl) statusEl.classList.add('hidden');
+    //   }
+    // }
+
+
     async function submitMuseGenerator() {
       const promptInput = document.getElementById('muse-ai-prompt');
       const promptText = (promptInput ? promptInput.value : '').trim() || 'Modern dark glassmorphic SaaS landing page';
@@ -2960,55 +3186,59 @@ ${bodyMarkup}
       const statusEl = document.getElementById('muse-ai-status');
       const statusText = document.getElementById('muse-status-text');
 
-      if (btn && btn.disabled) return; // a request is already running (Ctrl+Enter bypasses the disabled button)
+      if (btn && btn.disabled) return;
       const myAbort = (museAbort = new AbortController());
 
       if (btn) btn.disabled = true;
       if (btnText) btnText.textContent = 'Synthesizing...';
       if (statusEl) statusEl.classList.remove('hidden');
+      if (statusText) statusText.textContent = 'Asking Muse to build your page (up to 2 minutes)...';
 
       try {
-        let generatedHtml = '';
-        let note = '';
-
-        // Full page: no sectionHtml in the context, so the server builds a complete layout
-        if (statusText) statusText.textContent = 'Asking the AI to build your page (this can take up to a minute)...';
+        let data;
         try {
-          ({ html: generatedHtml, note } = unpackAiAnswer(await callProtoWebAI(promptText, {}, myAbort.signal)));
-        } catch (netErr) {
-          if (myAbort.signal.aborted) return; // dialog was closed: leave the canvas alone
-          console.warn('ProtoWeb AI request failed:', netErr);
-          note = `AI unreachable (${netErr.message}), used built-in generator`;
+          data = await callProtoWebAI(promptText, {}, myAbort.signal);
+        } catch (err) {
+          if (myAbort.signal.aborted) return;
+          closeMuseModal();
+          openAiErrorModal(err, () => {
+            openMuseModal();
+            const inp = document.getElementById('muse-ai-prompt');
+            if (inp) inp.value = promptText;
+          });
+          return;
         }
+
         if (myAbort.signal.aborted) return;
 
+        const generatedHtml = String(data.html || '').trim();
         if (!generatedHtml) {
-          // Built-in templates keep the editor usable offline or without an API key
-          if (statusText) statusText.textContent = 'Using the built-in page generator...';
-          await new Promise(r => setTimeout(r, 600));
-          generatedHtml = generateMockPageHtml(promptText);
+          closeMuseModal();
+          openAiErrorModal(
+            new ProtoWebAIError('Muse returned an empty page.', { code: 'EMPTY_HTML' }),
+            () => { openMuseModal(); }
+          );
+          return;
         }
 
-        // Replace entire #canvas-root innerHTML with generated output
         canvasRoot.innerHTML = generatedHtml;
-
-        // Reset selection, commit history, sync code editor, and update DOM tree
         selectElement(null);
         saveHistory();
         if (state.mode === 'code') syncCanvasToCodeEditor();
         updateNodeCountAndTree();
 
         closeMuseModal();
-        showToast('✨ Page synthesized with Muse AI' + (note ? ' — ' + note : '!'));
+        showToast('✨ Page synthesized with Muse' + (data.modelUsed ? ` (${data.modelUsed})` : ''));
       } catch (err) {
         console.error('Muse AI generation error:', err);
-        showToast('Generation error: ' + err.message);
+        showToast('Generation error: ' + err.message, 'error');
       } finally {
         if (btn) btn.disabled = false;
         if (btnText) btnText.textContent = 'Generate Page ✨';
         if (statusEl) statusEl.classList.add('hidden');
       }
     }
+
 
     document.getElementById('btn-muse-ai')?.addEventListener('click', openMuseModal);
     document.getElementById('btn-close-muse-modal')?.addEventListener('click', closeMuseModal);

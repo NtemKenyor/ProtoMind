@@ -2638,6 +2638,149 @@ document.querySelectorAll('.quick-chips .chip').forEach(chip => {
   });
 });
 
+// document.getElementById('btnGenerateStory').addEventListener('click', async () => {
+//   const prompt = document.getElementById('storyPrompt').value.trim();
+//   if (!prompt) {
+//     showToast('Please enter a story or script prompt');
+//     return;
+//   }
+
+//   const btn = document.getElementById('btnGenerateStory');
+//   const statusMsg = document.getElementById('aiStatusMsg');
+//   btn.disabled = true;
+//   btn.innerHTML = '<span>⏳</span> <span>AI Generating Level...</span>';
+//   statusMsg.style.display = 'none';
+
+//   try {
+//     const res = await fetch('/api/ai', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({
+//         project: 'protogame',
+//         action: 'generate-story',
+//         prompt,
+//         context: { level: state.level }
+//       })
+//     });
+//     if (!res.ok) throw new Error('API request failed');
+//     const data = await res.json();
+
+//     if (data.level) {
+//       state.level = data.level;
+//       state.selectedEntity = null;
+//       renderInspector();
+//       renderEditor();
+//       saveProject();
+//     }
+
+//     statusMsg.textContent = data.reply || '✨ Level updated from story!';
+//     statusMsg.style.display = 'block';
+//     showToast('✨ Game Level Generated from Story!');
+//   } catch(err) {
+//     console.error('AI Story error:', err);
+//     statusMsg.textContent = 'AI request failed: ' + err.message;
+//     statusMsg.style.display = 'block';
+//     statusMsg.style.borderColor = 'rgba(239,68,68,0.4)';
+//     statusMsg.style.color = '#f87171';
+//   } finally {
+//     btn.disabled = false;
+//     btn.innerHTML = '<span>✨</span> <span>Generate / Update Game from Story</span>';
+//   }
+// });
+
+// ── Presets Dropdown ────────────────────────────────────────────────────────
+
+
+// document.getElementById('btnGenerateStory').addEventListener('click', async () => {
+//   const prompt = document.getElementById('storyPrompt').value.trim();
+//   if (!prompt) {
+//     showToast('Please enter a story or script prompt');
+//     return;
+//   }
+
+//   const btn = document.getElementById('btnGenerateStory');
+//   const statusMsg = document.getElementById('aiStatusMsg');
+//   btn.disabled = true;
+//   btn.innerHTML = '<span>⏳</span> <span>AI Generating Level...</span>';
+//   statusMsg.style.display = 'none';
+//   statusMsg.style.borderColor = '';
+//   statusMsg.style.color = '';
+
+//   try {
+//     const res = await fetch('/api/ai', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({
+//         project: 'protogame',
+//         action: 'generate-story',
+//         prompt,
+//         context: { level: state.level }
+//       })
+//     });
+
+//     let data = null;
+//     try { data = await res.json(); } catch (_) {}
+
+//     if (!res.ok || !data || !data.level) {
+//       const errMsg = (data && (data.error || data.detail)) || `Server returned HTTP ${res.status}`;
+//       const code = (data && data.code) || 'API_ERROR';
+
+//       statusMsg.textContent = `AI request failed (${code}): ${errMsg}`;
+//       statusMsg.style.display = 'block';
+//       statusMsg.style.borderColor = 'rgba(239,68,68,0.4)';
+//       statusMsg.style.color = '#f87171';
+//       statusMsg.style.background = 'rgba(239,68,68,0.1)';
+
+//       openGameErrorModal({
+//         title: 'Story → Game failed',
+//         code,
+//         message: errMsg
+//       }, () => { document.getElementById('btnGenerateStory').click(); });
+//       return;
+//     }
+
+//     const problems = validateGameLevel(data.level);
+//     if (problems.length) {
+//       statusMsg.textContent = `AI returned an incomplete level: ${problems.join(' · ')}`;
+//       statusMsg.style.display = 'block';
+//       statusMsg.style.borderColor = 'rgba(239,68,68,0.4)';
+//       statusMsg.style.color = '#f87171';
+//       return;
+//     }
+
+//     state.level = data.level;
+//     state.selectedEntity = null;
+//     document.getElementById('storyPrompt').value = state.level.storyIntro || '';
+//     pushHistory();
+//     renderInspector();
+//     renderEditor();
+//     saveProject(false);
+
+//     statusMsg.textContent = data.reply || '✨ Level updated from story!';
+//     statusMsg.style.display = 'block';
+//     statusMsg.style.borderColor = 'rgba(16,185,129,0.3)';
+//     statusMsg.style.color = '#6ee7b7';
+//     statusMsg.style.background = 'rgba(16,185,129,0.1)';
+//     showToast('✨ Game Level Generated from Story!');
+//   } catch(err) {
+//     console.error('AI Story error:', err);
+//     statusMsg.textContent = 'Network error: ' + err.message;
+//     statusMsg.style.display = 'block';
+//     statusMsg.style.borderColor = 'rgba(239,68,68,0.4)';
+//     statusMsg.style.color = '#f87171';
+//     openGameErrorModal({
+//       title: 'Could not reach the AI',
+//       code: 'NETWORK',
+//       message: err.message
+//     }, () => { document.getElementById('btnGenerateStory').click(); });
+//   } finally {
+//     btn.disabled = false;
+//     btn.innerHTML = '<span>✨</span> <span>Generate / Update Game from Story</span>';
+//   }
+// });
+
+
+
 document.getElementById('btnGenerateStory').addEventListener('click', async () => {
   const prompt = document.getElementById('storyPrompt').value.trim();
   if (!prompt) {
@@ -2650,6 +2793,9 @@ document.getElementById('btnGenerateStory').addEventListener('click', async () =
   btn.disabled = true;
   btn.innerHTML = '<span>⏳</span> <span>AI Generating Level...</span>';
   statusMsg.style.display = 'none';
+  statusMsg.style.borderColor = '';
+  statusMsg.style.color = '';
+  statusMsg.style.background = '';
 
   try {
     const res = await fetch('/api/ai', {
@@ -2662,33 +2808,66 @@ document.getElementById('btnGenerateStory').addEventListener('click', async () =
         context: { level: state.level }
       })
     });
-    if (!res.ok) throw new Error('API request failed');
-    const data = await res.json();
 
-    if (data.level) {
-      state.level = data.level;
-      state.selectedEntity = null;
-      renderInspector();
-      renderEditor();
-      saveProject();
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
+
+    if (!res.ok || !data || !data.level) {
+      const errMsg = (data && (data.error || data.detail)) || `Server returned HTTP ${res.status}`;
+      const code  = (data && data.code) || 'API_ERROR';
+      statusMsg.textContent = `AI request failed (${code}): ${errMsg}`;
+      statusMsg.style.display = 'block';
+      statusMsg.style.borderColor = 'rgba(239,68,68,0.4)';
+      statusMsg.style.color = '#f87171';
+      statusMsg.style.background = 'rgba(239,68,68,0.1)';
+      openGameErrorModal({
+        title: 'Story → Game failed',
+        code,
+        message: errMsg
+      }, () => { document.getElementById('btnGenerateStory').click(); });
+      return;
     }
+
+    const problems = validateGameLevel(data.level);
+    if (problems.length) {
+      statusMsg.textContent = `AI returned an incomplete level: ${problems.join(' · ')}`;
+      statusMsg.style.display = 'block';
+      statusMsg.style.borderColor = 'rgba(239,68,68,0.4)';
+      statusMsg.style.color = '#f87171';
+      return;
+    }
+
+    state.level = data.level;
+    state.selectedEntity = null;
+    document.getElementById('storyPrompt').value = state.level.storyIntro || '';
+    pushHistory();
+    refreshWorldAfterLevelChange();
+    saveProject(false);
 
     statusMsg.textContent = data.reply || '✨ Level updated from story!';
     statusMsg.style.display = 'block';
+    statusMsg.style.borderColor = 'rgba(16,185,129,0.3)';
+    statusMsg.style.color = '#6ee7b7';
+    statusMsg.style.background = 'rgba(16,185,129,0.1)';
     showToast('✨ Game Level Generated from Story!');
   } catch(err) {
     console.error('AI Story error:', err);
-    statusMsg.textContent = 'AI request failed: ' + err.message;
+    statusMsg.textContent = 'Network error: ' + err.message;
     statusMsg.style.display = 'block';
     statusMsg.style.borderColor = 'rgba(239,68,68,0.4)';
     statusMsg.style.color = '#f87171';
+    openGameErrorModal({
+      title: 'Could not reach the AI',
+      code: 'NETWORK',
+      message: err.message
+    }, () => { document.getElementById('btnGenerateStory').click(); });
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<span>✨</span> <span>Generate / Update Game from Story</span>';
   }
 });
 
-// ── Presets Dropdown ────────────────────────────────────────────────────────
+
 document.getElementById('presetSelect').addEventListener('change', (e) => {
   const key = e.target.value;
   if (PRESETS[key]) {
@@ -3001,6 +3180,322 @@ function synthesizeLevelFromPrompt(prompt) {
   };
 }
 
+
+/** Validates that a level object from the backend has the required structure. */
+function validateGameLevel(lvl) {
+  const problems = [];
+  if (!lvl || typeof lvl !== 'object') { problems.push('level is not an object'); return problems; }
+  if (!lvl.title || !String(lvl.title).trim()) problems.push('missing title');
+  if (!Array.isArray(lvl.platforms) || lvl.platforms.length === 0) problems.push('missing platforms[]');
+  if (!lvl.playerSpawn || typeof lvl.playerSpawn.x !== 'number') problems.push('missing playerSpawn');
+  if (!lvl.portal || typeof lvl.portal.x !== 'number') problems.push('missing portal');
+  if (!Array.isArray(lvl.coins)) problems.push('missing coins[]');
+  if (!Array.isArray(lvl.enemies)) problems.push('missing enemies[]');
+  if (!Array.isArray(lvl.hazards)) problems.push('missing hazards[]');
+  if (!Array.isArray(lvl.npcs)) problems.push('missing npcs[]');
+  return problems;
+}
+
+/** Error modal for game AI failures. Shows code + message + Retry. */
+function openGameErrorModal({ title, code, message }, onRetry) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay active';
+  overlay.style.zIndex = '250';
+  overlay.innerHTML = `
+    <div class="muse-modal-card" style="border-color:rgba(239,68,68,0.4); max-width:440px;">
+      <div class="muse-modal-header">
+        <div class="muse-title">
+          <span style="color:#f87171;">⚠️</span>
+          <span style="font-size:14px;">${escapeHtml(title || 'Muse AI error')}</span>
+        </div>
+        <button class="btn-modal-close" data-act="close">✕</button>
+      </div>
+      <div style="margin-top:12px; padding:10px 12px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:8px;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:#fca5a5; margin-bottom:6px;">${escapeHtml(code || 'ERROR')}</div>
+        <div style="font-size:12px; color:#f3f4f6; line-height:1.5;">${escapeHtml(message || 'Unknown error')}</div>
+      </div>
+      <div class="muse-modal-footer" style="margin-top:16px;">
+        <button class="btn-modal-cancel" data-act="close">Close</button>
+        ${onRetry ? '<button class="btn-muse-ai" data-act="retry" style="padding:8px 16px;">Retry ↻</button>' : ''}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelectorAll('[data-act="close"]').forEach(b => b.addEventListener('click', close));
+  const retryBtn = overlay.querySelector('[data-act="retry"]');
+  if (retryBtn && onRetry) retryBtn.addEventListener('click', () => { close(); onRetry(); });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  window.addEventListener('keydown', function esc(e) {
+    if (e.key === 'Escape') { close(); window.removeEventListener('keydown', esc); }
+  }, { once: true });
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+
+// async function submitMuseAi() {
+//   const prompt = (musePrompt ? musePrompt.value : '').trim();
+//   if (!prompt) {
+//     showToast('Please enter a game prompt for Muse AI');
+//     return;
+//   }
+
+//   if (btnSubmitMuse) btnSubmitMuse.disabled = true;
+//   if (btnSubmitMuseText) btnSubmitMuseText.textContent = 'Synthesizing...';
+//   if (museStatus) {
+//     museStatus.style.display = 'flex';
+//     museStatusText.textContent = 'Generating game world and entity physics...';
+//   }
+
+//   try {
+//     let generatedLevel = null;
+//     try {
+//       const res = await fetch('/api/ai', {
+//         method: 'POST',
+//         headers: { 'Content-Type': 'application/json' },
+//         body: JSON.stringify({
+//           project: 'protogame',
+//           action: 'generate-story',
+//           prompt,
+//           context: { level: state.level }
+//         })
+//       });
+//       if (res.ok) {
+//         const data = await res.json();
+//         if (data.level) generatedLevel = data.level;
+//       }
+//     } catch(apiErr) {
+//       console.warn('Backend API not responding, using built-in Muse synthesizer:', apiErr);
+//     }
+
+//     if (!generatedLevel) {
+//       await new Promise(r => setTimeout(r, 600)); // Smooth UX transition
+//       generatedLevel = synthesizeLevelFromPrompt(prompt);
+//     }
+
+//     state.level = generatedLevel;
+//     state.selectedEntity = null;
+//     document.getElementById('storyPrompt').value = state.level.storyIntro || '';
+//     pushHistory();
+//     renderInspector();
+//     renderEditor();
+//     saveProject(false);
+//     showToast('✨ Game world synthesized with Muse AI!');
+//     closeMuseModal();
+//   } catch(err) {
+//     console.error('Muse AI generation error:', err);
+//     showToast('Muse AI error: ' + err.message);
+//   } finally {
+//     if (btnSubmitMuse) btnSubmitMuse.disabled = false;
+//     if (btnSubmitMuseText) btnSubmitMuseText.textContent = 'Generate Level ✨';
+//     if (museStatus) museStatus.style.display = 'none';
+//   }
+// }
+
+// ── MODE 2: PLAYABLE 60FPS PLATFORMER ENGINE ────────────────────────────────
+
+
+// async function submitMuseAi() {
+//   const prompt = (musePrompt ? musePrompt.value : '').trim();
+//   if (!prompt) {
+//     showToast('Please enter a game prompt for Muse AI');
+//     return;
+//   }
+
+//   if (btnSubmitMuse) btnSubmitMuse.disabled = true;
+//   if (btnSubmitMuseText) btnSubmitMuseText.textContent = 'Synthesizing...';
+//   if (museStatus) {
+//     museStatus.style.display = 'flex';
+//     museStatusText.textContent = 'Generating game world and entity physics...';
+//   }
+
+//   try {
+//     const res = await fetch('/api/ai', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({
+//         project: 'protogame',
+//         action: 'generate-story',
+//         prompt,
+//         context: { level: state.level }
+//       })
+//     });
+
+//     let data = null;
+//     try { data = await res.json(); } catch (_) {}
+
+//     if (!res.ok || !data || !data.level) {
+//       // No silent fallback. Report the failure honestly.
+//       const errMsg = (data && (data.error || data.detail)) || `Server returned HTTP ${res.status}`;
+//       const code = (data && data.code) || 'API_ERROR';
+//       console.error('[Muse AI] level generation failed:', code, errMsg);
+//       openGameErrorModal({
+//         title: 'Muse AI could not generate the level',
+//         code,
+//         message: errMsg
+//       }, () => { submitMuseAi(); });
+//       return;
+//     }
+
+//     // Validate the returned level — every required array must exist
+//     const problems = validateGameLevel(data.level);
+//     if (problems.length) {
+//       openGameErrorModal({
+//         title: 'Muse AI returned an incomplete level',
+//         code: 'INVALID_LEVEL',
+//         message: problems.join(' · ')
+//       }, () => { submitMuseAi(); });
+//       return;
+//     }
+
+//     state.level = data.level;
+//     state.selectedEntity = null;
+//     document.getElementById('storyPrompt').value = state.level.storyIntro || '';
+//     pushHistory();
+//     renderInspector();
+//     renderEditor();
+//     saveProject(false);
+//     closeMuseModal();
+//     showToast('✨ Game world synthesized with Muse AI' + (data.modelUsed ? ` (${data.modelUsed})` : ''));
+//   } catch (err) {
+//     console.error('Muse AI generation error:', err);
+//     openGameErrorModal({
+//       title: 'Could not reach Muse AI',
+//       code: 'NETWORK',
+//       message: err.message || 'Network request failed'
+//     }, () => { submitMuseAi(); });
+//   } finally {
+//     if (btnSubmitMuse) btnSubmitMuse.disabled = false;
+//     if (btnSubmitMuseText) btnSubmitMuseText.textContent = 'Generate Level ✨';
+//     if (museStatus) museStatus.style.display = 'none';
+//   }
+// }
+
+
+function diagnoseGameUpdate(stage, payload) {
+  const prefix = '[ProtoGame]';
+  if (stage === 'click') {
+    console.log(`${prefix} Button clicked.`);
+  } else if (stage === 'response') {
+    console.log(`${prefix} Response:`, {
+      ok: payload.ok,
+      status: payload.status,
+      hasLevel: !!(payload.data && payload.data.level),
+      levelTitle: payload.data && payload.data.level ? payload.data.level.title : null,
+      provider: payload.data ? payload.data.provider : null,
+      code: payload.data ? payload.data.code : null,
+      error: payload.data ? payload.data.error : null,
+      problems: payload.data && payload.data.level ? validateGameLevel(payload.data.level) : null
+    });
+  } else if (stage === 'before-swap') {
+    console.log(`${prefix} About to swap state.level.`);
+    console.log(`${prefix} OLD title:`, state.level && state.level.title);
+    console.log(`${prefix} NEW title:`, payload.title);
+  } else if (stage === 'after-swap') {
+    console.log(`${prefix} state.level.title is now:`, state.level.title);
+    console.log(`${prefix} state.level.platforms count:`, (state.level.platforms || []).length);
+    console.log(`${prefix} canvas element found:`, !!document.getElementById('editorCanvas'));
+    console.log(`${prefix} canvas dimensions:`, document.getElementById('editorCanvas')?.width, '×', document.getElementById('editorCanvas')?.height);
+  } else if (stage === 'render') {
+    console.log(`${prefix} renderEditor() completed for title:`, state.level.title);
+  } else if (stage === 'error') {
+    console.error(`${prefix} Error at ${payload.where}:`, payload.err);
+  }
+}
+
+
+
+// async function submitMuseAi() {
+//   diagnoseGameUpdate('click');
+
+//   const prompt = (musePrompt ? musePrompt.value : '').trim();
+//   if (!prompt) {
+//     showToast('Please enter a game prompt for Muse AI');
+//     return;
+//   }
+
+//   if (btnSubmitMuse) btnSubmitMuse.disabled = true;
+//   if (btnSubmitMuseText) btnSubmitMuseText.textContent = 'Synthesizing...';
+//   if (museStatus) {
+//     museStatus.style.display = 'flex';
+//     museStatusText.textContent = 'Generating game world and entity physics...';
+//   }
+
+//   try {
+//     const res = await fetch('/api/ai', {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({
+//         project: 'protogame',
+//         action: 'generate-story',
+//         prompt,
+//         context: { level: state.level }
+//       })
+//     });
+
+//     let data = null;
+//     try { data = await res.json(); } catch (_) {}
+
+//     diagnoseGameUpdate('response', { ok: res.ok, status: res.status, data });
+
+//     if (!res.ok || !data || !data.level) {
+//       const errMsg = (data && (data.error || data.detail)) || `Server returned HTTP ${res.status}`;
+//       const code = (data && data.code) || 'API_ERROR';
+//       openGameErrorModal({
+//         title: 'Muse AI could not generate the level',
+//         code,
+//         message: errMsg
+//       }, () => { submitMuseAi(); });
+//       return;
+//     }
+
+//     const problems = validateGameLevel(data.level);
+//     if (problems.length) {
+//       openGameErrorModal({
+//         title: 'Muse AI returned an incomplete level',
+//         code: 'INVALID_LEVEL',
+//         message: problems.join(' · ')
+//       }, () => { submitMuseAi(); });
+//       return;
+//     }
+
+//     diagnoseGameUpdate('before-swap', data.level);
+
+//     state.level = data.level;
+//     state.selectedEntity = null;
+//     document.getElementById('storyPrompt').value = state.level.storyIntro || '';
+//     pushHistory();
+
+//     diagnoseGameUpdate('after-swap', data.level);
+
+//     renderInspector();
+//     renderEditor();
+//     saveProject(false);
+
+//     diagnoseGameUpdate('render');
+
+//     closeMuseModal();
+//     showToast('✨ Game world synthesized with Muse AI' + (data.modelUsed ? ` (${data.modelUsed})` : ''));
+//   } catch (err) {
+//     diagnoseGameUpdate('error', { where: 'submitMuseAi', err });
+//     openGameErrorModal({
+//       title: 'Could not reach Muse AI',
+//       code: 'NETWORK',
+//       message: err.message || 'Network request failed'
+//     }, () => { submitMuseAi(); });
+//   } finally {
+//     if (btnSubmitMuse) btnSubmitMuse.disabled = false;
+//     if (btnSubmitMuseText) btnSubmitMuseText.textContent = 'Generate Level ✨';
+//     if (museStatus) museStatus.style.display = 'none';
+//   }
+// }
+
+
 async function submitMuseAi() {
   const prompt = (musePrompt ? musePrompt.value : '').trim();
   if (!prompt) {
@@ -3016,43 +3511,59 @@ async function submitMuseAi() {
   }
 
   try {
-    let generatedLevel = null;
-    try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project: 'protogame',
-          action: 'generate-story',
-          prompt,
-          context: { level: state.level }
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.level) generatedLevel = data.level;
-      }
-    } catch(apiErr) {
-      console.warn('Backend API not responding, using built-in Muse synthesizer:', apiErr);
+    const res = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project: 'protogame',
+        action: 'generate-story',
+        prompt,
+        context: { level: state.level }
+      })
+    });
+
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
+
+    if (!res.ok || !data || !data.level) {
+      const errMsg = (data && (data.error || data.detail)) || `Server returned HTTP ${res.status}`;
+      const code  = (data && data.code) || 'API_ERROR';
+      console.error('[Muse AI] failed:', code, errMsg);
+      openGameErrorModal({
+        title: 'Muse AI could not generate the level',
+        code,
+        message: errMsg
+      }, () => { submitMuseAi(); });
+      return;
     }
 
-    if (!generatedLevel) {
-      await new Promise(r => setTimeout(r, 600)); // Smooth UX transition
-      generatedLevel = synthesizeLevelFromPrompt(prompt);
+    const problems = validateGameLevel(data.level);
+    if (problems.length) {
+      openGameErrorModal({
+        title: 'Muse AI returned an incomplete level',
+        code: 'INVALID_LEVEL',
+        message: problems.join(' · ')
+      }, () => { submitMuseAi(); });
+      return;
     }
 
-    state.level = generatedLevel;
+    // Commit the new level and refresh whichever view is active
+    state.level = data.level;
     state.selectedEntity = null;
     document.getElementById('storyPrompt').value = state.level.storyIntro || '';
     pushHistory();
-    renderInspector();
-    renderEditor();
+    refreshWorldAfterLevelChange();
     saveProject(false);
-    showToast('✨ Game world synthesized with Muse AI!');
+
     closeMuseModal();
-  } catch(err) {
+    showToast('✨ Game world synthesized with Muse AI' + (data.modelUsed ? ` (${data.modelUsed})` : ''));
+  } catch (err) {
     console.error('Muse AI generation error:', err);
-    showToast('Muse AI error: ' + err.message);
+    openGameErrorModal({
+      title: 'Could not reach Muse AI',
+      code: 'NETWORK',
+      message: err.message || 'Network request failed'
+    }, () => { submitMuseAi(); });
   } finally {
     if (btnSubmitMuse) btnSubmitMuse.disabled = false;
     if (btnSubmitMuseText) btnSubmitMuseText.textContent = 'Generate Level ✨';
@@ -3060,7 +3571,6 @@ async function submitMuseAi() {
   }
 }
 
-// ── MODE 2: PLAYABLE 60FPS PLATFORMER ENGINE ────────────────────────────────
 const gameCanvas = document.getElementById('gameCanvas');
 const gameCtx = gameCanvas.getContext('2d');
 
@@ -3899,6 +4409,32 @@ requestAnimationFrame(loop);
 });
 
 // ── Mode Switcher ───────────────────────────────────────────────────────────
+// function switchMode(mode) {
+//   state.mode = mode;
+//   document.getElementById('tabBuilder').classList.toggle('active', mode === 'builder');
+//   document.getElementById('tabPlay').classList.toggle('active', mode === 'play');
+//   document.getElementById('tabData').classList.toggle('active', mode === 'data');
+
+//   document.getElementById('modeBuilder').style.display = mode === 'builder' ? 'flex' : 'none';
+//   document.getElementById('modePlay').style.display = mode === 'play' ? 'flex' : 'none';
+//   document.getElementById('modeData').style.display = mode === 'data' ? 'flex' : 'none';
+
+//   if (mode === 'builder') {
+//     gameRunning = false;
+//     renderInspector();
+//     renderEditor();
+//   } else if (mode === 'play') {
+//     gameRunning = true;
+//     initGame();
+//     lastTime = performance.now();
+//     requestAnimationFrame(gameLoop);
+//   } else if (mode === 'data') {
+//     gameRunning = false;
+//     syncDataView();
+//   }
+// }
+
+
 function switchMode(mode) {
   state.mode = mode;
   document.getElementById('tabBuilder').classList.toggle('active', mode === 'builder');
@@ -3915,7 +4451,7 @@ function switchMode(mode) {
     renderEditor();
   } else if (mode === 'play') {
     gameRunning = true;
-    initGame();
+    initGame();             // re-reads state.level into dynamicPlatforms
     lastTime = performance.now();
     requestAnimationFrame(gameLoop);
   } else if (mode === 'data') {
@@ -3923,6 +4459,29 @@ function switchMode(mode) {
     syncDataView();
   }
 }
+
+/**
+ * Called by both AI handlers after state.level has been replaced.
+ * If the user is currently in Play mode, tear down the running game
+ * and re-init so the new level appears immediately. Otherwise redraw
+ * the editor canvas.
+ */
+function refreshWorldAfterLevelChange() {
+  // Always redraw the builder canvas so any prior state is cleared
+  try { renderInspector(); } catch (_) {}
+  try { renderEditor(); } catch (_) {}
+
+  // If the user was watching the live game, restart it with the new level
+  if (state.mode === 'play') {
+    gameRunning = false;
+    try { initGame(); } catch (_) {}
+    lastTime = performance.now();
+    gameRunning = true;
+    requestAnimationFrame(gameLoop);
+    showToast('🎮 Live game reloaded with new level');
+  }
+}
+
 
 document.getElementById('tabBuilder').onclick = () => switchMode('builder');
 document.getElementById('tabPlay').onclick = () => switchMode('play');
